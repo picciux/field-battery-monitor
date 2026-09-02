@@ -1,0 +1,310 @@
+#
+#    Field Battery Monitor - ESP32 battery monitor for astrophotography rigs.
+#    Copyright (C) 2026  Matteo Piscitelli <matteo@matteopiscitelli.it>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+
+esphome:
+  name: monitor-lifepo4
+  friendly_name: Monitor LiFePO4
+  use_address_as_hostname: false
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+  # Ottimizzazione dello schema delle partizioni per fare spazio a Wi-Fi + BLE insieme
+  #board_build.partitions: min_spiffs.csv
+
+preferences:
+
+wifi:
+  hostname: "battery-50" # Hostname DHCP tassativo richiesto per il router
+  networks:
+    - ssid: "AstroNetwork"
+      password: "Password_Sicura_1"
+      priority: 10.0
+    - ssid: "AstroNetwork24"
+      password: "Password_Sicura_2"
+      priority: 9.0
+    - ssid: "AuarUaiFai"
+      password: "Password_Sicura_3"
+      priority: 5.0
+    - ssid: "edge40pix"
+      password: "Password_Sicura_4"
+      priority: 4.0
+  ap:
+    ssid: "Hotspot-Battery50-Reset"
+    password: "PasswordIniziale"
+  reboot_timeout: 0s
+
+captive_portal:
+web_server:
+  port: 80
+  version: 3
+
+globals:
+  - id: total_capacity_ah
+    type: float
+    initial_value: '50.0' # Impostato sulla tua batteria da 50Ah
+  - id: current_soc
+    type: float
+    restore_value: yes
+    initial_value: '100.0'
+
+# Configurazione del bus OneWire per il sensore di temperatura DS18B20
+one_wire:
+  - pin: GPIO25
+
+i2c:
+  sda: GPIO21
+  scl: GPIO19
+  scan: true
+
+output:
+  - platform: ledc
+    pin: GPIO22
+    id: output_heater
+    frequency: 500Hz # Frequenza stabile per carichi resistivi a 12V
+
+  - platform: ledc
+    pin: GPIO23
+    id: output_red_light
+    frequency: 2500Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
+
+# ================= CHANNEL 3 & 4 ================
+# Uncomment on 4 channels module
+#  - platform: ledc
+#    pin: GPIO16
+#    id: output_channel_3_pwm
+#    frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
+#
+#  - platform: ledc
+#    pin: GPIO17
+#    id: output_channel_4_pwm
+#    frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
+# ================================================
+
+# La sezione Light genera in automatico lo SLIDER di luminosità sulla pagina Web
+light:
+  - platform: monochromatic
+    output: output_red_light
+    name: "Luce Rossa"
+    id: red_light
+    default_transition_length: 1.5s # Rampa di accensione/spegnimento morbida
+
+# ================= CHANNEL 3 & 4 ================
+# Uncomment PWM or On/OFF section on 4 channels module
+#  --> PWM
+#  - platform: monochromatic
+#    output: output_channel_3_pwm
+#    name: "Uscita 1 (regolabile)"
+#    id: channel_3_dimmer
+#
+#  - platform: monochromatic
+#    output: output_channel_4_pwm
+#    name: "Uscita 2 (regolabile)"
+#    id: channel_4_dimmer
+
+# --> ON/OFF
+#switch:
+#  - platform: gpio
+#    pin: GPIO16
+#    name: "Uscita 1 (ON/OFF)"
+#    id: channel_3_switch
+#    restore_mode: RESTORE_DEFAULT_OFF
+
+#  - platform: gpio
+#    pin: GPIO17
+#    name: "Uscita 2 (ON/OFF)"
+#    id: channel_4_switch
+#    restore_mode: RESTORE_DEFAULT_OFF
+# =================================================
+
+climate:
+  - platform: bang_bang
+    name: "Termostato Vano Batteria"
+    id: bms_thermostat
+    sensor: temp_battery_bay
+    default_target_temperature_low: 5.0   # Accende il riscaldamento sotto i 5°C
+    default_target_temperature_high: 9.0  # Lo spegne una volta raggiunti i 9°C
+    heat_action:
+      - output.turn_on: output_heater
+    idle_action:
+      - output.turn_off: output_heater
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO26
+    name: "Rilevamento Movimento (AM312)"
+    id: pir_sensor
+    device_class: motion
+    # Automazione PIR: Accende temporaneamente la luce solo se l'utente non l'ha già accesa manualmente
+    on_press:
+      then:
+        - if:
+            condition:
+              light.is_off: red_light
+            then:
+              - light.turn_on:
+                  id: red_light
+                  brightness: 25% # Luce soffusa di cortesia automatica
+    on_release:
+      then:
+        - delay: 45s # Mantiene la luce per 45 secondi dopo l'ultimo movimento prima del fade-out
+        - light.turn_off: red_light
+
+sensor:
+  - platform: dallas_txt
+    name: "Temperatura Cella LiFePO4"
+    id: temp_battery_bay
+    update_interval: 10s
+
+  - platform: ina226
+    address: 0x40
+    shunt_resistance: 0.002 ohm
+    max_current: 20.0
+    bus_voltage:
+      name: "Tensione Batteria"
+      id: battery_voltage
+      accuracy_decimals: 2
+      on_value_range:
+        - above: 14.15
+          then:
+            - lambda: |-
+                id(current_soc) = 100.0;
+                ESP_LOGI("bms", "Carica completa (target 14.2V)");
+    current:
+      name: "Corrente Istantanea"
+      id: ist_current
+      accuracy_decimals: 3
+      update_interval: 1s
+
+  - platform: integration
+    source: ist_current
+    name: "Ampere Ora Integrati"
+    id: ah_integrated
+    time_unit: h
+    integration_method: trapezoid
+    accuracy_decimals: 4
+    on_value:
+      then:
+        - lambda: |-
+            float delta_ah = x;
+            float calcolo_soc = id(current_soc) + (delta_ah / id(total_capacity_ah) * 100.0);
+            if (calcolo_soc > 100.0) calcolo_soc = 100.0;
+            if (calcolo_soc < 0.0) calcolo_soc = 0.0;
+            id(current_soc) = calcolo_soc;
+            id(soc_percentage_output).publish_state(id(current_soc));
+
+  - platform: template
+    name: "Stato della Carica (SoC)"
+    id: soc_percentage_output
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    update_interval: 5s
+    on_value_range:
+      - below: 15.0
+        then:
+          - light.turn_off: red_light
+          # Channel 3 & 4
+          #- light.turn_off: channel_3_dimmer
+          #- light.turn_off: channel_4_dimmer
+          #- switch.turn_off: channel_3_switch
+          #- switch.turn_off: channel_4_switch
+          - lambda: |-
+              ESP_LOGW("bms_safe", "Soglia minima SoC raggiunta! Funzioni accessorie spente.");
+
+  # 1. NUOVO SENSORE: Calcola la media mobile della corrente degli ultimi 10 minuti
+  - platform: template
+    id: average_current_10min
+    internal: true # Nasconde questo sensore tecnico dalla pagina web per pulizia grafica
+    update_interval: 5s
+    lambda: return id(ist_current).state;
+    filters:
+      # Campionando ogni 5 secondi, 120 valori corrispondono esattamente a 10 minuti (120 * 5s = 600s)
+      - sliding_window_moving_average:
+          window_size: 120
+          send_every: 1
+
+  # 2. OUTPUT AGGIORNATO: Calcolo dell'autonomia basato sulla CORRENTE MEDIA
+  - platform: template
+    name: "Autonomia Residua (fino al 15% SoC)"
+    id: time_remaining_output
+    unit_of_measurement: "h"
+    accuracy_decimals: 1
+    update_interval: 10s # Aggiornamento ogni 10 secondi per una lettura rilassata
+    lambda: |-
+      float soc = id(current_soc);
+      float average = id(average_current_10min).state; // Usa la media stabile dei 10 minuti
+      float capacity = id(total_capacity_ah);
+
+      // Se la batteria è sotto la soglia del 15%, l'autonomia residua utile è zero
+      if (soc <= 15.0) {
+        return 0.0;
+      }
+
+      // Se la corrente media indica ricarica (positiva) o assorbimento nullo (< 20mA)
+      if (average >= -0.02) {
+        return 999.0; // Valore convenzionale per "Infinito / In carica"
+      }
+
+      // Calcolo con il valore medio stabilizzato
+      float discharge_current = abs(average);
+      float ah_available = ((soc - 15.0) * capacity) / 100.0;
+
+      return ah_available / discharge_current;
+
+button:
+  - platform: template
+    name: "Reset SoC al 100%"
+    icon: "mdi:battery-refresh"
+    on_press:
+      then:
+        - lambda: |-
+            id(current_soc) = 100.0;
+            id(soc_percentage_output).publish_state(100.0);
+            ESP_LOGI("bms", "SoC reset to 100%");
+
+  - platform: template
+    name: "Salva SoC"
+    icon: "mdi:flash"
+    on_press:
+      then:
+        - esp32.preferences.flash_write # Force save to NVR
+        - lambda: |-
+            ESP_LOGI("bms", "SoC saved, manually triggered.");
+
+# 1. Attiva l'hardware Bluetooth dell'ESP32
+esp32_ble:
+
+# 2. Configura il Beacon per trasmettere i dati in formato standard BTHome v2
+# Questo pacchetto verrà letto direttamente dalle app dello smartphone senza fare il pairing
+esp32_ble_beacon:
+  type: bthome
+  version: 2
+  name: "Battery50Ah"
+  # Mappa i sensori esistenti nel pacchetto di trasmissione Bluetooth
+  sensors:
+    - sensor: battery_voltage
+      type: voltage
+    - sensor: ist_current
+      type: current
+    - sensor: temp_battery_bay
+      type: temperature
+    - sensor: soc_percentage_output
+      type: battery # Questo dice all'app che il valore rappresenta la percentuale della batteria
+    - sensor: time_remaining_output
+      type: duration
