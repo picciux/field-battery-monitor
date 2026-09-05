@@ -23,7 +23,7 @@ esphome:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
   # Ottimizzazione dello schema delle partizioni per fare spazio a Wi-Fi + BLE insieme
   #board_build.partitions: min_spiffs.csv
 
