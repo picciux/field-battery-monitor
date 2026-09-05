@@ -27,25 +27,32 @@ esp32:
   # Ottimizzazione dello schema delle partizioni per fare spazio a Wi-Fi + BLE insieme
   #board_build.partitions: min_spiffs.csv
 
+ota:
+  - platform: esphome
+    password: !secret ota_update_password
+
+logger:
+  level: INFO
+  
 preferences:
 
 wifi:
   networks:
-    - ssid: "AstroNetwork"
-      password: "Password_Sicura_1"
+    - ssid: !secret wifi_field_ssid
+      password: !secret wifi_field_password
       priority: 10.0
-    - ssid: "AstroNetwork24"
-      password: "Password_Sicura_2"
-      priority: 9.0
-    - ssid: "AuarUaiFai"
-      password: "Password_Sicura_3"
-      priority: 5.0
-    - ssid: "edge40pix"
-      password: "Password_Sicura_4"
-      priority: 4.0
+    - ssid: !secret wifi_field_ssid2
+      password: !secret wifi_field_password2
+      priority: 9
+    - ssid: !secret wifi_home_ssid
+      password: !secret wifi_home_password
+      priority: 5
+    - ssid: !secret wifi_edge40hs_ssid
+      password: !secret wifi_edge40hs_password
+      priority: 4
   ap:
-    ssid: "Hotspot-Battery50-Reset"
-    password: "PasswordIniziale"
+    ssid: Hotspot-Battery50-Reset
+    password: !secret wifi_field_password
   reboot_timeout: 0s
 
 captive_portal:
@@ -55,6 +62,10 @@ web_server:
   port: 80
   version: 3
   log: false
+  # Enable web-UI authentication
+  #auth:
+  #  username: !secret web_ui_username
+  #  password: !secret web_ui_password
   sorting_groups:
     - id: sg_battery
       name: Batteria
@@ -108,16 +119,15 @@ output:
 
 #  CHANNEL 3 & 4
 #  Uncomment on 4 channels module
-#  - platform: ledc
-#    pin: GPIO16
-#    id: output_channel_3_pwm
-#    frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
-#
-#  - platform: ledc
-#    pin: GPIO17
-#    id: output_channel_4_pwm
-#    frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
-# --------------------------------------------------
+  - platform: ledc
+    pin: GPIO16
+    id: output_channel_3_pwm
+    frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
+
+  - platform: ledc
+    pin: GPIO17
+    id: output_channel_4_pwm
+    frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
 
 
 
@@ -135,14 +145,14 @@ light:
       sorting_group_id: sg_actions
 
 #     ---- CHANNEL 3 & 4 (PWM mode) ----
-#  - platform: monochromatic
-#    output: output_channel_3_pwm
-#    name: "Uscita 1"
-#    id: channel_3_dimmer
-#    icon: "mdi:power-plug"
-#    web_server:
-#      sorting_group_id: sg_actions
-#      sorting_weight: 1
+  - platform: monochromatic
+    output: output_channel_3_pwm
+    name: "Uscita 1"
+    id: channel_3_dimmer
+    icon: "mdi:power-plug"
+    web_server:
+      sorting_group_id: sg_actions
+      sorting_weight: 1
 #
 #  - platform: monochromatic
 #    output: output_channel_4_pwm
@@ -169,15 +179,15 @@ switch:
 #      sorting_group_id: sg_actions
 #      sorting_weight: 1
 
-#  - platform: output
-#    output: output_channel_4_pwm
-#    name: "Uscita 2"
-#    id: channel_4_switch
-#    restore_mode: RESTORE_DEFAULT_OFF
-#    icon: "mdi:power-plug"
-#    web_server:
-#      sorting_group_id: sg_actions
-#      sorting_weight: 2
+  - platform: output
+    output: output_channel_4_pwm
+    name: "Uscita 2"
+    id: channel_4_switch
+    restore_mode: RESTORE_DEFAULT_OFF
+    icon: "mdi:power-plug"
+    web_server:
+      sorting_group_id: sg_actions
+      sorting_weight: 2
 # --------------------------------------------------
 
   # Virtual switch to enable/disable PIR detection automation
@@ -276,6 +286,9 @@ button:
   - platform: template
     name: "Reset SoC al 100%"
     icon: "mdi:battery-refresh"
+    web_server:
+      sorting_group_id: sg_actions
+      sorting_weight: 10
     on_press:
       then:
         - lambda: |-
@@ -286,6 +299,9 @@ button:
   - platform: template
     name: "Salva SoC"
     icon: "mdi:flash"
+    web_server:
+      sorting_group_id: sg_actions
+      sorting_weight: 11
     on_press:
       then:
         - lambda: |-
@@ -382,7 +398,10 @@ sensor:
       web_server:
         sorting_group_id: sg_battery
         sorting_weight: 4
-
+      # invert current sign if INA226 cabled in standard mode,
+      # i.e. INA226+ --> Battery+
+      filters:
+        - multiply: -1.0
 
   # ------------- Ampere/hour integration
   - platform: integration
@@ -470,68 +489,68 @@ sensor:
 #                                   BLE
 # ===========================================================================
 # 1. Attiva l'hardware BLE di basso livello
-esp32_ble:
-  id: ble_hardware
-  advertising: true # Abilita la trasmissione radio dei pacchetti
+#esp32_ble:
+#  id: ble_hardware
+#  advertising: true # Abilita la trasmissione radio dei pacchetti
 
 # 2. Questo script invisibile viene eseguito ogni 5 secondi per aggiornare la radio con i dati BTHome v2
-time:
-  - platform: sntp
-    id: sntp_time
+#time:
+#  - platform: sntp
+#    id: sntp_time
 
-interval:
-  - interval: 5s
-    then:
-      - lambda: |-
-          // Creiamo il pacchetto di Advertising secondo le specifiche BTHome v2
-          std::vector<uint8_t> bthome_packet;
-          
-          // --- INTESTAZIONE STANDARD BTHOME v2 ---
-          bthome_packet.push_back(0x02); // Lunghezza del flag
-          bthome_packet.push_back(0x01); // Tipo del flag (Flags)
-          bthome_packet.push_back(0x06); // Valore del flag (General Discoverable Mode)
-          
-          // --- SERVICE DATA UUID BTHOME (0xFCD2) ---
-          bthome_packet.push_back(0x0D); // Lunghezza totale del blocco Service Data (da adattare al numero di sensori)
-          bthome_packet.push_back(0x16); // Tipo (Service Data - 16-bit UUID)
-          bthome_packet.push_back(0xD2); // UUID BTHome (Low Byte)
-          bthome_packet.push_back(0xFC); // UUID BTHome (High Byte)
-          bthome_packet.push_back(0x40); // BTHome Device Info (0x40 = v2, non crittografato)
+#interval:
+#  - interval: 5s
+#    then:
+#      - lambda: |-
+#          // Creiamo il pacchetto di Advertising secondo le specifiche BTHome v2
+#          std::vector<uint8_t> bthome_packet;
+#          
+#          // --- INTESTAZIONE STANDARD BTHOME v2 ---
+#          bthome_packet.push_back(0x02); // Lunghezza del flag
+#          bthome_packet.push_back(0x01); // Tipo del flag (Flags)
+#          bthome_packet.push_back(0x06); // Valore del flag (General Discoverable Mode)
+#          
+#          // --- SERVICE DATA UUID BTHOME (0xFCD2) ---
+#          bthome_packet.push_back(0x0D); // Lunghezza totale del blocco Service Data (da adattare al numero di sensori)
+#          bthome_packet.push_back(0x16); // Tipo (Service Data - 16-bit UUID)
+#          bthome_packet.push_back(0xD2); // UUID BTHome (Low Byte)
+#          bthome_packet.push_back(0xFC); // UUID BTHome (High Byte)
+#          bthome_packet.push_back(0x40); // BTHome Device Info (0x40 = v2, non crittografato)
 
-          // --- SENSUR 1: SOC (ID BTHome 0x01 = Battery %) ---
-          uint8_t soc_val = (uint8_t)id(current_soc); // Prende la variabile globale del SoC (troncata a intero)
-          bthome_packet.push_back(0x01); // ID Sensore BTHome per la Batteria
-          bthome_packet.push_back(soc_val);
+#          // --- SENSUR 1: SOC (ID BTHome 0x01 = Battery %) ---
+#          uint8_t soc_val = (uint8_t)id(current_soc); // Prende la variabile globale del SoC (troncata a intero)
+#          bthome_packet.push_back(0x01); // ID Sensore BTHome per la Batteria
+#          bthome_packet.push_back(soc_val);
 
-          // --- SENSUR 2: TENSIONE (ID BTHome 0x0C = Voltage, 2 byte, fattore 0.001V) ---
-          // BTHome vuole la tensione espressa in millivolt interi (es: 13.20V diventa 13200)
-          uint16_t volt_val = (uint16_t)(id(battery_voltage).state * 1000.0);
-          bthome_packet.push_back(0x0C); // ID Sensore BTHome per la Tensione
-          bthome_packet.push_back(volt_val & 0xFF);        // Low Byte
-          bthome_packet.push_back((volt_val >> 8) & 0xFF); // High Byte
+#          // --- SENSUR 2: TENSIONE (ID BTHome 0x0C = Voltage, 2 byte, fattore 0.001V) ---
+#          // BTHome vuole la tensione espressa in millivolt interi (es: 13.20V diventa 13200)
+#          uint16_t volt_val = (uint16_t)(id(battery_voltage).state * 1000.0);
+#          bthome_packet.push_back(0x0C); // ID Sensore BTHome per la Tensione
+#          bthome_packet.push_back(volt_val & 0xFF);        // Low Byte
+#          bthome_packet.push_back((volt_val >> 8) & 0xFF); // High Byte
 
-          // --- SENSUR 3: TEMPERATURA (ID BTHome 0x45 = Temp, 2 byte, fattore 0.1°C) ---
-          // BTHome vuole la temperatura moltiplicata per 10 (es: 23.5°C diventa 235)
-          int16_t temp_val = (int16_t)(id(temp_battery_bay).state * 10.0);
-          bthome_packet.push_back(0x45); // ID Sensore BTHome per la Temperatura
-          bthome_packet.push_back(temp_val & 0xFF);
-          bthome_packet.push_back((temp_val >> 8) & 0xFF);
+#          // --- SENSUR 3: TEMPERATURA (ID BTHome 0x45 = Temp, 2 byte, fattore 0.1°C) ---
+#          // BTHome vuole la temperatura moltiplicata per 10 (es: 23.5°C diventa 235)
+#          int16_t temp_val = (int16_t)(id(temp_battery_bay).state * 10.0);
+#          bthome_packet.push_back(0x45); // ID Sensore BTHome per la Temperatura
+#          bthome_packet.push_back(temp_val & 0xFF);
+#          bthome_packet.push_back((temp_val >> 8) & 0xFF);
 
-          // Invia il pacchetto grezzo strutturato direttamente all'antenna dell'ESP32
-          // Nota: Usiamo la stringa "BMS-LiFePO4" come nome visibile nell'aria
-          esp_ble_adv_data_t adv_data;
-          adv_data.set_scan_rsp = false;
-          adv_data.include_name = true;
-          adv_data.include_txpower = false;
-          adv_data.min_interval = 0x0020;
-          adv_data.max_interval = 0x0040;
-          adv_data.appearance = 0x0000;
-          adv_data.p_manufacturer_data = NULL;
-          adv_data.manufacturer_len = 0;
-          adv_data.p_service_data = bthome_packet.data();
-          adv_data.service_data_len = bthome_packet.size();
-          adv_data.p_service_uuid = NULL;
-          adv_data.service_uuid_len = 0;
-          adv_data.flag = 0x06;
+#          // Invia il pacchetto grezzo strutturato direttamente all'antenna dell'ESP32
+#          // Nota: Usiamo la stringa "BMS-LiFePO4" come nome visibile nell'aria
+#          esp_ble_adv_data_t adv_data;
+#          adv_data.set_scan_rsp = false;
+#          adv_data.include_name = true;
+#          adv_data.include_txpower = false;
+#          adv_data.min_interval = 0x0020;
+#          adv_data.max_interval = 0x0040;
+#          adv_data.appearance = 0x0000;
+#          adv_data.p_manufacturer_data = NULL;
+#          adv_data.manufacturer_len = 0;
+#          adv_data.p_service_data = bthome_packet.data();
+#          adv_data.service_data_len = bthome_packet.size();
+#          adv_data.p_service_uuid = NULL;
+#          adv_data.service_uuid_len = 0;
+#          adv_data.flag = 0x06;
 
-          esp_ble_gap_config_adv_data(&adv_data);
+#          esp_ble_gap_config_adv_data(&adv_data);
