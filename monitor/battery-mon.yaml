@@ -16,10 +16,32 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
-esphome:
-  name: battery-50
-  friendly_name: Battery 50Ah
+##################### GPIO Mapping #####################
+#
+# Board mappings
+# GPIO0  --> push button --> GND
+# GPIO16 --> MOSFET CH1
+# GPIO17 --> MOSFET CH2
+# GPIO23 --> Onboard LED
+# GPIO26 --> MOSFET CH3 (4 channels modules)
+# GPIO27 --> MOSFET CH4 (4 channels modules)
+#
+# External mappings
+# GPIO13 --> PIR sensor
+# GPIO19 --> I2C SCL (INA226)
+# GPIO21 --> I2C SDA (INA226)
+# GPIO25 --> OneWire (Dallas temperature sensor)
+# 
+##################### GPIO Mapping #####################
 
+esphome:
+  name: battery50ah
+  friendly_name: Batteria 50Ah Matteo
+  on_boot:
+    priority: -100 # Attende che tutti i componenti siano pronti
+    then:
+      - script.execute: ciclo_respiro_eco
+          
 esp32:
   board: esp32dev
   framework:
@@ -71,7 +93,7 @@ web_server:
       name: Batteria
       sorting_weight: 0
     - id: sg_ambient_light
-      name: "Luce ambientale automatica"
+      name: "Luce ambientale"
       sorting_weight: 1
     - id: sg_temperature
       name: "Protezione anti-gelo"
@@ -108,61 +130,79 @@ i2c:
 # PWM gpio outputs
 output:
   - platform: ledc
-    pin: GPIO22
-    id: output_heater
-    frequency: 500Hz # Frequenza stabile per carichi resistivi a 12V
+    pin: GPIO23
+    id: onboard_led
+    frequency: 2500Hz # Frequenza stabile per carichi resistivi a 12V
 
   - platform: ledc
-    pin: GPIO23
+    pin: GPIO16
+    id: output_heater
+    frequency: 2500Hz # Frequenza stabile per carichi resistivi a 12V
+
+  - platform: ledc
+    pin: GPIO17
     id: output_red_light
     frequency: 2500Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
 
 #  CHANNEL 3 & 4
 #  Uncomment on 4 channels module
   - platform: ledc
-    pin: GPIO16
+    pin: GPIO26
     id: output_channel_3_pwm
     frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
 
   - platform: ledc
-    pin: GPIO17
+    pin: GPIO27
     id: output_channel_4_pwm
     frequency: 1000Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
 
+script:
+  - id: ciclo_respiro_eco
+    mode: restart
+    then:
+      - while:
+          condition:
+            lambda: 'return true;' # Ciclo infinito
+          then:
+            # --- FASE 1: RAMP-UP (Salita da 0% a 50% in 500ms) ---
+            - light.turn_on:
+                id: status_led
+                brightness: 50%
+                transition_length: 1000ms
+            - delay: 1000ms # Attendi che la transizione finisca
 
+            # --- FASE 2: RAMP-DOWN (Discesa da 50% a 0% in 500ms) ---
+            - light.turn_on:
+                id: status_led
+                brightness: 0%
+                transition_length: 1000ms
+            - delay: 1000ms # Attendi che la transizione finisca
+            
+            # Forza lo spegnimento dello stato per azzerare i consumi
+            - light.turn_off:
+                id: status_led
 
+            # --- FASE 3: PAUSA LUNGA (LED Spento) ---
+            - delay: 5000ms # Pausa di 3 secondi a consumo zero
+
+    
 # ===========================================================================
 #                                     LIGHTS
 # ===========================================================================
 light:
+  - platform: monochromatic
+    output: onboard_led
+    name: "Onboard LED"
+    id: status_led
+    internal: true
+  
   - platform: monochromatic
     output: output_red_light
     name: "Controllo manuale luce"
     id: red_light
     default_transition_length: 1.5s
     icon: "mdi:lightbulb-night"
-    web_server:
-      sorting_group_id: sg_actions
-
-#     ---- CHANNEL 3 & 4 (PWM mode) ----
-  - platform: monochromatic
-    output: output_channel_3_pwm
-    name: "Uscita 1"
-    id: channel_3_dimmer
-    icon: "mdi:power-plug"
-    web_server:
-      sorting_group_id: sg_actions
-      sorting_weight: 1
-#
-#  - platform: monochromatic
-#    output: output_channel_4_pwm
-#    name: "Uscita 2"
-#    id: channel_4_dimmer
-#    icon: "mdi:power-plug"
-#    web_server:
-#      sorting_group_id: sg_actions
-#      sorting_weight: 2
-# --------------------------------------------------
+    internal: true
 
 # ===========================================================================
 #                                    SWITCHES
@@ -192,7 +232,7 @@ switch:
 
   # Virtual switch to enable/disable PIR detection automation
   - platform: template
-    name: "Abilitato"
+    name: "Attivazione automatica (movimento)"
     id: enable_pir
     icon: "mdi:motion-sensor"
     optimistic: true
@@ -231,6 +271,7 @@ number:
     restore_value: true
     web_server:
       sorting_group_id: sg_ambient_light
+      sorting_weight: 2
 
   # auto light turn off delay
   - platform: template
@@ -246,6 +287,7 @@ number:
     restore_value: true
     web_server:
       sorting_group_id: sg_ambient_light
+      sorting_weight: 3
 
   # cold protection low temp thershold
   - platform: template
@@ -279,13 +321,83 @@ number:
       sorting_group_id: sg_temperature
       sorting_weight: 3
 
+  # ---- RED Light manual control ----
+  - platform: template
+    name: "Regolazione manuale"
+    id: red_light_manual
+    icon: "mdi:lightbulb-night"
+    min_value: 0
+    max_value: 100
+    step: 1
+    unit_of_measurement: "%"
+    optimistic: true 
+    on_value:
+      then:
+        lambda: |-
+          // Converte il valore dello slider (0-100) nel float 0.0-1.0
+          float pwm_level = x / 100.0f;
+          auto call=id(red_light).make_call();
+          if (pwm_level == 0.0f) {
+            call.set_state(false);
+            call.set_brightness(0.0f);
+          }else {
+            call.set_brightness(pwm_level);
+            call.set_state(true);
+          }
+          call.perform();
+          // disable auto red light
+          id(enable_pir).turn_off();
+    web_server:
+      sorting_group_id: sg_ambient_light
+      sorting_weight: 4
+      
+  # ---- CHANNEL 3 & 4 (PWM mode) ----
+  - platform: template
+    name: "Uscita 1"
+    id: channel_3_dimmer
+    icon: "mdi:power-plug"
+    min_value: 0
+    max_value: 100
+    step: 1
+    unit_of_measurement: "%"
+    optimistic: true 
+    on_value:
+      then:
+        lambda: |-
+          // Converte il valore dello slider (0-100) nel float richiesto dal PWM (0.0-1.0)
+          float pwm_level = x / 100.0;
+          id(output_channel_3_pwm).set_level(pwm_level);
+    web_server:
+      sorting_group_id: sg_actions
+      sorting_weight: 1
+#
+#  - platform: template
+#    name: "Uscita 2"
+#    id: channel_4_dimmer
+#    icon: "mdi:power-plug"
+#    min_value: 0
+#    max_value: 100
+#    step: 1
+#    unit_of_measurement: "%"
+#    optimistic: true 
+#    on_value:
+#      then:
+#        lambda: |-
+#          // Converte il valore dello slider (0-100) nel float richiesto dal PWM (0.0-1.0)
+#          float pwm_level = x / 100.0;
+#          id(output_channel_4_pwm).set_level(pwm_level);
+#    web_server:
+#      sorting_group_id: sg_actions
+#      sorting_weight: 2
+# --------------------------------------------------
+      
 # ===========================================================================
 #                                  BUTTONS
 # ===========================================================================
 button:
   - platform: template
     name: "Reset SoC al 100%"
-    icon: "mdi:battery-refresh"
+    icon: "mdi:refresh"
     web_server:
       sorting_group_id: sg_actions
       sorting_weight: 10
