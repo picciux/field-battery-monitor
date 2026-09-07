@@ -132,17 +132,21 @@ output:
   - platform: ledc
     pin: GPIO23
     id: onboard_led
-    frequency: 2500Hz # Frequenza stabile per carichi resistivi a 12V
-
-  - platform: ledc
-    pin: GPIO16
-    id: output_heater
-    frequency: 2500Hz # Frequenza stabile per carichi resistivi a 12V
+    channel: 0 # High speed PWM channel 
+    frequency: 2441Hz # Anti-flickering high freq 
 
   - platform: ledc
     pin: GPIO17
     id: output_red_light
-    frequency: 2500Hz # Alta frequenza anti-flickering, sicura per le sessioni fotografiche
+    channel: 0 # High speed PWM channel
+    frequency: 2441Hz # Anti-flickering high freq
+
+  - platform: ledc
+    pin: GPIO16
+    id: output_heater
+    channel: 8 # Low speed PWM channel
+    frequency: 10Hz # Low-noise resistive loads low freq
+
 
 #  CHANNEL 3 & 4
 #  Uncomment on 4 channels module
