@@ -41,7 +41,16 @@ esphome:
     priority: -100 # Attende che tutti i componenti siano pronti
     then:
       - script.execute: ciclo_respiro_eco
-          
+
+# 1. Registriamo la cartella dei componenti esterni locali
+external_components:
+  - source:
+      type: local
+      path: components
+
+# 2. Richiamiamo il nostro bridge Alpaca come un normale componente nativo
+alpaca:
+        
 esp32:
   board: esp32dev
   framework:
@@ -410,7 +419,7 @@ button:
         - lambda: |-
             id(current_soc) = 100.0;
             id(soc_percentage_output).publish_state(100.0);
-            ESP_LOGI("bms", "SoC reset to 100%");
+            ESP_LOGI("bms", "SoC reset to 100%%");
 
   - platform: template
     name: "Salva SoC"
@@ -599,8 +608,7 @@ sensor:
       float ah_available = ((soc - 15.0) * capacity) / 100.0;
       return ah_available / discharge_current;
     icon: "mdi:timer-sand"
-
-
+    
 # ===========================================================================
 #                                   BLE
 # ===========================================================================
