@@ -41,15 +41,6 @@ esphome:
     priority: -100 # Attende che tutti i componenti siano pronti
     then:
       - script.execute: ciclo_respiro_eco
-
-# 1. Registriamo la cartella dei componenti esterni locali
-external_components:
-  - source:
-      type: local
-      path: components
-
-# 2. Richiamiamo il nostro bridge Alpaca come un normale componente nativo
-alpaca:
         
 esp32:
   board: esp32dev
@@ -92,7 +83,7 @@ captive_portal:
 web_server:
   port: 80
   version: 3
-  log: false
+  log: true
   # Enable web-UI authentication
   #auth:
   #  username: !secret web_ui_username
@@ -610,71 +601,91 @@ sensor:
     icon: "mdi:timer-sand"
     
 # ===========================================================================
-#                                   BLE
+#                                   BLE TRANSMITTER (BTHome v2)
 # ===========================================================================
-# 1. Attiva l'hardware BLE di basso livello
-#esp32_ble:
-#  id: ble_hardware
-#  advertising: true # Abilita la trasmissione radio dei pacchetti
 
-# 2. Questo script invisibile viene eseguito ogni 5 secondi per aggiornare la radio con i dati BTHome v2
-#time:
-#  - platform: sntp
-#    id: sntp_time
+# 1. FORZIAMO l'accensione fisica dell'hardware radio Bluetooth sotto ESP-IDF
+esp32_ble:
+  id: ble_hardware
+  advertising: true # <-- TASSATIVO: dice a ESPHome di inizializzare la radio BLE al boot!
 
-#interval:
-#  - interval: 5s
-#    then:
-#      - lambda: |-
-#          // Creiamo il pacchetto di Advertising secondo le specifiche BTHome v2
-#          std::vector<uint8_t> bthome_packet;
-#          
-#          // --- INTESTAZIONE STANDARD BTHOME v2 ---
-#          bthome_packet.push_back(0x02); // Lunghezza del flag
-#          bthome_packet.push_back(0x01); // Tipo del flag (Flags)
-#          bthome_packet.push_back(0x06); // Valore del flag (General Discoverable Mode)
-#          
-#          // --- SERVICE DATA UUID BTHOME (0xFCD2) ---
-#          bthome_packet.push_back(0x0D); // Lunghezza totale del blocco Service Data (da adattare al numero di sensori)
-#          bthome_packet.push_back(0x16); // Tipo (Service Data - 16-bit UUID)
-#          bthome_packet.push_back(0xD2); // UUID BTHome (Low Byte)
-#          bthome_packet.push_back(0xFC); // UUID BTHome (High Byte)
-#          bthome_packet.push_back(0x40); // BTHome Device Info (0x40 = v2, non crittografato)
+interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          // Estraiamo i valori attuali dai sensori dello YAML
+          uint8_t soc_val = (uint8_t)id(current_soc);
+          uint16_t volt_val = (uint16_t)(id(battery_voltage).state * 1000.0f);
+          int16_t curr_val = (int16_t)(id(ist_current).state * 1000.0f);
 
-#          // --- SENSUR 1: SOC (ID BTHome 0x01 = Battery %) ---
-#          uint8_t soc_val = (uint8_t)id(current_soc); // Prende la variabile globale del SoC (troncata a intero)
-#          bthome_packet.push_back(0x01); // ID Sensore BTHome per la Batteria
-#          bthome_packet.push_back(soc_val);
+          // 2. Set Device Name (Inizializzazione formale dell'identità radio)
+          static bool name_set = false;
+          if (!name_set) {
+            esp_ble_gap_set_device_name("BMS-Rig");
+            name_set = true;
+          }
 
-#          // --- SENSUR 2: TENSIONE (ID BTHome 0x0C = Voltage, 2 byte, fattore 0.001V) ---
-#          // BTHome vuole la tensione espressa in millivolt interi (es: 13.20V diventa 13200)
-#          uint16_t volt_val = (uint16_t)(id(battery_voltage).state * 1000.0);
-#          bthome_packet.push_back(0x0C); // ID Sensore BTHome per la Tensione
-#          bthome_packet.push_back(volt_val & 0xFF);        // Low Byte
-#          bthome_packet.push_back((volt_val >> 8) & 0xFF); // High Byte
+          // Puliamo la memoria per i parametri dell'antenna
+          esp_ble_adv_data_t adv_data;
+          std::memset(&adv_data, 0, sizeof(esp_ble_adv_data_t));
 
-#          // --- SENSUR 3: TEMPERATURA (ID BTHome 0x45 = Temp, 2 byte, fattore 0.1°C) ---
-#          // BTHome vuole la temperatura moltiplicata per 10 (es: 23.5°C diventa 235)
-#          int16_t temp_val = (int16_t)(id(temp_battery_bay).state * 10.0);
-#          bthome_packet.push_back(0x45); // ID Sensore BTHome per la Temperatura
-#          bthome_packet.push_back(temp_val & 0xFF);
-#          bthome_packet.push_back((temp_val >> 8) & 0xFF);
+          // Costruiamo il payload Service Data per BTHome v2
+          std::vector<uint8_t> payload;
+          
+          // Flags Standard BLE (3 byte)
+          payload.push_back(0x02); 
+          payload.push_back(0x01); 
+          payload.push_back(0x06); 
 
-#          // Invia il pacchetto grezzo strutturato direttamente all'antenna dell'ESP32
-#          // Nota: Usiamo la stringa "BMS-LiFePO4" come nome visibile nell'aria
-#          esp_ble_adv_data_t adv_data;
-#          adv_data.set_scan_rsp = false;
-#          adv_data.include_name = true;
-#          adv_data.include_txpower = false;
-#          adv_data.min_interval = 0x0020;
-#          adv_data.max_interval = 0x0040;
-#          adv_data.appearance = 0x0000;
-#          adv_data.p_manufacturer_data = NULL;
-#          adv_data.manufacturer_len = 0;
-#          adv_data.p_service_data = bthome_packet.data();
-#          adv_data.service_data_len = bthome_packet.size();
-#          adv_data.p_service_uuid = NULL;
-#          adv_data.service_uuid_len = 0;
-#          adv_data.flag = 0x06;
+          // Nome Locale nel pacchetto (8 byte: 1 len + 1 tipo + 6 caratteri "BMS-Rig")
+          payload.push_back(0x07); 
+          payload.push_back(0x09); 
+          payload.push_back('B'); payload.push_back('M'); payload.push_back('S');
+          payload.push_back('-'); payload.push_back('R'); payload.push_back('i'); payload.push_back('g');
 
-#          esp_ble_gap_config_adv_data(&adv_data);
+          // Blocco Dati BTHome v2 (UUID 0xFCD2)
+          payload.push_back(0x0C); 
+          payload.push_back(0x16); // Service Data - 16bit UUID
+          payload.push_back(0xD2); // BTHome UUID Low Byte
+          payload.push_back(0xFC); // BTHome UUID High Byte
+          payload.push_back(0x40); // Device Info (v2, non crittografato)
+
+          // SENSUR 1: STATO DI CARICA (ID 0x01, 1 byte)
+          payload.push_back(0x01);
+          payload.push_back(soc_val);
+
+          // SENSUR 2: TENSIONE (ID 0x0C, 2 byte, fattore 0.001V)
+          payload.push_back(0x0C);
+          payload.push_back(volt_val & 0xFF);
+          payload.push_back((volt_val >> 8) & 0xFF);
+
+          // SENSUR 3: CORRENTE (ID 0x43, 2 byte, int16 signed, fattore 0.001A)
+          payload.push_back(0x43);
+          payload.push_back(curr_val & 0xFF);
+          payload.push_back((curr_val >> 8) & 0xFF);
+
+          // Configurazione dei parametri dell'antenna per ESP-IDF 5
+          adv_data.set_scan_rsp = false;
+          adv_data.include_name = false; 
+          adv_data.include_txpower = false;
+          adv_data.p_service_data = payload.data();
+          adv_data.service_data_len = payload.size();
+
+          // Configura i dati strutturati nell'interfaccia radio dell'ESP32
+          esp_ble_gap_config_adv_data(&adv_data);
+
+          // Parametri di trasmissione (intervallo e tipo di pacchetto)
+          esp_ble_adv_params_t adv_params;
+          std::memset(&adv_params, 0, sizeof(esp_ble_adv_params_t));
+          adv_params.adv_int_min = 0x0040; // ~40ms
+          adv_params.adv_int_max = 0x0080; // ~80ms
+          adv_params.adv_type = ADV_TYPE_NONCONN_IND; // Non connettibile (Beacon puro)
+          adv_params.own_addr_type = BLE_ADDR_TYPE_PUBLIC;
+          adv_params.channel_map = ADV_CHNL_ALL;
+          adv_params.adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY;
+
+          // Sovrascrive l'advertising di default e inizia a irradiare i nostri dati
+          esp_ble_gap_start_advertising(&adv_params);
+          
+          ESP_LOGD("ble_bms", "Beacon BTHome v2 inviato nell'aria.");
+
