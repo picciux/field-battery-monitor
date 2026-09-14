@@ -386,7 +386,7 @@ void WifiComm::setup(Settings &s, Hardware &hw) {
     }
  });
 
- setup_alpaca(www, hw); 
+ setup_alpaca(s, www, hw); 
 
 
  updater.setup(&www, UPDATE_PATH);

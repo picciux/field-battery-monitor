@@ -6,14 +6,14 @@
 #include "include_config.h"
 #include "hardware.h"
 
-void BTHomeBeacon_run() {
+void BTHomeBeacon_run(Hardware &hw) {
   static unsigned long last_ble_time = 0;
   if (millis() - last_ble_time < 5000) return; // Trasmette tassativamente solo ogni 5 secondi
   last_ble_time = millis();
 
-    uint8_t soc_out = (uint8_t)current_soc;
-  uint16_t volt_out = (uint16_t)(battery_voltage * 1000.0f);
-  int16_t curr_out = (int16_t)(ist_current * 1000.0f);
+  uint8_t soc_out = (uint8_t)hw.battery->getSoC();
+  uint16_t volt_out = (uint16_t)(hw.battery->getVoltage() * 1000.0f);
+  int16_t curr_out = (int16_t)(hw.battery->getCurrent() * 1000.0f);
 
   // Inizializziamo l'oggetto Advertising dell'ESP32
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();

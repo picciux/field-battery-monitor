@@ -1,4 +1,7 @@
-// Global variables
+
+#ifndef _HARDWARE_H
+#define _HARDWARE_H
+
 
 class Battery {
     private:
@@ -69,3 +72,4 @@ class Hardware {
         void run();
 };
 
+#endif // _HARDWARE_H
