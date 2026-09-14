@@ -249,6 +249,5 @@ void Hardware::run()
     this->heater->run(now);
 };
 
-Hardware hardware;
 
 

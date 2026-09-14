@@ -38,14 +38,14 @@ void loadSettings(Settings *settings) {
   }
 }
 
-void _storeSettings(Settings *settings) {
+void _storeSettings(const Settings *settings) {
   Settings tmp;
   memcpy(&tmp, settings, SETTINGS_LEN);
   EEPROM.put(SETTINGS_POS, tmp);
   setPresence();
 }
 
-void storeSettings(Settings *settings) {
+void storeSettings(const Settings *settings) {
   _storeSettings(settings);
   EEPROM.commit();
 }

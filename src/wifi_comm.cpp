@@ -34,8 +34,6 @@ HTTPUpdateServer updater;
 
 WifiComm wifiComm; //WifiComm static instance
 
-Settings settings;
-extern Hardware hw;
 
 /*************************** WI-FI ****************************************/
 
@@ -98,7 +96,7 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
   return false;
 }
 
-boolean WifiComm::wifiStart(Settings *s) {
+boolean WifiComm::wifiStart(Settings &s) {
   WiFi.persistent(false);
   
   uint8_t alt = 0;
@@ -108,20 +106,20 @@ boolean WifiComm::wifiStart(Settings *s) {
   delay(100);
 
   //Setting wifi hostname
-  WiFi.hostname(s->hostname);
-  MDNS.begin(s->hostname);
+  WiFi.hostname(s.hostname);
+  MDNS.begin(s.hostname);
 
-  if (searchAndConnectNet(s->main_ssid, s->main_psk)) {
+  if (searchAndConnectNet(s.main_ssid, s.main_psk)) {
     return true;
-  } else if (searchAndConnectNet(s->alt_ssid, s->alt_psk)) {
+  } else if (searchAndConnectNet(s.alt_ssid, s.alt_psk)) {
     return true;
   } else {
     WiFi.mode(WIFI_AP_STA);
     WiFi.disconnect();
     
-    if (WiFi.softAP(s->hostname, s->ap_psk)) {
+    if (WiFi.softAP(s.hostname, s.ap_psk)) {
        /* 
-        *  if (s->ap_dont_be_default_gw) {
+        *  if (s.ap_dont_be_default_gw) {
         *   uint8_t router = 0;
         *   if (!wifi_softap_set_dhcps_offer_option(OFFER_ROUTER, &router)) {}
         *  }
@@ -137,7 +135,7 @@ boolean WifiComm::wifiStart(Settings *s) {
 }
 
 /************************* www & websocket *************************/
-int WifiComm::printStatus(char *buf, int bufsize) {
+int WifiComm::printStatus(Hardware &hw, char *buf, int bufsize) {
   return snprintf_P(
     buf, 
     bufsize, 
@@ -146,13 +144,23 @@ int WifiComm::printStatus(char *buf, int bufsize) {
           voltage: %f,\
           current: %f,\
           soc: %u%,\
-          temp: %f \
+          temp: %f,\
+          auto_light_enabled: %s,\
+          auto_light_brightness: %u,\
+          auto_light_duration: %u,\
+          cp_low_thresh: %i,\
+          cp_high_thresh: %i\
        }}"
     ),
     hw.battery->getVoltage(),
     hw.battery->getCurrent(),
     hw.battery->getSoC(),
-    hw.heater->getTemperature()
+    hw.heater->getTemperature(),
+    ( hw.light->isAutoEnabled() ? "true" : "false" ),
+    hw.light->getAutoBrightness(),
+    hw.light->getAutoDuration(),
+    hw.heater->getLowThreshold(),
+    hw.heater->getHighThreshold()
   );
 }
 
@@ -177,7 +185,7 @@ int WifiComm::printCaps(char *buf, int bufsize) {
     );
 }
 
-void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {  
+void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght, Hardware &hw) {  
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       break;
@@ -185,7 +193,7 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       char buf[200];
       printCaps(buf, 200);
       webSocket.sendTXT(num, buf);
-      printStatus(buf, 200);
+      printStatus(hw, buf, 200);
       webSocket.sendTXT(num, buf);      
       break;
     case WStype_TEXT:                     // if new text data is received
@@ -204,16 +212,17 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
   }         
 }
 
-void WifiComm::broadcastEvent() {
+void WifiComm::broadcastEvent(Hardware &hw) {
   char buf[200];
-  printStatus(buf, 200);
+  printStatus(hw, buf, 200);
   webSocket.broadcastTXT(buf);
 }
 
-void WifiComm::sendSettings(Settings *s) {
+void WifiComm::sendSettings(Settings &s) {
   char buf[800];
   snprintf_P(buf, 800, 
-    PSTR("{\"hostname\":\"%s\",\
+    PSTR(
+      "{\"hostname\":\"%s\",\
        \"display_name\":\"%s\",\
        \"ap_psk\":\"%s\",\
        \"main_ssid\":\"%s\",\
@@ -221,65 +230,80 @@ void WifiComm::sendSettings(Settings *s) {
        \"alt_ssid\":\"%s\",\
        \"alt_psk\":\"%s\",\
        \"ap_no_def_gw\":%u,\
-       \"version\":\"%s\"}"),
-      s->hostname,
-      s->display_name,
-      s->ap_psk,
-      s->main_ssid,
-      s->main_psk,
-      s->alt_ssid,
-      s->alt_psk,
-      ( s->ap_dont_be_default_gw > 0 ? 1 : 0 ),
-      VERSION
+       \"version\":\"%s\",\
+       \"al_enabled\":%s,\
+       \"al_brightness\":%u,\
+       \"al_duration\":%u,\
+       \"cp_enabled\":%s,\
+       \"cp_lt\":%u,\
+       \"cp_ht\":%u\
+       }"
+    ),
+      s.hostname,
+      s.display_name,
+      s.ap_psk,
+      s.main_ssid,
+      s.main_psk,
+      s.alt_ssid,
+      s.alt_psk,
+      ( s.ap_dont_be_default_gw > 0 ? 1 : 0 ),
+      VERSION,
+      ( s.auto_light_enabled > 0 ? "true" : "false" ),
+      s.auto_light_brightness,
+      s.auto_light_duration,
+      ( s.cold_protection > 0 ? "true" : "false" ),
+      s.cp_low_thresh,
+      s.cp_high_thresh
   );
       
   www.send(200, "application/json", buf);
 }
 
-void WifiComm::getSettings() {
-  Settings s;
+void WifiComm::getSettings(Settings &s) {
   loadSettings(&s);
-  this->sendSettings(&s);
+  this->sendSettings(s);
 }
 
-void WifiComm::updateSettings() {
+void WifiComm::updateSettings(Settings &s) {
   boolean reboot = false;
   boolean changed = false;
-  loadSettings(&settings);
+  loadSettings(&s);
   
   for(uint8_t i = 0; i < www.args(); i++) {
     if (www.argName(i) == String("hostname")) {
-      www.arg(i).toCharArray(settings.hostname, HOSTNAME_LEN);
+      www.arg(i).toCharArray(s.hostname, HOSTNAME_LEN);
       changed = true;
       
     } else if (www.argName(i) == String("display_name")) {
-      www.arg(i).toCharArray(settings.display_name, HOSTNAME_LEN);
+      www.arg(i).toCharArray(s.display_name, HOSTNAME_LEN);
       changed = true;      
       
     } else if (www.argName(i) == String("ap_psk")) {
-      www.arg(i).toCharArray(settings.ap_psk, PSK_LEN);
+      www.arg(i).toCharArray(s.ap_psk, PSK_LEN);
       changed = true;      
       
     } else if (www.argName(i) == String("main_ssid")) {
-      www.arg(i).toCharArray(settings.main_ssid, SSID_LEN);
+      www.arg(i).toCharArray(s.main_ssid, SSID_LEN);
       changed = true;
       
     } else if (www.argName(i) == String("main_psk")) {
-      www.arg(i).toCharArray(settings.main_psk, PSK_LEN);
+      www.arg(i).toCharArray(s.main_psk, PSK_LEN);
       changed = true;
       
     } else if (www.argName(i) == String("alt_ssid")) {
-      www.arg(i).toCharArray(settings.alt_ssid, SSID_LEN);
+      www.arg(i).toCharArray(s.alt_ssid, SSID_LEN);
       changed = true;
       
     } else if (www.argName(i) == String("alt_psk")) {
-      www.arg(i).toCharArray(settings.alt_psk, PSK_LEN);
+      www.arg(i).toCharArray(s.alt_psk, PSK_LEN);
       changed = true;
       
     } else if (www.argName(i) == String("ap_no_def_gw")) {
-      settings.ap_dont_be_default_gw = www.arg(i).toInt();      
+      s.ap_dont_be_default_gw = www.arg(i).toInt();      
       changed = true;
-      
+  
+    //TODO insert other fields
+    
     } else if (www.argName(i) == String("restart")) {
       reboot = true; 
     } 
@@ -288,10 +312,10 @@ void WifiComm::updateSettings() {
   }
 
   if (changed)
-    storeSettings(&settings);
+    storeSettings(&s);
   
   //here we're ok, send back modified settings
-  sendSettings(&settings);
+  sendSettings(s);
 
   //TODO implement auto reboot
   /*if (reboot)
@@ -330,11 +354,9 @@ bool WifiComm::sendFile(String path) {
 }
 
 /************************* setup *************************/
-void WifiComm::setup() {
- initSettings();
- loadSettings(&settings);
+void WifiComm::setup(Settings &s, Hardware &hw) {
   
- if (! wifiStart(&settings)) return;
+ if (! wifiStart(s)) return;
 
 #ifdef WIFI_DEBUG_ON_WIFI
  const IPAddress APbcastip = { 192, 168, 4, 255 };
@@ -349,12 +371,12 @@ void WifiComm::setup() {
  if (!LittleFS.begin(true))
   DBGLN(F("ERROR initializing fs"));
 
- www.on(SETTINGS_PATH, HTTP_GET, [this]() {
-    this->getSettings();
+ www.on(SETTINGS_PATH, HTTP_GET, [this, &s]() {
+    this->getSettings(s);
  });
 
- www.on(SETTINGS_PATH, HTTP_POST, [this]() {
-    this->updateSettings();
+ www.on(SETTINGS_PATH, HTTP_POST, [this, &s]() {
+    this->updateSettings(s);
  });
 
  //serve files from SPIFFS or not found
@@ -364,15 +386,15 @@ void WifiComm::setup() {
     }
  });
 
- setup_alpaca(); 
+ setup_alpaca(www, hw); 
 
 
  updater.setup(&www, UPDATE_PATH);
 
  www.begin();
  webSocket.begin();
- webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
-  wifiComm.websocketEvent(num, type, payload, lenght);
+ webSocket.onEvent([this, &hw](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
+  wifiComm.websocketEvent(num, type, payload, lenght, hw);
  });
 }
 

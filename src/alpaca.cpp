@@ -2,19 +2,17 @@
 #include <WebServer.h>
 
 #include "settings.h"
+#include "hardware.h"
 #include "include_config.h"
 
-extern WebServer www;
-
-void setup_alpaca() {
+void setup_alpaca(Settings &settings, WebServer &www, Hardware &hw) {
     
     // =========================================================================
  //               INIEZIONE ROTTE REST ASCOM ALPACA (NATIVE)
  // =========================================================================
 
  // 1. Endpoint di Management: Configured Devices
- www.on("/management/v1/configureddevices", HTTP_GET, []() {
-  extern Settings settings;  
+ www.on("/management/v1/configureddevices", HTTP_GET, [&settings, &www]() {
   uint32_t client_id = www.hasArg("ClientTransactionID") ? www.arg("ClientTransactionID").toInt() : 0;
    String json = "{\"Value\":[{\"DeviceName\":\"" + 
       String(settings.display_name) + 
@@ -24,7 +22,7 @@ void setup_alpaca() {
  });
 
  // 2. Endpoint di Management: Device Description
- www.on("/management/v1/description", HTTP_GET, []() {
+ www.on("/management/v1/description", HTTP_GET, [&www]() {
    uint32_t client_id = www.hasArg("ClientTransactionID") ? www.arg("ClientTransactionID").toInt() : 0;
    String json = "{\"Value\":{\"ServerName\":\"Battery Monitor Alpaca Server\",\"Manufacturer\":\"Matteo Piscitelli\",\"" + String(VERSION) + "\":\"1.0\"},";
    json += "\"ClientTransactionID\":" + String(client_id) + ",\"ServerTransactionID\":2,\"ErrorNumber\":0,\"ErrorMessage\":\"\"}";
@@ -32,21 +30,18 @@ void setup_alpaca() {
  });
 
  // 3. API Safety Monitor: Connected
- www.on("/api/v1/safetymonitor/0/connected", HTTP_GET, []() {
+ www.on("/api/v1/safetymonitor/0/connected", HTTP_GET, [&www]() {
    uint32_t client_id = www.hasArg("ClientTransactionID") ? www.arg("ClientTransactionID").toInt() : 0;
    String json = "{\"Value\":true,\"ClientTransactionID\":" + String(client_id) + ",\"ServerTransactionID\":3,\"ErrorNumber\":0,\"ErrorMessage\":\"\"}";
    www.send(200, "application/json", json);
  });
 
  // 4. API Safety Monitor: IsSafe (Il cuore del controllo per N.I.N.A.)
- www.on("/api/v1/safetymonitor/0/issafe", HTTP_GET, []() {
+ www.on("/api/v1/safetymonitor/0/issafe", HTTP_GET, [&www, &hw]() {
    uint32_t client_id = www.hasArg("ClientTransactionID") ? www.arg("ClientTransactionID").toInt() : 0;
 
-   // Recuperiamo le variabili globali calcolate dai tuoi sensori C++
-   extern float current_soc;
-
    bool is_safe = true;
-   if (current_soc <= 15.0f ) {
+   if (hw.battery->getSoC() <= 15.0f ) {
      is_safe = false; // Batteria scarica o intruso vicino al telescopio -> Ferma tutto!
    }
 
