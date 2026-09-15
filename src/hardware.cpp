@@ -88,16 +88,48 @@ void Battery::reset() {
   this->soc = 100.0f;
 }
 
-void Light::_hw_set_brightness(float b)
+void PwmPin::setup(int pinNumber)
 {
-  analogWrite(PIN_MOSFET_LIGHT, (int) (b * 255.0));
+  this->pin = pinNumber;
+  pinMode(this->pin, OUTPUT);
+  this->setByteValue(0);
 }
+
+int PwmPin::getByteValue()
+{
+  return this->value;
+}
+
+float PwmPin::getValue()
+{
+  return this->value / 255.0f;
+}
+
+void PwmPin::setByteValue(uint8_t value)
+{
+  if (value == this->value) return;
+  analogWrite(this->pin, value);
+  this->value = value;
+}
+
+void PwmPin::setValue(float value)
+{
+  if (value < 0.0f) value = 0.0f;
+  if (value > 255.0f) value = 255.0f;
+  this->setByteValue((int) (value * 255.0f));
+}
+
+void PwmPin::turnOn(bool on)
+{
+  this->setByteValue(on ? 255 : 0);
+}
+
 
 void Light::setBrightness(float brightness)
 {
   this->autoEnabled = false;
   this->brightness = brightness;
-  this->_hw_set_brightness(brightness);
+  this->pin.setValue(brightness);
   this->on = (brightness > 0.0f);
 }
 
@@ -146,13 +178,13 @@ void Light::turnOn()
 
 void Light::turnOff()
 {
-  this->_hw_set_brightness(0.0);
+  this->pin.setByteValue(0);
   this->on = false;
 }
 
 void Light::setup()
 {
-    pinMode(PIN_MOSFET_LIGHT, OUTPUT);
+    this->pin.setup(PIN_MOSFET_LIGHT);
     pinMode(PIN_PIR, INPUT);
 }
 
@@ -164,7 +196,7 @@ void Light::run(unsigned long now)
     if (is_moving) {
         if (this->auto_time == 0) {
             if (! this->on) {
-                this->_hw_set_brightness(this->autoBrightness);
+                this->pin.setValue(this->autoBrightness);
                 this->auto_time = now;
             }
         } else {
@@ -188,25 +220,14 @@ float Heater::getLowThreshold()
     return this->lowThreshold;
 }
 
-float Heater::getHighThreshold()
-{
-    return this->highThreshold;
-}
-
 void Heater::setLowThreshold(float c)
 {
     this->lowThreshold = c;
 }
 
-void Heater::setHighThreshold(float c)
-{
-    this->highThreshold = c;
-}
-
 void Heater::setup()
 {
-  pinMode(PIN_MOSFET_HEATER, OUTPUT);
-  analogWrite(PIN_MOSFET_HEATER, 0); // Riscaldatore spento al boot
+  this->pin.setup(PIN_MOSFET_HEATER);
   sensors.begin();
 }
 
@@ -220,15 +241,21 @@ void Heater::run(unsigned long now)
 
   /* Anti-ice automation */
   if (this->temperature <= this->lowThreshold) {
-    analogWrite(PIN_MOSFET_HEATER, 255); // turn-on
-  } else if (this->temperature >= this->highThreshold) {
-    analogWrite(PIN_MOSFET_HEATER, 0);   // turn-off
+    this->pin.turnOn(true);
+  } else if (this->temperature >= this->lowThreshold + HEATER_HYSTERESIS_C) {
+    this->pin.turnOn(false);
   }
 }
 
 Battery _battery;
 Light _light;
 Heater _heater;
+
+PwmPin out1;
+PwmPin out2;
+PwmPin *outlets[] = {
+  &out1, &out2
+};
 
 void Hardware::setup()
 {
@@ -239,6 +266,9 @@ void Hardware::setup()
     this->battery->setup();
     this->heater->setup();
     this->light->setup();
+
+    this->outlets[0]->setup(PIN_MOSFET_CH3);
+    this->outlets[1]->setup(PIN_MOSFET_CH4);
 }
 
 void Hardware::run()

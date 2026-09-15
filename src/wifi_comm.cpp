@@ -4,12 +4,17 @@
 #include <ESPmDNS.h>
 #include <FS.h>
 #include <LittleFS.h>
+#include <ArduinoJson.h>
 
 #include "include_config.h"
 
 #include "wifi_comm.h"
 #include "hardware.h"
-#include "alpaca.h"
+//#include "alpaca.h"
+#include "alpaca/AlpacaManagement.h"
+#include "alpaca/AlpacaSwitch.h"
+#include "alpaca/AlpacaObservingConditions.h"
+#include "alpaca/AlpacaSafetyMonitor.h"
 
 #define UPDATE_PATH "/update"
 #define CAPS_PATH "/api/cap"
@@ -148,8 +153,7 @@ int WifiComm::printStatus(Hardware &hw, char *buf, int bufsize) {
           auto_light_enabled: %s,\
           auto_light_brightness: %u,\
           auto_light_duration: %u,\
-          cp_low_thresh: %i,\
-          cp_high_thresh: %i\
+          cp_low_thresh: %i\
        }}"
     ),
     hw.battery->getVoltage(),
@@ -159,8 +163,7 @@ int WifiComm::printStatus(Hardware &hw, char *buf, int bufsize) {
     ( hw.light->isAutoEnabled() ? "true" : "false" ),
     hw.light->getAutoBrightness(),
     hw.light->getAutoDuration(),
-    hw.heater->getLowThreshold(),
-    hw.heater->getHighThreshold()
+    hw.heater->getLowThreshold()
   );
 }
 
@@ -386,8 +389,13 @@ void WifiComm::setup(Settings &s, Hardware &hw) {
     }
  });
 
- setup_alpaca(s, www, hw); 
+ 
+  alpacaManagementSetup(www);
+  alpacaSwitchSetup(www, hw);
+  //alpacaObservingConditionsSetup(www);
+  alpacaSafetyMonitorSetup(www, hw);
 
+  //setup_alpaca(s, www, hw); 
 
  updater.setup(&www, UPDATE_PATH);
 

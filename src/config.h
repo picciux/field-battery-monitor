@@ -7,6 +7,8 @@
  */
 #define BATTERY_CAPACITY                50 //Ah
 
+#define HEATER_HYSTERESIS_C              4 //C
+
 //#define INA226_ADDR //defaults to 0x40
 //#define INA226_RESISTOR //defaults to 0.002 // Ohm
 //#define INA226_RANGE    //defaults to 20.0   // Ampere
