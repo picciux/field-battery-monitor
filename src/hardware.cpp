@@ -248,27 +248,70 @@ void Heater::run(unsigned long now)
 }
 
 Battery _battery;
-Light _light;
 Heater _heater;
 
-PwmPin out1;
-PwmPin out2;
-PwmPin *outlets[] = {
-  &out1, &out2
+#ifdef DISABLE_LIGHT
+#ifdef CHANNELS_4
+PwmPin _out1;
+PwmPin _out2;
+PwmPin _out3;
+PwmPin *_outlets[] = {
+  &_out1, &_out2, &_out3
 };
+#define OUTLETS_COUNT   3
+#else
+PwmPin __aligned_;
+PwmPin *outlets[] = {
+  &_out1
+};
+#define OUTLETS_COUNT   1
+#endif //CHANNELS_4
+#else
+Light _light;
+#ifdef CHANNELS_4
+PwmPin _out1;
+PwmPin _out2;
+PwmPin *_outlets[] = {
+  &_out1, &_out2
+};
+#define OUTLETS_COUNT   2
+#else
+PwmPin *_outlets[] = {};
+#define OUTLETS_COUNT    0
+#endif //CHANNELS_4
+#endif //DISABLE_LIGHT
 
 void Hardware::setup()
 {
     this->battery = &_battery;
     this->heater = &_heater;
-    this->light = &_light;
+    this->outlets = _outlets;
 
     this->battery->setup();
     this->heater->setup();
-    this->light->setup();
 
+#ifdef DISABLE_LIGHT
+#ifdef CHANNELS_4
+    this->outlets[0]->setup(PIN_MOSFET_LIGHT);
+    this->outlets[1]->setup(PIN_MOSFET_CH3);
+    this->outlets[2]->setup(PIN_MOSFET_CH4);
+#else
+    this->outlets[0]->setup(PIN_MOSFET_LIGHT);
+#endif //CHANNELS_4
+#else
+    this->light = &_light;
+    this->light->setup();
+#ifdef CHANNELS_4
     this->outlets[0]->setup(PIN_MOSFET_CH3);
     this->outlets[1]->setup(PIN_MOSFET_CH4);
+#endif //CHANNELS_4
+#endif //DISABLE_LIGHT
+
+}
+
+int Hardware::getOutletsNum() 
+{
+ return OUTLETS_COUNT;
 }
 
 void Hardware::run()

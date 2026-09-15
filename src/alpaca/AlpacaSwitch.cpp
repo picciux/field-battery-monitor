@@ -2,6 +2,7 @@
 #include "AlpacaCommon.h"
 #include <uri/UriBraces.h>
 
+#include "include_config.h"
 
 static const int BATTERY_SWITCH_DEVICE_NUMBER         = 0;
 static const int LIGHT_SWITCH_DEVICE_NUMBER           = 1;
@@ -27,12 +28,20 @@ struct DeviceDef {
   const int num_switches;
 };
 
+static AlpacaDeviceInfo g_batterySwitchInfo = {
+  "Battery",
+  "Battery state and controls.",
+  "ESP32 Alpaca Switch Driver",
+  "1.0",
+  2 // ISwitchV2
+};
+
 static SwitchDef g_batt_switches[] = {
-  { "Voltage",     "Tensione batteria (V)",        0.0,  20.0, 0.01, false },
-  { "Current",     "Corrente batteria (A)",      -20.0,  20.0, 0.01, false },
-  { "SoC",         "Stato di carica (%)",           0.0, 100.0, 1.0,  false },
-  { "Temperature", "Temperatura batteria (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
-  { "Min temperature", "Low heating on temperature (\xC2\xB0" "C)", -10.0,   10.0, 1.0,  true  }
+  { "Voltage",     "Battery voltage (V)",        0.0,  20.0, 0.01, false },
+  { "Current",     "Istantaneous current (A)",      -20.0,  20.0, 0.01, false },
+  { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
+  { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
+  { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", -10.0,   10.0, 1.0,  true  }
 };
 
 #define BATTERY_VOLTAGE     0
@@ -41,57 +50,72 @@ static SwitchDef g_batt_switches[] = {
 #define BATTERY_TEMPERATURE 3
 #define BATTERY_MIN_TEMP    4
 
+#ifndef DISABLE_LIGHT
+static AlpacaDeviceInfo g_lightSwitchInfo = {
+  "Light",
+  "Ambient Light controls.",
+  "ESP32 Alpaca Switch Driver",
+  "1.0",
+  2 // ISwitchV2
+};
+
 static SwitchDef g_light_switches[] = {
   //{ "ON",               "Turn ON/OFF",               0.0,  1.0, 1.0, true },
-  { "Brightness",          "Corrente batteria (A)",     0.0,  100.0, 1.0, true },
-  { "Automation",         "Stato di carica (%)",           0.0, 1.0, 1.0,  true },
-  { "Auto brightness", "Temperatura batteria (\xC2\xB0" "C)", 1.0, 100.0, 1.0,  true },
-  { "Auto duration",          "Uscita ausiliaria on/off",      10.0,   60.0, 1.0,  true  }
+  { "Brightness",          "Light manual brightnerr (%)",     0.0,  100.0, 1.0, true },
+  { "Automation",          "Enable motion detection based light automation",           0.0, 1.0, 1.0,  true },
+  { "Auto brightness",     "Light brightness when motion activated (%)", 1.0, 100.0, 1.0,  true },
+  { "Auto duration",       "Light on duration after no-more motion detected (s)",      10.0,   60.0, 1.0,  true  }
 };
+#endif
 
 #define LIGHT_BRIGHTNESS        0
 #define LIGHT_AUTO_ENABLED      1
 #define LIGHT_AUTO_BRIGHTNESS   2
 #define LIGHT_AUTO_DURATION     3
 
-static SwitchDef g_outlet_switches[] = {
-  { "Power outlet 1",          "Uscita ausiliaria on/off",      0.0,   1.0, 1.0,  true  },
-  { "Power outlet 2",          "Uscita ausiliaria regolabile (0-100%)", 0.0, 100.0, 1.0, true },
+#if defined(DISABLE_LIGHT) || defined(CHANNELS_4)
+static AlpacaDeviceInfo g_outletsSwitchInfo = {
+  "Power outlets",
+  "Power outlets controls.",
+  "ESP32 Alpaca Switch Driver",
+  "1.0",
+  2 // ISwitchV2
 };
+
+static SwitchDef g_outlet_switches[] = {
+#ifdef DISABLE_LIGHT
+  { "Power outlet 1",          "Power outlet 1 (%)",      0.0, 100.0, 1.0,  true  },
+#ifdef CHANNELS_4
+  { "Power outlet 2",          "Power outlet 2 (%)",      0.0, 100.0, 1.0, true },
+  { "Power outlet 3",          "Power outlet 3 (%)",      0.0, 100.0, 1.0, true },
+#endif
+#else
+#ifdef CHANNELS_4
+  { "Power outlet 1",          "Power outlet 1 (%)",      0.0, 100.0, 1.0,  true  },
+  { "Power outlet 2",          "Power outlet 2 (%)",      0.0, 100.0, 1.0, true },
+#endif
+#endif
+};
+#endif //defined(CHANNELS_4) || defined(DISABLE_LIGHT)
 
 #define OUTLET_1      0
 #define OUTLET_2      1
-
-static AlpacaDeviceInfo g_batterySwitchInfo = {
-  "Battery",
-  "Battery Monitor - monitoraggio batteria",
-  "ESP32 Alpaca Switch Driver",
-  "1.0",
-  2 // ISwitchV2
-};
-
-static AlpacaDeviceInfo g_lightSwitchInfo = {
-  "Battery",
-  "Battery Monitor - monitoraggio batteria",
-  "ESP32 Alpaca Switch Driver",
-  "1.0",
-  2 // ISwitchV2
-};
-
-static AlpacaDeviceInfo g_outletsSwitchInfo = {
-  "Battery",
-  "Battery Monitor - monitoraggio batteria",
-  "ESP32 Alpaca Switch Driver",
-  "1.0",
-  2 // ISwitchV2
-};
-
-#define SWITCH_DEVICES_COUNT 3
+#define OUTLET_3      2
 
 static DeviceDef g_devices[] = {
   { BATTERY_SWITCH_DEVICE_NUMBER, g_batterySwitchInfo, g_batt_switches, sizeof(g_batt_switches) / sizeof(g_batt_switches[0]) },
-  { LIGHT_SWITCH_DEVICE_NUMBER, g_lightSwitchInfo, g_light_switches, sizeof(g_light_switches) / sizeof(g_light_switches[0]) },
+#ifdef DISABLE_LIGHT
   { OUTLET_SWITCH_DEVICE_NUMBER, g_outletsSwitchInfo, g_outlet_switches, sizeof(g_outlet_switches) / sizeof(g_outlet_switches[0]) }
+  #define SWITCH_DEVICES_COUNT 2
+#else
+  { LIGHT_SWITCH_DEVICE_NUMBER, g_lightSwitchInfo, g_light_switches, sizeof(g_light_switches) / sizeof(g_light_switches[0]) },
+#ifdef CHANNELS_4
+  { OUTLET_SWITCH_DEVICE_NUMBER, g_outletsSwitchInfo, g_outlet_switches, sizeof(g_outlet_switches) / sizeof(g_outlet_switches[0]) }
+  #define SWITCH_DEVICES_COUNT 3
+#else
+  #define SWITCH_DEVICES_COUNT 2
+#endif //CHANNELS_4
+#endif //DISABLE_LIGHT
 };
 
 static bool g_switchConnected[] = {
@@ -170,6 +194,7 @@ double getSwitchValue(Hardware &hw, int number, int id) {
       }
       return 0.0;
   }
+  return 0.0;
 }
 
 void writeSwitchBool(Hardware &hw, int number, int id, bool s) {

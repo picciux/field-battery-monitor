@@ -13,11 +13,12 @@
 //#define INA226_RESISTOR //defaults to 0.002 // Ohm
 //#define INA226_RANGE    //defaults to 20.0   // Ampere
 
-// Uncomment for 4-MOSFET boards.
-//#define CHANNELS_4
-
 // Uncomment to disable light and motion-driven automation
 //#define DISABLE_LIGHT
+
+// Uncomment for 4-MOSFET boards.
+#define CHANNELS_4
+
 
 /************************** WiFi network configs *****************************
  * All values REQUIRED. 

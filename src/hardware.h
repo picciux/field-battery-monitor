@@ -80,6 +80,8 @@ class Hardware {
         Heater *heater;
         PwmPin **outlets;
 
+        int getOutletsNum();
+
         void setup();
         void run();
 };
