@@ -12,21 +12,6 @@ static const int OUTLET_SWITCH_DEVICE_NUMBER           = 2;
 // Definizione statica degli switch. Id 0-3: sensori batteria, read-only
 // (CanWrite=false). Id 4-5: uscite scrivibili (relay on/off + PWM 0-100).
 // ---------------------------------------------------------------------------
-struct SwitchDef {
-  const char* name;
-  const char* description;
-  double minValue;
-  double maxValue;
-  double step;
-  bool   canWrite;
-};
-
-struct DeviceDef {
-  const int number;
-  const struct AlpacaDeviceInfo &devInfo;
-  const struct SwitchDef *switches;
-  const int num_switches;
-};
 
 static AlpacaDeviceInfo g_batterySwitchInfo = {
   "Battery",
@@ -118,13 +103,19 @@ static DeviceDef g_devices[] = {
 #endif //DISABLE_LIGHT
 };
 
+DeviceDef *getSwitchDevices() {
+  return g_devices;
+}
+
 static bool g_switchConnected[] = {
   true, true, true
 };
 
+/*
 const AlpacaDeviceInfo& getBatterySwitchInfo() { return g_batterySwitchInfo; }
 const AlpacaDeviceInfo& getLightSwitchInfo() { return g_lightSwitchInfo; }
 const AlpacaDeviceInfo& getOutletsSwitchInfo() { return g_outletsSwitchInfo; }
+
 
 const AlpacaDeviceInfo& getSwitchDeviceInfo(int number) {
   switch(number) {
@@ -133,6 +124,7 @@ const AlpacaDeviceInfo& getSwitchDeviceInfo(int number) {
     case OUTLET_SWITCH_DEVICE_NUMBER: return g_outletsSwitchInfo;
   }
 }
+*/
 
 const int getSwitchDevicesCount() { return SWITCH_DEVICES_COUNT; } 
 

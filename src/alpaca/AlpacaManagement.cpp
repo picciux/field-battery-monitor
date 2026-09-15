@@ -48,11 +48,12 @@ void alpacaManagementSetup(WebServer &server) {
     JsonDocument doc;
     JsonArray arr = doc["Value"].to<JsonArray>();
 
+    DeviceDef *swDevices = getSwitchDevices();
     for (int i = 0; i < getSwitchDevicesCount(); i++) {
       JsonObject sw = arr.add<JsonObject>();
-      sw["DeviceName"] = getSwitchDeviceInfo(i).name;
+      sw["DeviceName"] = swDevices[i].devInfo.name;
       sw["DeviceType"] = "Switch";
-      sw["DeviceNumber"] = i;
+      sw["DeviceNumber"] = swDevices[i].number;
       sw["UniqueID"] = SWITCH_UNIQUE_ID_BASE + i;
     }
 
