@@ -25,13 +25,7 @@ void setup() {
 }
 
 void loop() {
-  // 1. Mantiene vivi i servizi di rete, WebSocket e richieste HTTP del tuo codice
   wifi.run();
   BTHomeBeacon_run(hardware);
-  // 2. Timer non bloccante per leggere i sensori ed emettere il beacon BLE ogni 5 secondi
-  static unsigned long last_bms_time = 0;
-  if (millis() - last_bms_time >= 1000) {
-    last_bms_time = millis();
-    hardware.run();
-  }
+  hardware.run();
 }
