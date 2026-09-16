@@ -33,29 +33,49 @@ class PwmPin {
         void turnOn(bool on);
 };
 
-class Light {
+class BaseLight {
     private:
+        unsigned long defaultTransition = 0;
+        unsigned long transition = 0;
+        float startBrightness = 0.0f;
+        float targetBrightness = 0.0f;
+        unsigned long transitionStart = 0;
+        unsigned long lastPwmUpdate = 0;
+        bool transitioning = false;
+        float lastBrightness = 0;
+        void _setBrightness(float brightness);
+
+    protected:
         float brightness = 0;
-        bool autoEnabled = false;
-        unsigned long auto_time = 0;
-        float autoBrightness;
-        int autoDuration;
         bool on = false;
         PwmPin pin;
-
-        //void _hw_set_brightness(float b);
     public:
         void setBrightness(float brightness);
+        void setBrightness(float brightness, unsigned int transitionDurationMs);
         float getBrightness();
+        unsigned long getDefaultTransision();
+        void setDefaultTransition(unsigned long transitionDurationMs);
+        void turnOn();
+        void turnOff();
+        void setup(int pin);
+        void run(unsigned long now);
+};
+
+class Light : public BaseLight {
+    private:
+        bool autoEnabled = false;
+        unsigned long autoTime = 0;
+        float autoBrightness;
+        int autoDuration;
+    public:
+        void setBrightness(float brightness); 
         bool isAutoEnabled();
         void autoEnable(bool enable);
         float getAutoBrightness();
         void setAutoBrightness(float brightness);
         int getAutoDuration();
         void setAutoDuration(int seconds);
-        void turnOn();
-        void turnOff();
-        void setup();
+        void setup(int pwmPin, int pirPin);
         void run(unsigned long now);
 };
 

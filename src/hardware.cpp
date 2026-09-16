@@ -19,6 +19,8 @@
 #define PIN_MOSFET_CH4      27
 #define PIN_LED             23
 
+#define TRANSITION_FPS        50
+#define TRANSITION_PWM_DELAY  ( 1000 / TRANSITION_FPS) // in milliseconds
 
 // Busses and sensors
 INA226_WE ina = INA226_WE(INA226_ADDR); // Indirizzo I2C standard dell'INA226
@@ -124,18 +126,90 @@ void PwmPin::turnOn(bool on)
   this->setByteValue(on ? 255 : 0);
 }
 
-
-void Light::setBrightness(float brightness)
+void BaseLight::_setBrightness(float brightness)
 {
-  this->autoEnabled = false;
   this->brightness = brightness;
+  if (brightness > 0)
+    this->lastBrightness = brightness;
   this->pin.setValue(brightness);
   this->on = (brightness > 0.0f);
 }
 
-float Light::getBrightness()
+void BaseLight::setBrightness(float brightness, unsigned int transitionDurationMs)
+{
+  if (transitionDurationMs == 0) {
+    _setBrightness(brightness);
+    transitioning = false;
+  } else {
+    this->transition = transitionDurationMs;
+    startBrightness = this->brightness;
+    targetBrightness = brightness;
+    transitionStart = millis();
+    transitioning = true;
+  }
+}
+
+void BaseLight::setBrightness(float brightness) {
+  setBrightness(brightness, defaultTransition);
+}
+
+float BaseLight::getBrightness()
 {
   return this->brightness;
+}
+
+unsigned long BaseLight::getDefaultTransision()
+{
+  return this->defaultTransition;
+}
+
+void BaseLight::setDefaultTransition(unsigned long transitionDurationMs)
+{
+  this->defaultTransition = transitionDurationMs;
+}
+
+
+void BaseLight::turnOn()
+{
+  if (this->lastBrightness > 0)
+    this->setBrightness(this->lastBrightness);
+  else
+    this->setBrightness(1.0);
+}
+
+void BaseLight::turnOff()
+{
+  this->setBrightness(0.0f);
+}
+
+void BaseLight::setup(int pin)
+{
+    this->pin.setup(pin);
+    pinMode(PIN_PIR, INPUT);
+}
+
+void BaseLight::run(unsigned long now) 
+{
+  if (!transitioning) return;
+  
+  /* throttle down */
+  if (now - lastPwmUpdate < TRANSITION_PWM_DELAY) return;
+  lastPwmUpdate = now;
+
+  float progress = (float) (now - transitionStart) / (transition * 1000.0f);
+  if (progress >= 1.0) {
+    _setBrightness(targetBrightness);
+    transitioning = false;
+    return;
+  }
+
+  _setBrightness(startBrightness + progress * (targetBrightness - startBrightness));
+}
+
+void Light::setBrightness(float brightness)
+{
+  this->autoEnabled = false;
+  BaseLight::setBrightness(brightness);
 }
 
 bool Light::isAutoEnabled()
@@ -168,24 +242,10 @@ void Light::setAutoDuration(int seconds)
   this->autoDuration = seconds;
 }
 
-void Light::turnOn()
+void Light::setup(int pwmPin, int pirPin)
 {
-  if (this->brightness > 0)
-    this->setBrightness(this->brightness);
-  else
-    this->setBrightness(1.0);
-}
-
-void Light::turnOff()
-{
-  this->pin.setByteValue(0);
-  this->on = false;
-}
-
-void Light::setup()
-{
-    this->pin.setup(PIN_MOSFET_LIGHT);
-    pinMode(PIN_PIR, INPUT);
+    BaseLight::setup(pwmPin);
+    pinMode(pirPin, INPUT);
 }
 
 void Light::run(unsigned long now) 
@@ -194,20 +254,22 @@ void Light::run(unsigned long now)
 
  if (this->autoEnabled) {
     if (is_moving) {
-        if (this->auto_time == 0) {
-            if (! this->on) {
-                this->pin.setValue(this->autoBrightness);
-                this->auto_time = now;
-            }
-        } else {
-          this->auto_time = now;
+      if (this->autoTime == 0) {
+        if (! this->on) {
+          BaseLight::setBrightness(this->autoBrightness);
+          this->autoTime = now;
         }
-    } else {
-        if (this->auto_time > 0 && (now - this->auto_time >= this->autoDuration * 1000)) {
-            this->turnOff();
-        }
+      } else {
+        this->autoTime = now;
+      }
+  } else {
+      if (this->autoTime > 0 && (now - this->autoTime >= this->autoDuration * 1000)) {
+        BaseLight::setBrightness(0.0f);
+      }
     }
-  }  
+  }
+  
+  BaseLight::run(now);
 }
 
 float Heater::getTemperature()
@@ -300,7 +362,7 @@ void Hardware::setup()
 #endif //CHANNELS_4
 #else
     this->light = &_light;
-    this->light->setup();
+    this->light->setup(PIN_MOSFET_LIGHT, PIN_PIR);
 #ifdef CHANNELS_4
     this->outlets[0]->setup(PIN_MOSFET_CH3);
     this->outlets[1]->setup(PIN_MOSFET_CH4);
@@ -316,11 +378,18 @@ int Hardware::getOutletsNum()
 
 void Hardware::run()
 {
+    static unsigned long last_battery = 0;
+    
     unsigned long now = millis();
-    this->battery->run(now);
+    if (now - last_battery >= 1000) {
+      last_battery = now;
+      this->battery->run(now);
+      this->heater->run(now);
+    }
+
     this->light->run(now);
-    this->heater->run(now);
-};
+}
+    
 
 
 
