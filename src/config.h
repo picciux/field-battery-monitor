@@ -3,15 +3,21 @@
 
  */
 
-/*************************** Battery Total Capacity (Ah) *******************************
- */
-#define BATTERY_CAPACITY                50 //Ah
+/***************************** Battery config ********************************/
+ 
+/* Required */
+ #define BATTERY_CAPACITY                50 //Ah
 
-#define HEATER_HYSTERESIS_C              4 //C
+//#define SOC_PERSIST_MAX_TIME      10 // minutes
+//#define SOC_PERSIST_MAX_DIFF       2 // %
 
-//#define INA226_ADDR //defaults to 0x40
-//#define INA226_RESISTOR //defaults to 0.002 // Ohm
-//#define INA226_RANGE    //defaults to 20.0   // Ampere
+//#define HEATER_HYSTERESIS_C              4 //C
+
+//#define INA226_ADDR               0x40
+//#define INA226_RESISTOR           0.002 // Ohm
+//#define INA226_RANGE              20.0   // Ampere
+
+/**************************** Hardware config ********************************/
 
 // Uncomment to disable light and motion-driven automation
 //#define DISABLE_LIGHT

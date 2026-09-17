@@ -4,10 +4,15 @@
 
 #define VERSION "1.0"
 
-// Defaults, can be overriden by config.hs
+// Defaults, can be overriden by config.h
 #define INA226_ADDR           0x40
 #define INA226_RESISTOR       0.002 // Ohm
 #define INA226_RANGE         20.0   // Ampere
+
+#define SOC_PERSIST_MAX_TIME     10 // minutes
+#define SOC_PERSIST_MAX_DIFF      2 // %
+
+#define HEATER_HYSTERESIS_C              4 //C
 
 #undef CHANNELS_4
 #undef DISABLE_LIGHT

@@ -6,6 +6,7 @@
 
 #include "include_config.h"
 #include "hardware.h"
+#include "soc_persistance.h"
 
 // PIN Mapping
 #define PIN_BTN              0
@@ -62,7 +63,9 @@ void Battery::setup(Settings *settings)
 
   this->settings = settings;
 
-  this->soc = 100.0f;
+  socPersistance.setup(SOC_PERSIST_MAX_TIME, SOC_PERSIST_MAX_DIFF);
+  
+  this->soc = socPersistance.recover();
   this->capacity = BATTERY_CAPACITY;
   this->voltage = 0.0f;
   this->current = 0.0f;
@@ -85,6 +88,8 @@ void Battery::run(unsigned long now)
   this->soc += (this->current / this->capacity) * 100.0f * delta_hours;
   if (this->soc > 100.0f) this->soc = 100.0f;
   if (this->soc < 0.0f) this->soc = 0.0f;
+
+  socPersistance.update(this->soc, now);
 }
 
 void Battery::reset() {
