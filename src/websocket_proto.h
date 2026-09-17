@@ -34,7 +34,7 @@
 
 /* sets power outlet
    Pars:
-    - int outlet index
+    - int index
     - float power (0.0 - 1.0)
 */
 #define ACTION_OUTLET_POWER             "outlet_power"

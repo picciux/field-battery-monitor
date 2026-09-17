@@ -16,6 +16,8 @@
 #include "alpaca/AlpacaObservingConditions.h"
 #include "alpaca/AlpacaSafetyMonitor.h"
 
+#include "websocket_proto.h"
+
 #define UPDATE_PATH "/update"
 #define CAPS_PATH "/api/cap"
 #define STATUS_PATH "/api/sta"
@@ -195,20 +197,46 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       printCaps(buf, 200);
       webSocket.sendTXT(num, buf);
       printStatus(hw, buf, 200);
-      webSocket.sendTXT(num, buf);      
+      webSocket.sendTXT(num, buf);   
       break;
     case WStype_TEXT:                     // if new text data is received
-      if (strncmp((char *) payload, "action=", 7) == 0) {
-        bool ret = false;
-        char *action = (char *) (payload + 7);
-
-        ret = false;
-
-        if (ret)
-          webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":true}");
-        else
-          webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":false}");
+      bool ret = false;
+      JsonDocument doc;
+      DeserializationError error = deserializeJson(doc, payload, lenght);
+      if (error) {
+        webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":false}");
+        return;
       }
+      const char *action = doc["action"] | "unknown";
+      if (!strcmp(action, ACTION_BATTERY_SOC_RESET)) {
+        hw.battery->reset();
+        ret = true;
+      } else if (!strcmp(action, ACTION_CP_SET_LT)) {
+        float lt = doc["temperature"] | DEFAULT_COLT_PROTECTION_LOW_THRESHOLD;
+        hw.heater->setLowThreshold(lt);
+      } else if (!strcmp(action, ACTION_LIGHT_BRIGHTNESS)) {
+        float b = doc["brightness"] | 0.0;
+        hw.light->setBrightness(b);
+      } else if (!strcmp(action, ACTION_LIGHT_AUTO_ENABLE)) {
+        bool e = doc["enabled"] | DEFAULT_AUTO_LIGHT_ENABLED;
+        hw.light->autoEnable(e);
+      } else if (!strcmp(action, ACTION_LIGHT_AUTO_BRIGHTNESS)) {
+        float b = doc["brightness"] | DEFAULT_AUTO_LIGHT_BRIGHTNESS;
+        hw.light->setAutoBrightness(b);
+      } else if (!strcmp(action, ACTION_LIGHT_AUTO_DURATION)) {
+        int s = doc["seconds"] | DEFAULT_AUTO_LIGHT_DURATION;
+        hw.light->setAutoDuration(s);
+      } else if (!strcmp(action, ACTION_OUTLET_POWER)) {
+        int i = doc["index"] | 0;
+        float p = doc["power"] | 1.0f;
+        hw.outlets[i]->setValue(p);
+      }
+
+      if (ret)
+        webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":true}");
+      else
+        webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":false}");
+            
       break;
   }         
 }
