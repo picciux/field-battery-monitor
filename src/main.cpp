@@ -26,4 +26,6 @@ void loop() {
   wifi.run();
   BTHomeBeacon_run(hardware, now);
   hardware.run(now);
+  // TODO intercept restart requests and call:
+  // ESP.restart();
 }
