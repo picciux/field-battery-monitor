@@ -2,6 +2,8 @@
 #ifndef _HARDWARE_H
 #define _HARDWARE_H
 
+#include "settings.h"
+
 class Battery {
     private:
         float soc;
@@ -9,12 +11,13 @@ class Battery {
         float voltage;
         float current;
         unsigned long _last_soc_time;
+        Settings *settings;
     public:
         float getSoC();
         float getCapacity();
         float getVoltage();
         float getCurrent();
-        void setup();
+        void setup(Settings *settings);
         void run(unsigned long now);
         /* Reset SoC to full 100%. */
         void reset();
@@ -67,6 +70,8 @@ class Light : public BaseLight {
         unsigned long autoTime = 0;
         float autoBrightness;
         int autoDuration;
+        int pirPin;
+        Settings *settings;
     public:
         void setBrightness(float brightness); 
         bool isAutoEnabled();
@@ -75,7 +80,7 @@ class Light : public BaseLight {
         void setAutoBrightness(float brightness);
         int getAutoDuration();
         void setAutoDuration(int seconds);
-        void setup(int pwmPin, int pirPin);
+        void setup(int pwmPin, int pirPin, Settings *settings);
         void run(unsigned long now);
 };
 
@@ -84,12 +89,12 @@ class Heater {
         float temperature;
         float lowThreshold;
         PwmPin pin;
-
+        Settings *settings;
     public:
         float getTemperature();
         float getLowThreshold();
         void setLowThreshold(float c);
-        void setup();
+        void setup(Settings *settings);
         void run(unsigned long now);
 };
 
@@ -99,11 +104,12 @@ class Hardware {
         Light *light;
         Heater *heater;
         PwmPin **outlets;
+        Settings *settings;
 
         int getOutletsNum();
 
-        void setup();
-        void run();
+        void setup(Settings *settings);
+        void run(unsigned long now);
 };
 
 #endif // _HARDWARE_H

@@ -41,8 +41,19 @@
 #define DEFAULT_ALT_PSK                "myAlternateWiFiPassword"
 
 #define DEFAULT_AP_DONT_BE_DEF_GW      1
-#define WIFI_SERVER_PORT            1000
-#define WIFI_CONNECT_TIMEOUT        20
+
+/************************ Cold protection defaults ***************************
+ * All values REQUIRED. 
+ *****************************************************************************/
+#define DEFAULT_COLD_PROTECTION_ENABLED         true
+#define DEFAULT_COLT_PROTECTION_LOW_THRESHOLD   5 // °C
+
+/*************** Automatic motion detection light defaults *******************
+ * All values REQUIRED. 
+ *****************************************************************************/
+#define DEFAULT_AUTO_LIGHT_ENABLED              false
+#define DEFAULT_AUTO_LIGHT_BRIGHTNESS           0.25f // 0.0f - 1.0f
+#define DEFAULT_AUTO_LIGHT_DURATION             30 // seconds
 
 
 /************************** Debug output configs *****************************

@@ -12,20 +12,18 @@ void setup() {
   // Avvia la seriale di debug integrata nel core
   Serial.begin(115200);
 
-  //Inizializziamo i settings
-  initSettings();
-  loadSettings(&settings);
+  settings.setup();
 
   // 1. Inizializziamo il BMS hardware (INA226, Dallas, PIR)
-  hardware.setup();
-
+  hardware.setup(&settings);
 
   // 2. Avviamo la tua infrastruttura Wi-Fi, il Server Web e l'aggiornamento via rete
   wifi.setup(settings, hardware);
 }
 
 void loop() {
+  unsigned long now = millis();
   wifi.run();
-  BTHomeBeacon_run(hardware);
-  hardware.run();
+  BTHomeBeacon_run(hardware, now);
+  hardware.run(now);
 }

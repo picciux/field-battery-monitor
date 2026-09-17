@@ -21,7 +21,6 @@
 #define STATUS_PATH "/api/sta"
 #define SETTINGS_PATH "/api/cfg"
 
-
 #ifndef WIFI_SERVER_PORT
 #define WIFI_SERVER_PORT 1000
 #endif
@@ -38,7 +37,6 @@ WebSocketsServer webSocket(81);
 HTTPUpdateServer updater;
 
 WifiComm wifiComm; //WifiComm static instance
-
 
 /*************************** WI-FI ****************************************/
 
@@ -111,18 +109,18 @@ boolean WifiComm::wifiStart(Settings &s) {
   delay(100);
 
   //Setting wifi hostname
-  WiFi.hostname(s.hostname);
-  MDNS.begin(s.hostname);
+  WiFi.hostname(s.getHostname());
+  MDNS.begin(s.getHostname());
 
-  if (searchAndConnectNet(s.main_ssid, s.main_psk)) {
+  if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk())) {
     return true;
-  } else if (searchAndConnectNet(s.alt_ssid, s.alt_psk)) {
+  } else if (searchAndConnectNet(s.getAltSsid(), s.getAltPsk())) {
     return true;
   } else {
     WiFi.mode(WIFI_AP_STA);
     WiFi.disconnect();
     
-    if (WiFi.softAP(s.hostname, s.ap_psk)) {
+    if (WiFi.softAP(s.getHostname(), s.getApPsk())) {
        /* 
         *  if (s.ap_dont_be_default_gw) {
         *   uint8_t router = 0;
@@ -238,75 +236,75 @@ void WifiComm::sendSettings(Settings &s) {
        \"al_brightness\":%u,\
        \"al_duration\":%u,\
        \"cp_enabled\":%s,\
-       \"cp_lt\":%u,\
-       \"cp_ht\":%u\
+       \"cp_lt\":%f\
        }"
     ),
-      s.hostname,
-      s.display_name,
-      s.ap_psk,
-      s.main_ssid,
-      s.main_psk,
-      s.alt_ssid,
-      s.alt_psk,
-      ( s.ap_dont_be_default_gw > 0 ? 1 : 0 ),
+      s.getHostname(),
+      s.getDisplayName(),
+      s.getApPsk(),
+      s.getMainSsid(),
+      s.getMainPsk(),
+      s.getAltSsid(),
+      s.getAltPsk(),
+      ( s.isApDefaultGWDisabled() ? "true" : "false" ),
       VERSION,
-      ( s.auto_light_enabled > 0 ? "true" : "false" ),
-      s.auto_light_brightness,
-      s.auto_light_duration,
-      ( s.cold_protection > 0 ? "true" : "false" ),
-      s.cp_low_thresh,
-      s.cp_high_thresh
+      ( s.isAutoLightEnabled() ? "true" : "false" ),
+      (int) (s.getAutoLightBrightness() * 100.0f + 0.5f),
+      s.getAutoLightDuration(),
+      ( s.isColdProtectionEnabled() ? "true" : "false" ),
+      s.getCpLowThreshold()
   );
       
   www.send(200, "application/json", buf);
 }
 
 void WifiComm::getSettings(Settings &s) {
-  loadSettings(&s);
   this->sendSettings(s);
 }
 
 void WifiComm::updateSettings(Settings &s) {
   boolean reboot = false;
-  boolean changed = false;
-  loadSettings(&s);
   
   for(uint8_t i = 0; i < www.args(); i++) {
     if (www.argName(i) == String("hostname")) {
-      www.arg(i).toCharArray(s.hostname, HOSTNAME_LEN);
-      changed = true;
+      s.setHostname(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("display_name")) {
-      www.arg(i).toCharArray(s.display_name, HOSTNAME_LEN);
-      changed = true;      
+      s.setDisplayName(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("ap_psk")) {
-      www.arg(i).toCharArray(s.ap_psk, PSK_LEN);
-      changed = true;      
+      s.setApPsk(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("main_ssid")) {
-      www.arg(i).toCharArray(s.main_ssid, SSID_LEN);
-      changed = true;
+      s.setMainSsid(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("main_psk")) {
-      www.arg(i).toCharArray(s.main_psk, PSK_LEN);
-      changed = true;
+      s.setMainPsk(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("alt_ssid")) {
-      www.arg(i).toCharArray(s.alt_ssid, SSID_LEN);
-      changed = true;
+      s.setAltSsid(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("alt_psk")) {
-      www.arg(i).toCharArray(s.alt_psk, PSK_LEN);
-      changed = true;
+      s.setAltPsk(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("ap_no_def_gw")) {
-      s.ap_dont_be_default_gw = www.arg(i).toInt();      
-      changed = true;
+      s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
   
-    //TODO insert other fields
-    
+    } else if (www.argName(i) == String("al_enabled")) {
+      s.setAutoLightEnabled(www.arg(i).toInt() != 0);
+      
+    } else if (www.argName(i) == String("al_brightness")) {
+      s.setAutoLightBrightness((int) www.arg(i).toInt() / 100.0f);
+      
+    } else if (www.argName(i) == String("al_duration")) {
+      s.setAutoLightDuration(www.arg(i).toInt() != 0);
+      
+    } else if (www.argName(i) == String("cp_enabled")) {
+      s.setColdProtection(www.arg(i).toInt() != 0);
+      
+    } else if (www.argName(i) == String("cp_lt")) {
+      s.setCpLowThreshold(www.arg(i).toInt());
+      
     } else if (www.argName(i) == String("restart")) {
       reboot = true; 
     } 
@@ -314,9 +312,6 @@ void WifiComm::updateSettings(Settings &s) {
     //discard anything else
   }
 
-  if (changed)
-    storeSettings(&s);
-  
   //here we're ok, send back modified settings
   sendSettings(s);
 

@@ -6,10 +6,10 @@
 #include "include_config.h"
 #include "hardware.h"
 
-void BTHomeBeacon_run(Hardware &hw) {
+void BTHomeBeacon_run(Hardware &hw, unsigned long now) {
   static unsigned long last_ble_time = 0;
-  if (millis() - last_ble_time < 5000) return; // Trasmette tassativamente solo ogni 5 secondi
-  last_ble_time = millis();
+  if (now - last_ble_time < 5000) return; // Trasmette tassativamente solo ogni 5 secondi
+  last_ble_time = now;
 
   uint8_t soc_out = (uint8_t)hw.battery->getSoC();
   uint16_t volt_out = (uint16_t)(hw.battery->getVoltage() * 1000.0f);
