@@ -231,12 +231,7 @@ void WifiComm::sendSettings(Settings &s) {
        \"alt_ssid\":\"%s\",\
        \"alt_psk\":\"%s\",\
        \"ap_no_def_gw\":%u,\
-       \"version\":\"%s\",\
-       \"al_enabled\":%s,\
-       \"al_brightness\":%u,\
-       \"al_duration\":%u,\
-       \"cp_enabled\":%s,\
-       \"cp_lt\":%f\
+       \"version\":\"%s\"\
        }"
     ),
       s.getHostname(),
@@ -247,19 +242,10 @@ void WifiComm::sendSettings(Settings &s) {
       s.getAltSsid(),
       s.getAltPsk(),
       ( s.isApDefaultGWDisabled() ? "true" : "false" ),
-      VERSION,
-      ( s.isAutoLightEnabled() ? "true" : "false" ),
-      (int) (s.getAutoLightBrightness() * 100.0f + 0.5f),
-      s.getAutoLightDuration(),
-      ( s.isColdProtectionEnabled() ? "true" : "false" ),
-      s.getCpLowThreshold()
+      VERSION
   );
       
   www.send(200, "application/json", buf);
-}
-
-void WifiComm::getSettings(Settings &s) {
-  this->sendSettings(s);
 }
 
 void WifiComm::updateSettings(Settings &s) {
@@ -289,7 +275,7 @@ void WifiComm::updateSettings(Settings &s) {
       
     } else if (www.argName(i) == String("ap_no_def_gw")) {
       s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
-  
+/*  
     } else if (www.argName(i) == String("al_enabled")) {
       s.setAutoLightEnabled(www.arg(i).toInt() != 0);
       
@@ -304,7 +290,7 @@ void WifiComm::updateSettings(Settings &s) {
       
     } else if (www.argName(i) == String("cp_lt")) {
       s.setCpLowThreshold(www.arg(i).toInt());
-      
+*/      
     } else if (www.argName(i) == String("restart")) {
       reboot = true; 
     } 
@@ -370,7 +356,7 @@ void WifiComm::setup(Settings &s, Hardware &hw) {
   DBGLN(F("ERROR initializing fs"));
 
  www.on(SETTINGS_PATH, HTTP_GET, [this, &s]() {
-    this->getSettings(s);
+    this->sendSettings(s);
  });
 
  www.on(SETTINGS_PATH, HTTP_POST, [this, &s]() {
