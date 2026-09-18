@@ -17,7 +17,8 @@ class Battery {
         float getCapacity();
         float getVoltage();
         float getCurrent();
-        void setup(Settings *settings);
+        float getRemainingAh();
+        void setup(float capacity, Settings *settings);
         void run(unsigned long now);
         /* Reset SoC to full 100%. */
         void reset();

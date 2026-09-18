@@ -48,7 +48,11 @@ float Battery::getCurrent()
     return this->current;
 }
 
-void Battery::setup(Settings *settings)
+float Battery::getRemainingAh() {
+    return capacity * soc / 100.0f;
+}
+
+void Battery::setup(float capacity, Settings *settings)
 {
   // Start I2C bus
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
@@ -66,7 +70,7 @@ void Battery::setup(Settings *settings)
   socPersistance.setup(SOC_PERSIST_MAX_TIME, SOC_PERSIST_MAX_DIFF);
   
   this->soc = socPersistance.recover();
-  this->capacity = BATTERY_CAPACITY;
+  this->capacity = capacity;
   this->voltage = 0.0f;
   this->current = 0.0f;
   this->_last_soc_time = millis();
@@ -376,7 +380,7 @@ void Hardware::setup(Settings *settings)
 
     this->settings = settings;
 
-    this->battery->setup(settings);
+    this->battery->setup(BATTERY_CAPACITY, settings);
     this->heater->setup(settings);
 
 #ifdef DISABLE_LIGHT
