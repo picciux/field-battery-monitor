@@ -18,7 +18,7 @@ void setup() {
   hardware.setup(&settings);
 
   // 2. Avviamo la tua infrastruttura Wi-Fi, il Server Web e l'aggiornamento via rete
-  wifi.setup(settings, hardware);
+  wifi.setup(settings, &hardware);
 }
 
 void loop() {

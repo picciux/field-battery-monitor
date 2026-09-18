@@ -80,7 +80,7 @@ class Heater {
         float getTemperature();
         float getLowThreshold();
         void setLowThreshold(float c);
-        void setHardwareChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
+        void setChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
         void setup(Settings *settings);
         void run(unsigned long now);
 };
@@ -93,7 +93,7 @@ class PowerOutlet {
     public:
         void setPower(float power);
         float getPower() { return _pin.getValue(); }
-        void setHardwareChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
+        void setChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
         void setup(int pinNumber, int index) { _pin.setup(pinNumber); _index = index; }
 };
 

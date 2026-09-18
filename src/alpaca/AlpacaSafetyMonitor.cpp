@@ -12,14 +12,14 @@ static AlpacaDeviceInfo g_smInfo = {
   1 // ISafetyMonitor
 };
 
-void alpacaSafetyMonitorSetup(WebServer &server, Hardware &hardware) {
+void alpacaSafetyMonitorSetup(WebServer &server, Hardware *hardware) {
   registerCommonDeviceEndpoints(server, "safetymonitor", g_smInfo, g_smConnected);
 
   const String base = "/api/v1/safetymonitor/{}/";
 
   // issafe: unica proprieta' specifica di questo device type
-  server.on(UriBraces(base + "issafe"), HTTP_GET, [&server, &hardware]() {
-    bool safe = hardware.battery->getSoC() > 15.0f;
+  server.on(UriBraces(base + "issafe"), HTTP_GET, [&server, hardware]() {
+    bool safe = hardware->battery->getSoC() > 15.0f;
     AlpacaHelper::sendBool(server, safe, AlpacaHelper::getClientTransactionID(server));
   });
 }

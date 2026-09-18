@@ -48,6 +48,12 @@
 */
 #define EVENT_BATTERY   "battery_update"
 
+/* update battery state event.
+   Pars:
+    - float hours
+*/
+#define EVENT_BATTERY_AUTONOMY   "battery_autonomy_update"
+
 /* update cold protection state event.
    Pars:
     - bool enabled/disabled
@@ -66,7 +72,7 @@
 
 /* update power outlets state event.
    Pars:
-    - int outlet index
+    - int index
     - float power 
 */
-#define EVENT_OUTLETS   "outlets_update"
+#define EVENT_OUTLET   "outlet_update"

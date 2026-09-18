@@ -160,111 +160,111 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
     return true;
 }
 
-double getSwitchValue(Hardware &hw, int number, int id) {
+double getSwitchValue(Hardware *hw, int number, int id) {
   switch(number) {
     case BATTERY_SWITCH_DEVICE_NUMBER:
       switch(id) {
-        case BATTERY_VOLTAGE: return hw.battery->getVoltage();
-        case BATTERY_CURRENT: return hw.battery->getCurrent();
-        case BATTERY_SOC: return hw.battery->getSoC();
-        case BATTERY_TEMPERATURE: return hw.heater->getTemperature();
-        case BATTERY_MIN_TEMP: return hw.heater->getLowThreshold();
+        case BATTERY_VOLTAGE: return hw->battery->getVoltage();
+        case BATTERY_CURRENT: return hw->battery->getCurrent();
+        case BATTERY_SOC: return hw->battery->getSoC();
+        case BATTERY_TEMPERATURE: return hw->heater->getTemperature();
+        case BATTERY_MIN_TEMP: return hw->heater->getLowThreshold();
       }
       return 0.0;
     case LIGHT_SWITCH_DEVICE_NUMBER:
       switch(id) {
-        case LIGHT_BRIGHTNESS: return hw.light->getBrightness() * 100.0;
-        case LIGHT_AUTO_ENABLED: return hw.light->isAutoEnabled();
-        case LIGHT_AUTO_BRIGHTNESS: return hw.light->getAutoBrightness() * 100.0;
-        case LIGHT_AUTO_DURATION: return hw.light->getAutoDuration();
+        case LIGHT_BRIGHTNESS: return hw->light->getBrightness() * 100.0;
+        case LIGHT_AUTO_ENABLED: return hw->light->isAutoEnabled();
+        case LIGHT_AUTO_BRIGHTNESS: return hw->light->getAutoBrightness() * 100.0;
+        case LIGHT_AUTO_DURATION: return hw->light->getAutoDuration();
       }
       return 0.0;
     case OUTLET_SWITCH_DEVICE_NUMBER:
       switch(id) {
-        case OUTLET_1: return hw.outlets[0]->getValue() * 100.0f;
-        case OUTLET_2: return hw.outlets[1]->getValue() * 100.0f;
+        case OUTLET_1: return hw->outlets[0]->getPower() * 100.0f;
+        case OUTLET_2: return hw->outlets[1]->getPower() * 100.0f;
       }
       return 0.0;
   }
   return 0.0;
 }
 
-void writeSwitchBool(Hardware &hw, int number, int id, bool s) {
+void writeSwitchBool(Hardware *hw, int number, int id, bool s) {
   switch(number) {
     case BATTERY_SWITCH_DEVICE_NUMBER:
       switch(id) {
         case BATTERY_MIN_TEMP: 
-          hw.heater->setLowThreshold(0.0);
+          hw->heater->setLowThreshold(0.0);
           break;
       }
       break;
     case LIGHT_SWITCH_DEVICE_NUMBER:
       switch(id) {
         case LIGHT_BRIGHTNESS: 
-          hw.light->setBrightness(s ? 1.0 : 0.0);
+          hw->light->setBrightness(s ? 1.0 : 0.0);
           break;
         case LIGHT_AUTO_ENABLED: 
-          hw.light->autoEnable(s);
+          hw->light->autoEnable(s);
           break;
         case LIGHT_AUTO_BRIGHTNESS: 
-          hw.light->setAutoBrightness(s ? 1.0 : 0.0 );
+          hw->light->setAutoBrightness(s ? 1.0 : 0.0 );
           break;
         case LIGHT_AUTO_DURATION: 
-          hw.light->setAutoDuration( s ? g_light_switches[LIGHT_AUTO_DURATION].maxValue : g_light_switches[LIGHT_AUTO_DURATION].minValue );
+          hw->light->setAutoDuration( s ? g_light_switches[LIGHT_AUTO_DURATION].maxValue : g_light_switches[LIGHT_AUTO_DURATION].minValue );
           break;
       }
       break;
     case OUTLET_SWITCH_DEVICE_NUMBER:
       switch(id) {
         case OUTLET_1: 
-          hw.outlets[0]->setValue(s ? 1.0 : 0.0 );
+          hw->outlets[0]->setPower(s ? 1.0 : 0.0 );
           break;
         case OUTLET_2: 
-          hw.outlets[1]->setValue(s ? 1.0 : 0.0 );
+          hw->outlets[1]->setPower(s ? 1.0 : 0.0 );
           break;
       }
       break;
   }
 }
 
-void writeSwitchValue(Hardware &hw, int number, int id, double v) {
+void writeSwitchValue(Hardware *hw, int number, int id, double v) {
   switch(number) {
     case BATTERY_SWITCH_DEVICE_NUMBER:
       switch(id) {
         case BATTERY_MIN_TEMP: 
-          hw.heater->setLowThreshold(v);
+          hw->heater->setLowThreshold(v);
           break;
       }
       break;
     case LIGHT_SWITCH_DEVICE_NUMBER:
       switch(id) {
         case LIGHT_BRIGHTNESS: 
-          hw.light->setBrightness(v / 100.0f);
+          hw->light->setBrightness(v / 100.0f);
           break;
         case LIGHT_AUTO_ENABLED: 
-          hw.light->autoEnable(v != 0.0);
+          hw->light->autoEnable(v != 0.0);
           break;
         case LIGHT_AUTO_BRIGHTNESS: 
-          hw.light->setAutoBrightness( v / 100.0f );
+          hw->light->setAutoBrightness( v / 100.0f );
           break;
         case LIGHT_AUTO_DURATION: 
-          hw.light->setAutoDuration( v );
+          hw->light->setAutoDuration( v );
           break;
       }
       break;
     case OUTLET_SWITCH_DEVICE_NUMBER:
       switch(id) {
         case OUTLET_1: 
-          hw.outlets[0]->setValue( v / 100.0f );
+          hw->outlets[0]->setPower( v / 100.0f );
           break;
         case OUTLET_2: 
-          hw.outlets[1]->setValue( v / 100.0f );
+          hw->outlets[1]->setPower( v / 100.0f );
           break;
       }
       break;
   }}
 
-void alpacaSwitchSetup(WebServer &server, Hardware &hardware) {
+void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   for (int i = 0; i < SWITCH_DEVICES_COUNT; i++)
     registerCommonDeviceEndpoints(server, "switch", g_devices[i].devInfo, g_switchConnected[i]);
 
@@ -328,7 +328,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware &hardware) {
 
   // ------------------ DYNAMIC DATA --------------------
   // boolean switch value
-  server.on(UriBraces(base + "getswitch"), HTTP_GET, [&server, &hardware]() {
+  server.on(UriBraces(base + "getswitch"), HTTP_GET, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
     AlpacaHelper::sendBool(server, getSwitchValue(hardware, r.deviceNumber, r.switchId) != 0.0, r.ctid);

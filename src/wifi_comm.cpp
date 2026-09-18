@@ -140,7 +140,7 @@ boolean WifiComm::wifiStart(Settings &s) {
 }
 
 /************************* www & websocket *************************/
-int WifiComm::printStatus(Hardware &hw, char *buf, int bufsize) {
+int WifiComm::printStatus(char *buf, int bufsize) {
   return snprintf_P(
     buf, 
     bufsize, 
@@ -150,20 +150,22 @@ int WifiComm::printStatus(Hardware &hw, char *buf, int bufsize) {
           current: %f,\
           soc: %u%,\
           temp: %f,\
+          rem_hours: %f,\
           auto_light_enabled: %s,\
           auto_light_brightness: %u,\
           auto_light_duration: %u,\
           cp_low_thresh: %i\
        }}"
     ),
-    hw.battery->getVoltage(),
-    hw.battery->getCurrent(),
-    hw.battery->getSoC(),
-    hw.heater->getTemperature(),
-    ( hw.light->isAutoEnabled() ? "true" : "false" ),
-    hw.light->getAutoBrightness(),
-    hw.light->getAutoDuration(),
-    hw.heater->getLowThreshold()
+    hardware->battery->getVoltage(),
+    hardware->battery->getCurrent(),
+    hardware->battery->getSoC(),
+    hardware->heater->getTemperature(),
+    hardware->battery->getAutonomyHours(),
+    ( hardware->light->isAutoEnabled() ? "true" : "false" ),
+    hardware->light->getAutoBrightness(),
+    hardware->light->getAutoDuration(),
+    hardware->heater->getLowThreshold()
   );
 }
 
@@ -188,7 +190,7 @@ int WifiComm::printCaps(char *buf, int bufsize) {
     );
 }
 
-void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght, Hardware &hw) {  
+void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {  
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       break;
@@ -196,7 +198,7 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       char buf[200];
       printCaps(buf, 200);
       webSocket.sendTXT(num, buf);
-      printStatus(hw, buf, 200);
+      printStatus(buf, 200);
       webSocket.sendTXT(num, buf);   
       break;
     case WStype_TEXT:                     // if new text data is received
@@ -209,27 +211,33 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       }
       const char *action = doc["action"] | "unknown";
       if (!strcmp(action, ACTION_BATTERY_SOC_RESET)) {
-        hw.battery->reset();
+        hardware->battery->reset();
         ret = true;
       } else if (!strcmp(action, ACTION_CP_SET_LT)) {
         float lt = doc["temperature"] | DEFAULT_COLT_PROTECTION_LOW_THRESHOLD;
-        hw.heater->setLowThreshold(lt);
+        hardware->heater->setLowThreshold(lt);
+        ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_BRIGHTNESS)) {
         float b = doc["brightness"] | 0.0;
-        hw.light->setBrightness(b);
+        hardware->light->setBrightness(b);
+        ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_ENABLE)) {
         bool e = doc["enabled"] | DEFAULT_AUTO_LIGHT_ENABLED;
-        hw.light->autoEnable(e);
+        hardware->light->autoEnable(e);
+        ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_BRIGHTNESS)) {
         float b = doc["brightness"] | DEFAULT_AUTO_LIGHT_BRIGHTNESS;
-        hw.light->setAutoBrightness(b);
+        hardware->light->setAutoBrightness(b);
+        ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_DURATION)) {
         int s = doc["seconds"] | DEFAULT_AUTO_LIGHT_DURATION;
-        hw.light->setAutoDuration(s);
+        hardware->light->setAutoDuration(s);
+        ret = true;
       } else if (!strcmp(action, ACTION_OUTLET_POWER)) {
         int i = doc["index"] | 0;
         float p = doc["power"] | 1.0f;
-        hw.outlets[i]->setPower(p);
+        hardware->outlets[i]->setPower(p);
+        ret = true;
       }
 
       if (ret)
@@ -241,10 +249,71 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
   }         
 }
 
+/*
 void WifiComm::broadcastEvent(Hardware &hw) {
   char buf[200];
-  printStatus(hw, buf, 200);
+  printStatus(buf, 200);
   webSocket.broadcastTXT(buf);
+}*/
+
+void WifiComm::onHardwareChanged(HardwareEvent event, int index)
+{
+    char payload[128];
+    int len = 0;
+    Hardware *h = hardware;
+
+    switch (event) {
+        case HardwareEvent::BatteryMainData:
+            len = snprintf(payload, sizeof(payload),
+                "{\"event\":\"" EVENT_BATTERY "\",\"voltage\":%.2f,\"current\":%.3f,\"soc\":%.1f,\"temperature\":%.1f}",
+                h->battery->getVoltage(), 
+                h->battery->getCurrent(), 
+                h->battery->getSoC(), 
+                h->heater->getTemperature());
+            break;
+
+        case HardwareEvent::BatteryAutonomy:
+            len = snprintf(payload, sizeof(payload),
+                "{\"event\":\"" EVENT_BATTERY_AUTONOMY "\",\"hours\":%.1f}",
+                h->battery->getAutonomyHours());
+            break;
+
+        case HardwareEvent::Heater:
+            len = snprintf(payload, sizeof(payload),
+                "{\"event\":\"" EVENT_CP "\",\"enabled\":%s,\"lt\":%d}",
+                "true", //TODO check
+                h->heater->getLowThreshold());
+            break;
+
+        case HardwareEvent::Light:
+            len = snprintf(payload, sizeof(payload),
+                "{\"event\":\"" EVENT_LIGHT "\",\"brightness\":%d,\"auto\":%s,\"auto_br\":%d,\"auto_dr\":%d}",
+                h->light->getBrightness(), 
+                (h->light->isAutoEnabled() ? "true" : "false"),
+                h->light->getAutoBrightness(),
+                h->light->getAutoDuration()
+              );
+            break;
+
+        case HardwareEvent::Outlet:
+            len = snprintf(payload, sizeof(payload),
+                "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"power\":%d}",
+                index, hardware->outlets[index]->getPower());
+            break;
+    }
+
+    if (len <= 0) {
+        return; // errore di formattazione — non mandare payload vuoto/corrotto
+    }
+    if ((size_t)len >= sizeof(payload)) {
+        // troncato: snprintf ritorna la lunghezza che AVREBBE scritto, non
+        // quella effettivamente scritta — questo è il modo corretto di
+        // rilevare il troncamento, non basta controllare il contenuto.
+        // Con payload così piccoli non dovrebbe mai succedere; se càpita,
+        // è un campanello che il buffer va allargato.
+    }
+
+    webSocket.broadcastTXT(payload, len);
 }
 
 void WifiComm::sendSettings(Settings &s) {
@@ -366,7 +435,7 @@ bool WifiComm::sendFile(String path) {
 }
 
 /************************* setup *************************/
-void WifiComm::setup(Settings &s, Hardware &hw) {
+void WifiComm::setup(Settings &s, Hardware *hw) {
   
  if (! wifiStart(s)) return;
 
@@ -410,9 +479,15 @@ void WifiComm::setup(Settings &s, Hardware &hw) {
 
  www.begin();
  webSocket.begin();
- webSocket.onEvent([this, &hw](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
-  wifiComm.websocketEvent(num, type, payload, lenght, hw);
+ webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
+  wifiComm.websocketEvent(num, type, payload, lenght);
  });
+
+ hw->battery->setChangeListener(this);
+ hw->heater->setChangeListener(this);
+ hw->light->setChangeListener(this);
+ for (int i = 0; i < hw->getOutletsNum(); i++)
+  hw->outlets[i]->setChangeListener(this);
 }
 
 void WifiComm::run() {

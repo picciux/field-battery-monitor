@@ -26,6 +26,6 @@ const int getSwitchDevicesCount();
 DeviceDef *getSwitchDevices();
 
 // Registra tutti gli endpoint REST ISwitchV2 su device_number = 0
-void alpacaSwitchSetup(WebServer &server, Hardware &hardware);
+void alpacaSwitchSetup(WebServer &server, Hardware *hardware);
 
 

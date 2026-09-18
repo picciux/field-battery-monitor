@@ -7,25 +7,28 @@
 
 #include "settings.h"
 #include "hardware.h"
+#include "ihardware_change_listener.h"
 
-class WifiComm {
+class WifiComm : public IHardwareChangeListener {
   public:
     void networkDisconnected();
     void getSettings(Settings &settings);
     void updateSettings(Settings &settings);
     bool sendFile(String path);
-    void websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght, Hardware &hardware);
+    void websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght);
     void run();
-    void setup(Settings &settings, Hardware &hardware);
+    void setup(Settings &settings, Hardware *hardware);
+    void onHardwareChanged(HardwareEvent event, int index);
   protected:
     int readByte();
     void sendByte(char b);
-    void broadcastEvent(Hardware &hw);
+    //void broadcastEvent(Hardware &hw);
   private:
+    Hardware *hardware;
     bool searchAndConnectNet(char *ssid, char *pass);
     boolean wifiStart(Settings &s);
     void sendSettings(Settings &s);
-    int printStatus(Hardware &hardware, char *buf, int bufsize);
+    int printStatus(char *buf, int bufsize);
     int printCaps(char *buf, int bufsize);
 };
 
