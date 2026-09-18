@@ -2,27 +2,9 @@
 #ifndef _HARDWARE_H
 #define _HARDWARE_H
 
+#include "battery.h"
 #include "settings.h"
 
-class Battery {
-    private:
-        float soc;
-        float capacity;
-        float voltage;
-        float current;
-        unsigned long _last_soc_time;
-        Settings *settings;
-    public:
-        float getSoC();
-        float getCapacity();
-        float getVoltage();
-        float getCurrent();
-        float getRemainingAh();
-        void setup(float capacity, Settings *settings);
-        void run(unsigned long now);
-        /* Reset SoC to full 100%. */
-        void reset();
-};
 
 class PwmPin {
     private:

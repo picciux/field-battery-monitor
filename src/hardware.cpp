@@ -1,104 +1,18 @@
 #include <Arduino.h>
-#include <Wire.h>
-#include <INA226_WE.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
 #include "include_config.h"
 #include "hardware.h"
-#include "soc_persistance.h"
-
-// PIN Mapping
-#define PIN_BTN              0
-#define PIN_PIR             13
-#define PIN_ONE_WIRE        25
-#define PIN_I2C_SDA         21
-#define PIN_I2C_SCL         19
-#define PIN_MOSFET_HEATER   16
-#define PIN_MOSFET_LIGHT    17
-#define PIN_MOSFET_CH3      26
-#define PIN_MOSFET_CH4      27
-#define PIN_LED             23
+#include "pins.h"
 
 #define TRANSITION_FPS        50
 #define TRANSITION_PWM_DELAY  ( 1000 / TRANSITION_FPS) // in milliseconds
 
-// Busses and sensors
-INA226_WE ina = INA226_WE(INA226_ADDR); // Indirizzo I2C standard dell'INA226
+
+/* temperature sensor */
 OneWire oneWire(PIN_ONE_WIRE);
 DallasTemperature sensors(&oneWire);
-
-float Battery::getSoC()
-{
-    return this->soc;
-}
-
-float Battery::getCapacity()
-{
-    return this->capacity;
-}
-
-float Battery::getVoltage()
-{
-    return this->voltage;
-}
-
-float Battery::getCurrent()
-{
-    return this->current;
-}
-
-float Battery::getRemainingAh() {
-    return capacity * soc / 100.0f;
-}
-
-void Battery::setup(float capacity, Settings *settings)
-{
-  // Start I2C bus
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
-  
-  if (ina.init()) {
-    // INA226 conig
-    ina.setResistorRange(INA226_RESISTOR, INA226_RANGE); 
-    ina.setCorrectionFactor(1.0);
-    // 4-sample internal average
-    ina.setAverage(INA226_AVERAGE_4);
-  }
-
-  this->settings = settings;
-
-  socPersistance.setup(SOC_PERSIST_MAX_TIME, SOC_PERSIST_MAX_DIFF);
-  
-  this->soc = socPersistance.recover();
-  this->capacity = capacity;
-  this->voltage = 0.0f;
-  this->current = 0.0f;
-  this->_last_soc_time = millis();
-}
-
-void Battery::run(unsigned long now)
-{
-  // 1. Lettura Tensione e Corrente dall'INA226
-  ina.readAndClearFlags();
-  this->voltage = ina.getBusVoltage_V();
-  
-  // Moltiplichiamo per -1.0f per invertire il segno come nel tuo YAML
-  this->current = ina.getCurrent_A() * -1.0f; 
-
-  // 4. Calcolo SoC (Integrazione dei Coulomb)
-  float delta_hours = (now - this->_last_soc_time) / 3600000.0f;
-  this->_last_soc_time = now;
-  
-  this->soc += (this->current / this->capacity) * 100.0f * delta_hours;
-  if (this->soc > 100.0f) this->soc = 100.0f;
-  if (this->soc < 0.0f) this->soc = 0.0f;
-
-  socPersistance.update(this->soc, now);
-}
-
-void Battery::reset() {
-  this->soc = 100.0f;
-}
 
 void PwmPin::setup(int pinNumber)
 {
@@ -380,7 +294,7 @@ void Hardware::setup(Settings *settings)
 
     this->settings = settings;
 
-    this->battery->setup(BATTERY_CAPACITY, settings);
+    this->battery->setup(BATTERY_CAPACITY);
     this->heater->setup(settings);
 
 #ifdef DISABLE_LIGHT
@@ -409,14 +323,8 @@ int Hardware::getOutletsNum()
 
 void Hardware::run(unsigned long now)
 {
-    static unsigned long last_battery = 0;
-    
-    if (now - last_battery >= 1000) {
-      last_battery = now;
-      this->battery->run(now);
-      this->heater->run(now);
-    }
-
+    this->battery->run(now);
+    this->heater->run(now);
     this->light->run(now);
 }
     
