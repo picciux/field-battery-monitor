@@ -31,23 +31,24 @@ float PwmPin::getValue()
   return this->value / 255.0f;
 }
 
-void PwmPin::setByteValue(uint8_t value)
+bool PwmPin::setByteValue(uint8_t value)
 {
-  if (value == this->value) return;
+  if (value == this->value) return false;
   analogWrite(this->pin, value);
   this->value = value;
+  return true;
 }
 
-void PwmPin::setValue(float value)
+bool PwmPin::setValue(float value)
 {
   if (value < 0.0f) value = 0.0f;
   if (value > 1.0f) value = 1.0f;
-  this->setByteValue((int) (value * 255.0f));
+  return this->setByteValue((int) (value * 255.0f));
 }
 
-void PwmPin::turnOn(bool on)
+bool PwmPin::turnOn(bool on)
 {
-  this->setByteValue(on ? 255 : 0);
+  return this->setByteValue(on ? 255 : 0);
 }
 
 void BaseLight::_setBrightness(float brightness)
@@ -59,8 +60,9 @@ void BaseLight::_setBrightness(float brightness)
   this->on = (brightness > 0.0f);
 }
 
-void BaseLight::setBrightness(float brightness, unsigned int transitionDurationMs)
+bool BaseLight::setBrightness(float brightness, unsigned int transitionDurationMs)
 {
+  if (this->brightness == brightness) return false;
   if (transitionDurationMs == 0) {
     _setBrightness(brightness);
     transitioning = false;
@@ -71,10 +73,12 @@ void BaseLight::setBrightness(float brightness, unsigned int transitionDurationM
     transitionStart = millis();
     transitioning = true;
   }
+
+  return true;
 }
 
-void BaseLight::setBrightness(float brightness) {
-  setBrightness(brightness, defaultTransition);
+bool BaseLight::setBrightness(float brightness) {
+  return setBrightness(brightness, defaultTransition);
 }
 
 float BaseLight::getBrightness()
@@ -92,17 +96,17 @@ void BaseLight::setDefaultTransition(unsigned long transitionDurationMs)
   this->defaultTransition = transitionDurationMs;
 }
 
-void BaseLight::turnOn()
+bool BaseLight::turnOn()
 {
   if (this->lastBrightness > 0)
-    this->setBrightness(this->lastBrightness);
+    return this->setBrightness(this->lastBrightness);
   else
-    this->setBrightness(1.0);
+    return this->setBrightness(1.0);
 }
 
-void BaseLight::turnOff()
+bool BaseLight::turnOff()
 {
-  this->setBrightness(0.0f);
+  return this->setBrightness(0.0f);
 }
 
 void BaseLight::setup(int pin)
@@ -132,7 +136,8 @@ void BaseLight::run(unsigned long now)
 void Light::setBrightness(float brightness)
 {
   this->autoEnabled = false;
-  BaseLight::setBrightness(brightness);
+  if (BaseLight::setBrightness(brightness) && _listener)
+    _listener->onHardwareChanged(HardwareEvent::Light, 0);
 }
 
 bool Light::isAutoEnabled()
@@ -145,7 +150,9 @@ void Light::autoEnable(bool enable)
   if (enable != autoEnabled) {
     this->autoEnabled = enable;
     settings->setAutoLightEnabled(enable);
-  }
+    if (_listener)
+      _listener->onHardwareChanged(HardwareEvent::Light, 0);
+  }   
 }
 
 float Light::getAutoBrightness()
@@ -158,6 +165,8 @@ void Light::setAutoBrightness(float brightness)
   if (brightness != autoBrightness) {
     this->autoBrightness = brightness;
     settings->setAutoLightBrightness(brightness);
+    if (_listener)
+      _listener->onHardwareChanged(HardwareEvent::Light, 0);
   }
 }
 
@@ -171,6 +180,8 @@ void Light::setAutoDuration(int seconds)
   if (seconds != autoDuration) {
     this->autoDuration = seconds;
     settings->setAutoLightDuration(seconds);
+    if (_listener)
+      _listener->onHardwareChanged(HardwareEvent::Light, 0);
   }
 }
 
@@ -196,6 +207,8 @@ void Light::run(unsigned long now)
         if (! this->on) {
           BaseLight::setBrightness(this->autoBrightness);
           this->autoTime = now;
+          if (_listener)
+            _listener->onHardwareChanged(HardwareEvent::Light, 0);
         }
       } else {
         this->autoTime = now;
@@ -203,6 +216,8 @@ void Light::run(unsigned long now)
   } else {
       if (this->autoTime > 0 && (now - this->autoTime >= this->autoDuration * 1000)) {
         BaseLight::setBrightness(0.0f);
+        if (_listener)
+          _listener->onHardwareChanged(HardwareEvent::Light, 0);
       }
     }
   }
@@ -225,6 +240,8 @@ void Heater::setLowThreshold(float c)
     if (c != lowThreshold) {
       this->lowThreshold = c;
       settings->setCpLowThreshold(c);
+      if (_listener)
+        _listener->onHardwareChanged(HardwareEvent::Heater, 0);
     }
 }
 
@@ -252,21 +269,29 @@ void Heater::run(unsigned long now)
   }
 }
 
+void PowerOutlet::setPower(float power) {
+  if (power != _pin.getValue()) {
+    _pin.setValue(power);
+    if (_listener)
+      _listener->onHardwareChanged(HardwareEvent::Outlet, _index);
+  }
+}
+
 Battery _battery;
 Heater _heater;
 
 #ifdef DISABLE_LIGHT
 #ifdef CHANNELS_4
-PwmPin _out1;
-PwmPin _out2;
-PwmPin _out3;
-PwmPin *_outlets[] = {
+PowerOutlet _out1;
+PowerOutlet _out2;
+PowerOutlet _out3;
+PowerOutlet *_outlets[] = {
   &_out1, &_out2, &_out3
 };
 #define OUTLETS_COUNT   3
 #else
-PwmPin __aligned_;
-PwmPin *outlets[] = {
+PowerOutlet out1;
+PowerOutlet *outlets[] = {
   &_out1
 };
 #define OUTLETS_COUNT   1
@@ -274,14 +299,14 @@ PwmPin *outlets[] = {
 #else
 Light _light;
 #ifdef CHANNELS_4
-PwmPin _out1;
-PwmPin _out2;
-PwmPin *_outlets[] = {
+PowerOutlet _out1;
+PowerOutlet _out2;
+PowerOutlet *_outlets[] = {
   &_out1, &_out2
 };
 #define OUTLETS_COUNT   2
 #else
-PwmPin *_outlets[] = {};
+PowerOutlet *_outlets[] = {};
 #define OUTLETS_COUNT    0
 #endif //CHANNELS_4
 #endif //DISABLE_LIGHT
@@ -299,18 +324,18 @@ void Hardware::setup(Settings *settings)
 
 #ifdef DISABLE_LIGHT
 #ifdef CHANNELS_4
-    this->outlets[0]->setup(PIN_MOSFET_LIGHT);
-    this->outlets[1]->setup(PIN_MOSFET_CH3);
-    this->outlets[2]->setup(PIN_MOSFET_CH4);
+    this->outlets[0]->setup(PIN_MOSFET_LIGHT, 0);
+    this->outlets[1]->setup(PIN_MOSFET_CH3, 1);
+    this->outlets[2]->setup(PIN_MOSFET_CH4, 2);
 #else
-    this->outlets[0]->setup(PIN_MOSFET_LIGHT);
+    this->outlets[0]->setup(PIN_MOSFET_LIGHT, 0);
 #endif //CHANNELS_4
 #else
     this->light = &_light;
     this->light->setup(PIN_MOSFET_LIGHT, PIN_PIR, settings);
 #ifdef CHANNELS_4
-    this->outlets[0]->setup(PIN_MOSFET_CH3);
-    this->outlets[1]->setup(PIN_MOSFET_CH4);
+    this->outlets[0]->setup(PIN_MOSFET_CH3, 0);
+    this->outlets[1]->setup(PIN_MOSFET_CH4, 1);
 #endif //CHANNELS_4
 #endif //DISABLE_LIGHT
 

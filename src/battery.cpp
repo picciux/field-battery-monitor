@@ -46,6 +46,11 @@ float Battery::getAutonomyHours() {
     return autonomyH;
 }
 
+void Battery::setChangeListener(IHardwareChangeListener* listener)
+{ 
+    _listener = listener; 
+}
+
 void Battery::setup(float capacity)
 {
   // Start I2C bus
@@ -90,14 +95,16 @@ void Battery::run(unsigned long now)
     if (soc < 0.0f) soc = 0.0f;
 
     socPersistance.update(soc, now);
-    //TODO notify listener
+    if (_listener)
+        _listener->onHardwareChanged(HardwareEvent::BatteryMainData, 0);
 
     if ( (now - _last_autonomy) >= AUTONOMY_SAMPLE_DELAY_MS ) {  
         float currentAvg = 0.0;
         if (ca.getAverage(now, currentAvg)) {
             _last_autonomy = now;
             autonomyH = BatteryAutonomy::computeHours(getRemainingAh(), currentAvg * -1.0);
-            //TODO notify listener
+            if (_listener)
+                _listener->onHardwareChanged(HardwareEvent::BatteryAutonomy, 0);
         }
     }
 }

@@ -4,7 +4,7 @@
 
 #include "battery.h"
 #include "settings.h"
-
+#include "ihardware_change_listener.h"
 
 class PwmPin {
     private:
@@ -14,9 +14,9 @@ class PwmPin {
         void setup(int pinNumber);
         int getByteValue();
         float getValue();
-        void setByteValue(uint8_t value);
-        void setValue(float value);
-        void turnOn(bool on);
+        bool setByteValue(uint8_t value);
+        bool setValue(float value);
+        bool turnOn(bool on);
 };
 
 class BaseLight {
@@ -36,13 +36,13 @@ class BaseLight {
         bool on = false;
         PwmPin pin;
     public:
-        void setBrightness(float brightness);
-        void setBrightness(float brightness, unsigned int transitionDurationMs);
+        bool setBrightness(float brightness);
+        bool setBrightness(float brightness, unsigned int transitionDurationMs);
         float getBrightness();
         unsigned long getDefaultTransision();
         void setDefaultTransition(unsigned long transitionDurationMs);
-        void turnOn();
-        void turnOff();
+        bool turnOn();
+        bool turnOff();
         void setup(int pin);
         void run(unsigned long now);
 };
@@ -55,6 +55,7 @@ class Light : public BaseLight {
         int autoDuration;
         int pirPin;
         Settings *settings;
+        IHardwareChangeListener *_listener;
     public:
         void setBrightness(float brightness); 
         bool isAutoEnabled();
@@ -62,6 +63,7 @@ class Light : public BaseLight {
         float getAutoBrightness();
         void setAutoBrightness(float brightness);
         int getAutoDuration();
+        void setChangeListener(IHardwareChangeListener *listener) { _listener = listener; };
         void setAutoDuration(int seconds);
         void setup(int pwmPin, int pirPin, Settings *settings);
         void run(unsigned long now);
@@ -73,12 +75,26 @@ class Heater {
         float lowThreshold;
         PwmPin pin;
         Settings *settings;
+        IHardwareChangeListener *_listener;
     public:
         float getTemperature();
         float getLowThreshold();
         void setLowThreshold(float c);
+        void setHardwareChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
         void setup(Settings *settings);
         void run(unsigned long now);
+};
+
+class PowerOutlet {
+    private:
+        PwmPin _pin;
+        IHardwareChangeListener *_listener;
+        int _index;
+    public:
+        void setPower(float power);
+        float getPower() { return _pin.getValue(); }
+        void setHardwareChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
+        void setup(int pinNumber, int index) { _pin.setup(pinNumber); _index = index; }
 };
 
 class Hardware {
@@ -86,7 +102,7 @@ class Hardware {
         Battery *battery;
         Light *light;
         Heater *heater;
-        PwmPin **outlets;
+        PowerOutlet **outlets;
         Settings *settings;
 
         int getOutletsNum();

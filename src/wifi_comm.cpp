@@ -229,7 +229,7 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       } else if (!strcmp(action, ACTION_OUTLET_POWER)) {
         int i = doc["index"] | 0;
         float p = doc["power"] | 1.0f;
-        hw.outlets[i]->setValue(p);
+        hw.outlets[i]->setPower(p);
       }
 
       if (ret)

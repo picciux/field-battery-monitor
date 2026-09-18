@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "ihardware_change_listener.h"
+
 namespace BatteryAutonomy {
 
 constexpr float MIN_DISCHARGE_A = 0.05f;   // sotto questa soglia, "N/A" convenzionale
@@ -25,9 +27,11 @@ class Battery {
         float capacity;
         float voltage;
         float current;
-        float autonomyH;
+        float autonomyH = BatteryAutonomy::AUTONOMY_CAP_H;
         unsigned long _last_update;
         unsigned long _last_autonomy;
+
+        IHardwareChangeListener *_listener;
     public:
         float getSoC();
         float getCapacity();
@@ -35,6 +39,8 @@ class Battery {
         float getCurrent();
         float getRemainingAh();
         float getAutonomyHours();
+
+        void setChangeListener(IHardwareChangeListener* listener);
         void setup(float capacity);
         void run(unsigned long now);
         /* Reset SoC to full 100%. */
