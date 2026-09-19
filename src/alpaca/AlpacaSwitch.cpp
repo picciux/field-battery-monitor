@@ -335,14 +335,14 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   });
 
   // getswitchvalue(Id) -> il valore analogico vero e proprio (V, A, %, C)
-  server.on(UriBraces(base + "getswitchvalue"), HTTP_GET, [&server, &hardware]() {
+  server.on(UriBraces(base + "getswitchvalue"), HTTP_GET, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
     AlpacaHelper::sendDouble(server, getSwitchValue(hardware, r.deviceNumber, r.switchId), r.ctid);
   });
 
   // setswitch(Id, State) -> on/off "grezzo"
-  server.on(UriBraces(base + "setswitch"), HTTP_PUT, [&server, &hardware]() {
+  server.on(UriBraces(base + "setswitch"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
     if (!g_devices[r.deviceNumber].switches[r.switchId].canWrite) {
@@ -356,7 +356,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   });
 
   // setswitchvalue(Id, Value) -> valore analogico, validato contro min/max
-  server.on(UriBraces(base + "setswitchvalue"), HTTP_PUT, [&server, &hardware]() {
+  server.on(UriBraces(base + "setswitchvalue"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
     const SwitchDef s = g_devices[r.deviceNumber].switches[r.switchId];
