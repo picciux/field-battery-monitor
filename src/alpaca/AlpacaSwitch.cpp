@@ -143,7 +143,7 @@ struct AlpacaSwitchRequest {
 };
 
 static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
-    int dn = AlpacaHelper::pathArgToInt(server, -1);
+    int dn = AlpacaHelper::pathArgToInt(server, 0, -1);
     int id = AlpacaHelper::queryArgToInt(server, "Id", -1);
     uint32_t ctid = AlpacaHelper::getClientTransactionID(server);
     if (!isValidSwitchDeviceNumber(dn)) {
