@@ -4,7 +4,6 @@
 #include "hardware.h"
 #include "ble.h"
 
-WifiComm wifi;
 Hardware hardware;
 Settings settings;
 
@@ -18,12 +17,12 @@ void setup() {
   hardware.setup(&settings);
 
   // 2. Avviamo la tua infrastruttura Wi-Fi, il Server Web e l'aggiornamento via rete
-  wifi.setup(settings, &hardware);
+  wifiComm.setup(settings, &hardware);
 }
 
 void loop() {
   unsigned long now = millis();
-  wifi.run();
+  wifiComm.run();
   BTHomeBeacon_run(hardware, now);
   hardware.run(now);
   // TODO intercept restart requests and call:

@@ -32,4 +32,6 @@ class WifiComm : public IHardwareChangeListener {
     int printCaps(char *buf, int bufsize);
 };
 
+extern WifiComm wifiComm;
+
 #endif //WIFI_COMM_H

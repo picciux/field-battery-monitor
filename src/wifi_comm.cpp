@@ -425,7 +425,7 @@ bool WifiComm::sendFile(String path) {
 
 /************************* setup *************************/
 void WifiComm::setup(Settings &s, Hardware *hw) {
-  
+ this->hardware = hw;
  if (! wifiStart(s)) return;
 
 #ifdef WIFI_DEBUG_ON_WIFI
