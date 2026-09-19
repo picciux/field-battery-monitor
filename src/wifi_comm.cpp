@@ -182,10 +182,10 @@ int WifiComm::printCaps(char *buf, int bufsize) {
     const char *light = "false";
 #endif
 
-    return snprintf_P(
+    return snprintf(
       buf, 
       bufsize, 
-      PSTR("{\"type\":\"capabilities\", \"payload\":{\"channels\":%u,\"light\":%s}}"),
+      "{\"type\":\"capabilities\", \"payload\":{\"channels\":%u,\"light\":%s}}",
       nchans, light
     );
 }
@@ -318,8 +318,9 @@ void WifiComm::onHardwareChanged(HardwareEvent event, int index)
 
 void WifiComm::sendSettings(Settings &s) {
   char buf[800];
-  snprintf_P(buf, 800, 
-    PSTR(
+  int len = 0;
+
+  len = snprintf(buf, 800, 
       "{\"hostname\":\"%s\",\
        \"display_name\":\"%s\",\
        \"ap_psk\":\"%s\",\
@@ -329,8 +330,7 @@ void WifiComm::sendSettings(Settings &s) {
        \"alt_psk\":\"%s\",\
        \"ap_no_def_gw\":%u,\
        \"version\":\"%s\"\
-       }"
-    ),
+       }",
       s.getHostname(),
       s.getDisplayName(),
       s.getApPsk(),
@@ -341,7 +341,12 @@ void WifiComm::sendSettings(Settings &s) {
       ( s.isApDefaultGWDisabled() ? "true" : "false" ),
       VERSION
   );
-      
+  if (len <= 0) return;
+  if (len > sizeof(buf))
+  {
+    // buffer too small for content
+  }
+
   www.send(200, "application/json", buf);
 }
 
@@ -372,22 +377,6 @@ void WifiComm::updateSettings(Settings &s) {
       
     } else if (www.argName(i) == String("ap_no_def_gw")) {
       s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
-/*  
-    } else if (www.argName(i) == String("al_enabled")) {
-      s.setAutoLightEnabled(www.arg(i).toInt() != 0);
-      
-    } else if (www.argName(i) == String("al_brightness")) {
-      s.setAutoLightBrightness((int) www.arg(i).toInt() / 100.0f);
-      
-    } else if (www.argName(i) == String("al_duration")) {
-      s.setAutoLightDuration(www.arg(i).toInt() != 0);
-      
-    } else if (www.argName(i) == String("cp_enabled")) {
-      s.setColdProtection(www.arg(i).toInt() != 0);
-      
-    } else if (www.argName(i) == String("cp_lt")) {
-      s.setCpLowThreshold(www.arg(i).toInt());
-*/      
     } else if (www.argName(i) == String("restart")) {
       reboot = true; 
     } 
