@@ -107,37 +107,29 @@ DeviceDef *getSwitchDevices() {
   return g_devices;
 }
 
-static bool g_switchConnected[] = {
-  true, true, true
-};
+static bool g_switchConnected[SWITCH_DEVICES_COUNT];
 
-/*
-const AlpacaDeviceInfo& getBatterySwitchInfo() { return g_batterySwitchInfo; }
-const AlpacaDeviceInfo& getLightSwitchInfo() { return g_lightSwitchInfo; }
-const AlpacaDeviceInfo& getOutletsSwitchInfo() { return g_outletsSwitchInfo; }
-
-
-const AlpacaDeviceInfo& getSwitchDeviceInfo(int number) {
-  switch(number) {
-    case BATTERY_SWITCH_DEVICE_NUMBER: return g_batterySwitchInfo;
-    case LIGHT_SWITCH_DEVICE_NUMBER: return g_lightSwitchInfo;
-    case OUTLET_SWITCH_DEVICE_NUMBER: return g_outletsSwitchInfo;
-  }
+static int findSwitchDeviceIndex(int number) {
+  for (int i = 0; i < SWITCH_DEVICES_COUNT; i++)
+    if (g_devices[i].number == number) return i;
+  return -1;
 }
-*/
+
+static AlpacaDeviceRef switchResolver(int number) {
+  int idx = findSwitchDeviceIndex(number);
+  if (idx < 0) return {};
+  return { &g_devices[idx].devInfo, &g_switchConnected[idx] };
+}
 
 const int getSwitchDevicesCount() { return SWITCH_DEVICES_COUNT; } 
 
-static bool isValidSwitchDeviceNumber(int number) {
-  return number >= 0 && number < SWITCH_DEVICES_COUNT;
-}
-
-static bool isValidSwitchId(int number, int id) {
-  return isValidSwitchDeviceNumber(number) && id >= 0 && id < g_devices[number].num_switches;
+static bool isValidSwitchId(int index, int id) {
+  return index >= 0 && id >= 0 && id < g_devices[index].num_switches;
 }
 
 struct AlpacaSwitchRequest {
-  int deviceNumber;
+  int deviceNumber;   // numero fisso: serve a getSwitchValue/writeSwitch*
+  int deviceIndex;    // posizione in g_devices: serve a g_devices[...]
   int switchId;
   uint32_t ctid;
 };
@@ -146,15 +138,17 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
     int dn = AlpacaHelper::pathArgToInt(server, 0, -1);
     int id = AlpacaHelper::queryArgToInt(server, "Id", -1);
     uint32_t ctid = AlpacaHelper::getClientTransactionID(server);
-    if (!isValidSwitchDeviceNumber(dn)) {
+    int idx = findSwitchDeviceIndex(dn);
+    if (idx < 0) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Device number out of range", ctid);
       return false;
     }
-    if (!isValidSwitchId(dn, id)) {
+    if (!isValidSwitchId(idx, id)) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Switch Id out of range", ctid);
       return false;
     }
     request.ctid = ctid;
+    request.deviceIndex = idx;
     request.deviceNumber = dn;
     request.switchId = id;
     return true;
@@ -265,9 +259,8 @@ void writeSwitchValue(Hardware *hw, int number, int id, double v) {
   }}
 
 void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
-  for (int i = 0; i < SWITCH_DEVICES_COUNT; i++)
-    registerCommonDeviceEndpoints(server, "switch", g_devices[i].devInfo, g_switchConnected[i]);
-
+  for (int i = 0; i < SWITCH_DEVICES_COUNT; i++) g_switchConnected[i] = true;
+    registerCommonDeviceEndpoints(server, "switch", switchResolver);
   const String base = "/api/v1/switch/{}/";
 
   // ------------------ STATIC DATA --------------------
@@ -276,53 +269,54 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "maxswitch"), HTTP_GET, [&server]() {
     int dn = AlpacaHelper::pathArgToInt(server, 0);
     uint32_t ctid = AlpacaHelper::getClientTransactionID(server);
-    if (!isValidSwitchDeviceNumber(dn)) {
+    int idx = findSwitchDeviceIndex(dn);
+    if (idx < 0) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Number fuori range", ctid);
       return;
     }
-    AlpacaHelper::sendInt(server, g_devices[dn].num_switches, ctid);
+    AlpacaHelper::sendInt(server, g_devices[idx].num_switches, ctid);
   });
 
   // getswitchdescription(Id)
   server.on(UriBraces(base + "getswitchdescription"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendString(server, g_devices[r.deviceNumber].switches[r.switchId].description, r.ctid);
+    AlpacaHelper::sendString(server, g_devices[r.deviceIndex].switches[r.switchId].description, r.ctid);
   });
 
   // getswitchname(Id)
   server.on(UriBraces(base + "getswitchname"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendString(server, g_devices[r.deviceNumber].switches[r.switchId].name, r.ctid);
+    AlpacaHelper::sendString(server, g_devices[r.deviceIndex].switches[r.switchId].name, r.ctid);
   });
 
   // canwrite(Id)
   server.on(UriBraces(base + "canwrite"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendBool(server, g_devices[r.deviceNumber].switches[r.switchId].canWrite, r.ctid);
+    AlpacaHelper::sendBool(server, g_devices[r.deviceIndex].switches[r.switchId].canWrite, r.ctid);
   });
   
 // minswitchvalue(Id)
   server.on(UriBraces(base + "minswitchvalue"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendDouble(server, g_devices[r.deviceNumber].switches[r.switchId].minValue, r.ctid);
+    AlpacaHelper::sendDouble(server, g_devices[r.deviceIndex].switches[r.switchId].minValue, r.ctid);
   });
 
   // maxswitchvalue(Id)
   server.on(UriBraces(base + "maxswitchvalue"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendDouble(server, g_devices[r.deviceNumber].switches[r.switchId].maxValue, r.ctid);
+    AlpacaHelper::sendDouble(server, g_devices[r.deviceIndex].switches[r.switchId].maxValue, r.ctid);
   });
 
   // switchstep(Id)
   server.on(UriBraces(base + "switchstep"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendDouble(server, g_devices[r.deviceNumber].switches[r.switchId].step, r.ctid);
+    AlpacaHelper::sendDouble(server, g_devices[r.deviceIndex].switches[r.switchId].step, r.ctid);
   });
 
 

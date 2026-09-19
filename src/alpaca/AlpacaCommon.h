@@ -59,8 +59,17 @@ public:
   static bool   queryArgToBool(WebServer &server, const char *name, bool defaultValue = false);
 };
 
-// Registra i metodi "comuni" ASCOM (connected, description, driverinfo, ...)
-// per un dato device_type (es. "switch", "observingconditions") sul device_number 0.
-// 'connectedFlag' viene condiviso con il modulo chiamante per riflettere lo stato reale.
+struct AlpacaDeviceRef {
+  const AlpacaDeviceInfo *info;   // nullptr = device number non valido
+  bool                   *connected;
+
+  AlpacaDeviceRef() : info(nullptr), connected(nullptr) {}
+  AlpacaDeviceRef(const AlpacaDeviceInfo *i, bool *c) : info(i), connected(c) {}
+};
+
+using AlpacaDeviceResolver = AlpacaDeviceRef (*)(int deviceNumber);
+
+// Registra i metodi comuni ASCOM UNA VOLTA per device type. Il device viene
+// risolto a ogni richiesta dal numero nel path.
 void registerCommonDeviceEndpoints(WebServer &server, const char *deviceType,
-                                    const AlpacaDeviceInfo &info, bool &connectedFlag);
+                                    AlpacaDeviceResolver resolver);

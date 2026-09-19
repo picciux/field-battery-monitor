@@ -127,61 +127,56 @@ void AlpacaHelper::sendError(WebServer &server, int errorNumber, const String &e
 // ---------------------------------------------------------------------------
 // Metodi comuni ASCOM (validi per qualunque device_type, device_number = 0)
 // ---------------------------------------------------------------------------
+static bool resolveDevice(WebServer &server, AlpacaDeviceResolver resolver,
+                          AlpacaDeviceRef &ref, uint32_t &ctid) {
+  ctid = AlpacaHelper::getClientTransactionID(server);
+  ref = resolver(AlpacaHelper::pathArgToInt(server, 0, -1));
+  if (!ref.info) {
+    AlpacaHelper::sendError(server, AlpacaError::InvalidValue,
+                             "Device number out of range", ctid);
+    return false;
+  }
+  return true;
+}
+
+static void registerStringProperty(WebServer &server, const String &path,
+                                   AlpacaDeviceResolver resolver,
+                                   const char *AlpacaDeviceInfo::*field) {
+  server.on(UriBraces(path), HTTP_GET, [&server, resolver, field]() {
+    AlpacaDeviceRef ref; uint32_t ctid;
+    if (!resolveDevice(server, resolver, ref, ctid)) return;
+    AlpacaHelper::sendString(server, ref.info->*field, ctid);
+  });
+}
+
 void registerCommonDeviceEndpoints(WebServer &server, const char *deviceType,
-                                    const AlpacaDeviceInfo &info, bool &connectedFlag) {
-  String base = String("/api/v1/") + deviceType + "/{}/";
+                                    AlpacaDeviceResolver resolver) {
+  const String base = String("/api/v1/") + deviceType + "/{}/";
 
-  server.on(UriBraces(base + "connected"), HTTP_GET, [&server, &connectedFlag]() {
-    AlpacaHelper::sendBool(server, connectedFlag, AlpacaHelper::getClientTransactionID(server));
+  server.on(UriBraces(base + "connected"), HTTP_GET, [&server, resolver]() {
+    AlpacaDeviceRef ref; uint32_t ctid;
+    if (!resolveDevice(server, resolver, ref, ctid)) return;
+    AlpacaHelper::sendBool(server, *ref.connected, ctid);
   });
 
-  server.on(UriBraces(base + "connected"), HTTP_PUT, [&server, &connectedFlag]() {
-    connectedFlag = AlpacaHelper::queryArgToBool(server, "Connected", connectedFlag);
-    AlpacaHelper::sendEmptyOk(server, AlpacaHelper::getClientTransactionID(server));
+  server.on(UriBraces(base + "connected"), HTTP_PUT, [&server, resolver]() {
+    AlpacaDeviceRef ref; uint32_t ctid;
+    if (!resolveDevice(server, resolver, ref, ctid)) return;
+    *ref.connected = AlpacaHelper::queryArgToBool(server, "Connected", *ref.connected);
+    AlpacaHelper::sendEmptyOk(server, ctid);
   });
 
-  server.on(UriBraces(base + "description"), HTTP_GET, [&server, &info]() {
-    AlpacaHelper::sendString(server, info.description, AlpacaHelper::getClientTransactionID(server));
+  registerStringProperty(server, base + "description",   resolver, &AlpacaDeviceInfo::description);
+  registerStringProperty(server, base + "driverinfo",    resolver, &AlpacaDeviceInfo::driverInfo);
+  registerStringProperty(server, base + "driverversion", resolver, &AlpacaDeviceInfo::driverVersion);
+  registerStringProperty(server, base + "name",          resolver, &AlpacaDeviceInfo::name);
+
+  server.on(UriBraces(base + "interfaceversion"), HTTP_GET, [&server, resolver]() {
+    AlpacaDeviceRef ref; uint32_t ctid;
+    if (!resolveDevice(server, resolver, ref, ctid)) return;
+    AlpacaHelper::sendInt(server, ref.info->interfaceVersion, ctid);
   });
 
-  server.on(UriBraces(base + "driverinfo"), HTTP_GET, [&server, &info]() {
-    AlpacaHelper::sendString(server, info.driverInfo, AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "driverversion"), HTTP_GET, [&server, &info]() {
-    AlpacaHelper::sendString(server, info.driverVersion, AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "interfaceversion"), HTTP_GET, [&server, &info]() {
-    AlpacaHelper::sendInt(server, info.interfaceVersion, AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "name"), HTTP_GET, [&server, &info]() {
-    AlpacaHelper::sendString(server, info.name, AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "supportedactions"), HTTP_GET, [&server]() {
-    // TODO: aggiungi qui eventuali azioni custom esposte via /action
-    AlpacaHelper::sendStringArray(server, nullptr, 0, AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "action"), HTTP_PUT, [&server]() {
-    AlpacaHelper::sendError(server, AlpacaError::ActionNotImplemented,
-                             "Action not implemented", AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "commandblind"), HTTP_PUT, [&server]() {
-    AlpacaHelper::sendError(server, AlpacaError::NotImplemented,
-                             "CommandBlind not implemented", AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "commandbool"), HTTP_PUT, [&server]() {
-    AlpacaHelper::sendError(server, AlpacaError::NotImplemented,
-                             "CommandBool not implemented", AlpacaHelper::getClientTransactionID(server));
-  });
-
-  server.on(UriBraces(base + "commandstring"), HTTP_PUT, [&server]() {
-    AlpacaHelper::sendError(server, AlpacaError::NotImplemented,
-                             "CommandString not implemented", AlpacaHelper::getClientTransactionID(server));
-  });
+  // supportedactions, action, commandblind, commandbool, commandstring:
+  // invariati rispetto a ora (non dipendono dal device)
 }
