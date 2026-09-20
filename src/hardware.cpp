@@ -281,19 +281,15 @@ void Heater::run(unsigned long now)
     tempValid = false;
   }
 
-  /* 2. Automazione anti-ghiaccio, con failsafe: senza dato valido
-        (o con la protezione disabilitata) il riscaldatore resta spento */
-  bool wasOn = isOn();
-  if (!settings->isColdProtectionEnabled() || !tempValid) {
+    /* 2. Automazione anti-freddo. Sempre attiva; senza dato valido
+        il riscaldatore resta spento (failsafe) */
+  if (!tempValid) {
     pin.turnOn(false);
   } else if (temperature <= lowThreshold) {
     pin.turnOn(true);
   } else if (temperature >= lowThreshold + HEATER_HYSTERESIS_C) {
     pin.turnOn(false);
   }
-
-  if (isOn() != wasOn && _listener)
-    _listener->onHardwareChanged(HardwareEvent::Heater, 0);
 }
 
 void PowerOutlet::setPower(float power) {
