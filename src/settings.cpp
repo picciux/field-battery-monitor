@@ -12,7 +12,6 @@
 #define ALT_PSK             "alt_psk"
 #define AP_PSK              "ap_psk"
 #define AP_NO_DEF_GW        "ap_no_def_gw"
-#define COLD_PROTECTION     "cold_protection"
 #define CP_LOW_THRESHOLD    "cp_low_threshold"
 #define AUTO_LIGHT          "auto_light"
 #define AUTO_LIGHT_BRIGHT   "al_brightness"
@@ -76,13 +75,6 @@ void Settings::setApDefaultGWDisabled(const bool &disabled) {
   g_prefs.putBool(AP_NO_DEF_GW, apDontBeDefaultGW); 
 }
 
-bool Settings::isColdProtectionEnabled() { return coldProtection; }
-void Settings::setColdProtection(const bool &enable) { 
-  if (enable == coldProtection) return;
-  coldProtection = enable; 
-  g_prefs.putBool(COLD_PROTECTION, coldProtection);
-}
-
 float Settings::getCpLowThreshold() { return cpLowThreshold; }
 void Settings::setCpLowThreshold(const float &cpLowThreshold_) { 
   //TODO check valid value
@@ -128,8 +120,7 @@ void Settings::setup() {
   
   apDontBeDefaultGW = g_prefs.getBool(AP_NO_DEF_GW, DEFAULT_AP_DONT_BE_DEF_GW);
   
-  coldProtection = g_prefs.getBool(COLD_PROTECTION, DEFAULT_COLD_PROTECTION_ENABLED);
-  cpLowThreshold = g_prefs.getFloat(CP_LOW_THRESHOLD, DEFAULT_COLT_PROTECTION_LOW_THRESHOLD);
+  cpLowThreshold = g_prefs.getFloat(CP_LOW_THRESHOLD, DEFAULT_COLD_PROTECTION_LOW_THRESHOLD);
 
   autoLightEnabled = g_prefs.getBool(AUTO_LIGHT, DEFAULT_AUTO_LIGHT_ENABLED);
   autoLightBrightness = g_prefs.getFloat(AUTO_LIGHT_BRIGHT, DEFAULT_AUTO_LIGHT_BRIGHTNESS);

@@ -40,9 +40,6 @@ class Settings {
     bool isApDefaultGWDisabled();
     void setApDefaultGWDisabled(const bool &disabled);
 
-    bool isColdProtectionEnabled();
-    void setColdProtection(const bool &enable);
-
     float getCpLowThreshold();
     void setCpLowThreshold(const float &cpLowThreshold_);
 

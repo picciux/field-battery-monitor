@@ -56,7 +56,6 @@
 
 /* update cold protection state event.
    Pars:
-    - bool enabled/disabled
     - int low threshold temperature 
 */
 #define EVENT_CP        "cold_protection_update"

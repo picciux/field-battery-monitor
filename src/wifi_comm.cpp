@@ -214,7 +214,7 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
         hardware->battery->reset();
         ret = true;
       } else if (!strcmp(action, ACTION_CP_SET_LT)) {
-        float lt = doc["temperature"] | DEFAULT_COLT_PROTECTION_LOW_THRESHOLD;
+        float lt = doc["temperature"] | DEFAULT_COLD_PROTECTION_LOW_THRESHOLD;
         hardware->heater->setLowThreshold(lt);
         ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_BRIGHTNESS)) {
@@ -249,13 +249,6 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
   }         
 }
 
-/*
-void WifiComm::broadcastEvent(Hardware &hw) {
-  char buf[200];
-  printStatus(buf, 200);
-  webSocket.broadcastTXT(buf);
-}*/
-
 void WifiComm::onHardwareChanged(HardwareEvent event, int index)
 {
     char payload[128];
@@ -280,8 +273,7 @@ void WifiComm::onHardwareChanged(HardwareEvent event, int index)
 
         case HardwareEvent::Heater:
             len = snprintf(payload, sizeof(payload),
-                "{\"event\":\"" EVENT_CP "\",\"enabled\":%s,\"lt\":%d}",
-                "true", //TODO check
+                "{\"event\":\"" EVENT_CP "\",\"lt\":%d}",
                 h->heater->getLowThreshold());
             break;
 
