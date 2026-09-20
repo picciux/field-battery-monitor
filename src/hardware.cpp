@@ -138,7 +138,7 @@ void BaseLight::run(unsigned long now)
 
 void Light::setBrightness(float brightness)
 {
-  this->autoEnabled = false;
+  this->autoActive = false;
   if (BaseLight::setBrightness(brightness) && _listener)
     _listener->onHardwareChanged(HardwareEvent::Light, 0);
 }
@@ -152,10 +152,14 @@ void Light::autoEnable(bool enable)
 {
   if (enable != autoEnabled) {
     this->autoEnabled = enable;
+    if (!enable && autoActive) {
+      autoActive = false;
+      BaseLight::setBrightness(0.0f);
+    }
     settings->setAutoLightEnabled(enable);
     if (_listener)
       _listener->onHardwareChanged(HardwareEvent::Light, 0);
-  }   
+  }
 }
 
 float Light::getAutoBrightness()
@@ -200,31 +204,33 @@ void Light::setup(int pwmPin, int pirPin, Settings *settings)
     this->autoDuration = settings->getAutoLightDuration();
 }
 
-void Light::run(unsigned long now) 
+void Light::run(unsigned long now)
 {
- bool is_moving = digitalRead(pirPin);
+  if (autoEnabled) {
+    bool isMoving = digitalRead(pirPin);
 
- if (this->autoEnabled) {
-    if (is_moving) {
-      if (this->autoTime == 0) {
-        if (! this->on) {
-          BaseLight::setBrightness(this->autoBrightness);
-          this->autoTime = now;
+    if (isMoving) {
+      if (!autoActive) {
+        // non tocco la luce se e' gia' accesa (es. da comando manuale)
+        if (!on) {
+          BaseLight::setBrightness(autoBrightness);
+          autoActive = true;
+          autoTime = now;
           if (_listener)
             _listener->onHardwareChanged(HardwareEvent::Light, 0);
         }
       } else {
-        this->autoTime = now;
+        autoTime = now;   // movimento continuo: rinnova il timer
       }
-  } else {
-      if (this->autoTime > 0 && (now - this->autoTime >= this->autoDuration * 1000)) {
-        BaseLight::setBrightness(0.0f);
-        if (_listener)
-          _listener->onHardwareChanged(HardwareEvent::Light, 0);
-      }
+    } else if (autoActive &&
+               (now - autoTime) >= (unsigned long) autoDuration * 1000UL) {
+      BaseLight::setBrightness(0.0f);
+      autoActive = false;
+      if (_listener)
+        _listener->onHardwareChanged(HardwareEvent::Light, 0);
     }
   }
-  
+
   BaseLight::run(now);
 }
 

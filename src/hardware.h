@@ -50,6 +50,7 @@ class BaseLight {
 class Light : public BaseLight {
     private:
         bool autoEnabled = false;
+        bool autoActive = false; 
         unsigned long autoTime = 0;
         float autoBrightness;
         int autoDuration;
