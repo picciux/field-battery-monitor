@@ -24,8 +24,13 @@ static const char *const NOT_IMPLEMENTED_PROPS[] = {
 static const int NUM_NOT_IMPLEMENTED_PROPS =
     sizeof(NOT_IMPLEMENTED_PROPS) / sizeof(NOT_IMPLEMENTED_PROPS[0]);
 
+static AlpacaDeviceRef ocResolver(int number) {
+  if (number != 0) return {};
+  return AlpacaDeviceRef(&g_ocInfo, &g_ocConnected);
+}
+
 void alpacaObservingConditionsSetup(WebServer &server) {
-  registerCommonDeviceEndpoints(server, "observingconditions", g_ocInfo, g_ocConnected);
+  registerCommonDeviceEndpoints(server, "observingconditions", ocResolver);
 
   const String base = "/api/v1/observingconditions/{}/";
 

@@ -339,7 +339,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "setswitch"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    if (!g_devices[r.deviceNumber].switches[r.switchId].canWrite) {
+    if (!g_devices[r.deviceIndex].switches[r.switchId].canWrite) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidOperation,
                                "Switch read-only (sensore)", r.ctid);
       return;
@@ -353,7 +353,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "setswitchvalue"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    const SwitchDef s = g_devices[r.deviceNumber].switches[r.switchId];
+    const SwitchDef s = g_devices[r.deviceIndex].switches[r.switchId];
     if (!s.canWrite) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidOperation,
                                "Switch read-only (sensore)", r.ctid);
