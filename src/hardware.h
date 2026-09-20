@@ -71,13 +71,19 @@ class Light : public BaseLight {
 
 class Heater {
     private:
-        float temperature;
+        float temperature = 0.0f;
+        bool tempValid = false;
+        bool conversionPending = false;
+        unsigned long lastRequest = 0;
+        unsigned long lastValidRead = 0;
         float lowThreshold;
         PwmPin pin;
         Settings *settings;
-        IHardwareChangeListener *_listener;
+        IHardwareChangeListener *_listener = nullptr;
     public:
         float getTemperature();
+        bool isTemperatureValid() const { return tempValid; }
+        bool isOn() { return pin.getByteValue() > 0; }
         float getLowThreshold();
         void setLowThreshold(float c);
         void setChangeListener(IHardwareChangeListener *listener) { _listener = listener; }

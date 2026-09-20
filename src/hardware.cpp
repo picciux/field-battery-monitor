@@ -9,6 +9,9 @@
 #define TRANSITION_FPS        50
 #define TRANSITION_PWM_DELAY  ( 1000 / TRANSITION_FPS) // in milliseconds
 
+#define TEMP_SAMPLE_INTERVAL_MS   5000   // ogni quanto avviare una conversione
+#define TEMP_CONVERSION_MS         800   // DS18B20 a 12 bit: max 750 ms
+#define TEMP_STALE_TIMEOUT_MS    60000   // oltre, il dato e' considerato non valido
 
 /* temperature sensor */
 OneWire oneWire(PIN_ONE_WIRE);
@@ -251,22 +254,46 @@ void Heater::setup(Settings *settings)
   this->settings = settings;
   this->lowThreshold = settings->getCpLowThreshold();
   sensors.begin();
+  sensors.setWaitForConversion(false);   // niente attese bloccanti
 }
 
 void Heater::run(unsigned long now)
 {
-  sensors.requestTemperatures();
-  float t = sensors.getTempCByIndex(0);
-  if (t != DEVICE_DISCONNECTED_C) {
-    this->temperature = t;
+  /* 1. Lettura temperatura, non bloccante */
+  if (!conversionPending) {
+    if (lastRequest == 0 || (now - lastRequest) >= TEMP_SAMPLE_INTERVAL_MS) {
+      sensors.requestTemperatures();
+      lastRequest = now;
+      conversionPending = true;
+    }
+  } else if ((now - lastRequest) >= TEMP_CONVERSION_MS) {
+    conversionPending = false;
+    float t = sensors.getTempCByIndex(0);
+    if (t != DEVICE_DISCONNECTED_C) {
+      temperature = t;
+      tempValid = true;
+      lastValidRead = now;
+    }
   }
 
-  /* Anti-ice automation */
-  if (this->temperature <= this->lowThreshold) {
-    this->pin.turnOn(true);
-  } else if (this->temperature >= this->lowThreshold + HEATER_HYSTERESIS_C) {
-    this->pin.turnOn(false);
+  /* dato troppo vecchio (sensore scollegato/guasto) */
+  if (tempValid && (now - lastValidRead) > TEMP_STALE_TIMEOUT_MS) {
+    tempValid = false;
   }
+
+  /* 2. Automazione anti-ghiaccio, con failsafe: senza dato valido
+        (o con la protezione disabilitata) il riscaldatore resta spento */
+  bool wasOn = isOn();
+  if (!settings->isColdProtectionEnabled() || !tempValid) {
+    pin.turnOn(false);
+  } else if (temperature <= lowThreshold) {
+    pin.turnOn(true);
+  } else if (temperature >= lowThreshold + HEATER_HYSTERESIS_C) {
+    pin.turnOn(false);
+  }
+
+  if (isOn() != wasOn && _listener)
+    _listener->onHardwareChanged(HardwareEvent::Heater, 0);
 }
 
 void PowerOutlet::setPower(float power) {
