@@ -102,7 +102,6 @@ class Led : public BaseLight {
         static constexpr int BLINK_ON = 0;
         static constexpr int BLINK_OFF = 1;
         static constexpr int BLINK_PAUSE = 2;
-        static constexpr int BLIBK_STATES = 3;
 
         bool blinking = false;
         int blinkState = BLINK_ON;
@@ -116,10 +115,10 @@ class Led : public BaseLight {
 
     public:
         bool isBlinking() const { return blinking; }
-        void startBlink(float brightness, unsigned long on, unsigned long off, int repeat = 1, 
+        void startBlink(float brightness, unsigned long onMs_, unsigned long offMs_, int repeat = 1, 
             unsigned long pause = 0) {
-            onMs = on;
-            offMs = off;
+            onMs = onMs_;
+            offMs = offMs_;
             if (repeat < 1) repeat = 1;
             this->repeat = repeat;
             this->pauseMs = pause;
