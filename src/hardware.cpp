@@ -277,8 +277,51 @@ void PowerOutlet::setPower(float power) {
   }
 }
 
+void Led::setBrightness(float brightness) {
+  this->blinking = false;
+  BaseLight::setBrightness(brightness);
+}
+
+void Led::run(unsigned long now) {
+  if (! blinking) {
+    BaseLight::run(now);
+    return;
+  }
+
+  /* blinking code */
+  switch(blinkState) {
+    case BLINK_ON:
+      if (now - blinkLast >= onMs) {
+        BaseLight::setBrightness(0.0);
+        blinkState = BLINK_OFF;
+        blinkLast = now;
+      }
+    case BLINK_OFF:
+      if (now - blinkLast >= offMs) {
+        BaseLight::setBrightness(0.0);
+        if (blinkRc < repeat) {
+          BaseLight::setBrightness(blinkBrightness);
+          blinkState = BLINK_ON;
+          blinkRc++;
+        } else {
+          blinkState = BLINK_PAUSE;
+          blinkRc = 1;
+        }
+        blinkLast = now;
+      }
+
+    case BLINK_PAUSE:
+      if (now - blinkLast >= pauseMs) {
+        BaseLight::setBrightness(blinkBrightness);
+        blinkState = BLINK_ON;
+        blinkLast = now;
+      }
+  }
+}
+
 Battery _battery;
 Heater _heater;
+Led _led;
 
 #ifdef DISABLE_LIGHT
 #ifdef CHANNELS_4
@@ -316,6 +359,7 @@ void Hardware::setup(Settings *settings)
     this->battery = &_battery;
     this->heater = &_heater;
     this->outlets = _outlets;
+    this->led = &_led;
 
     this->settings = settings;
 
@@ -339,6 +383,7 @@ void Hardware::setup(Settings *settings)
 #endif //CHANNELS_4
 #endif //DISABLE_LIGHT
 
+  this->led->setup(PIN_LED);
 }
 
 int Hardware::getOutletsNum() 
@@ -351,6 +396,7 @@ void Hardware::run(unsigned long now)
     this->battery->run(now);
     this->heater->run(now);
     this->light->run(now);
+    this->led->run(now);
 }
     
 

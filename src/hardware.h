@@ -97,12 +97,50 @@ class PowerOutlet {
         void setup(int pinNumber, int index) { _pin.setup(pinNumber); _index = index; }
 };
 
+class Led : public BaseLight {
+    private:
+        static constexpr int BLINK_ON = 0;
+        static constexpr int BLINK_OFF = 1;
+        static constexpr int BLINK_PAUSE = 2;
+        static constexpr int BLIBK_STATES = 3;
+
+        bool blinking = false;
+        int blinkState = BLINK_ON;
+        unsigned long blinkLast;
+        int blinkRc = 1;
+        unsigned long onMs;
+        unsigned long offMs;
+        int repeat = 1;
+        unsigned long pauseMs;
+        float blinkBrightness;
+
+    public:
+        bool isBlinking() const { return blinking; }
+        void startBlink(float brightness, unsigned long on, unsigned long off, int repeat = 1, 
+            unsigned long pause = 0) {
+            onMs = on;
+            offMs = off;
+            if (repeat < 1) repeat = 1;
+            this->repeat = repeat;
+            this->pauseMs = pause;
+            this->blinkBrightness = brightness;
+            this->blinking = true;
+            blinkState = BLINK_ON;
+            BaseLight::setBrightness(brightness);
+            blinkRc = 1;
+            blinkLast = millis();
+        }
+        void setBrightness(float brightness);
+        void run(unsigned long now);
+};
+
 class Hardware {
     public:
         Battery *battery;
         Light *light;
         Heater *heater;
         PowerOutlet **outlets;
+        Led *led;
         Settings *settings;
 
         int getOutletsNum();
