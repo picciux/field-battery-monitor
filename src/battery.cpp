@@ -82,7 +82,9 @@ void Battery::run(unsigned long now)
     ina.readAndClearFlags();
     voltage = ina.getBusVoltage_V();
 
-    // Moltiplichiamo per -1.0f per invertire il segno come nel tuo YAML
+    // Convenzione di progetto: l'INA226 (cablato con + verso la batteria) legge
+    // positivo in scarica. Invertiamo subito: da qui in poi negativo = scarica,
+    // positivo = carica.
     current = ina.getCurrent_A() * -1.0f; 
     ca.addSample(now, current);
 
@@ -102,7 +104,7 @@ void Battery::run(unsigned long now)
         float currentAvg = 0.0;
         if (ca.getAverage(now, currentAvg)) {
             _last_autonomy = now;
-            autonomyH = BatteryAutonomy::computeHours(getRemainingAh(), currentAvg * -1.0);
+            autonomyH = BatteryAutonomy::computeHours(getRemainingAh(), currentAvg);
             if (_listener)
                 _listener->onHardwareChanged(HardwareEvent::BatteryAutonomy, 0);
         }

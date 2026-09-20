@@ -23,7 +23,7 @@ static AlpacaDeviceInfo g_batterySwitchInfo = {
 
 static SwitchDef g_batt_switches[] = {
   { "Voltage",     "Battery voltage (V)",        0.0,  20.0, 0.01, false },
-  { "Current",     "Istantaneous current (A)",      -20.0,  20.0, 0.01, false },
+  { "Current", "Battery current (A): negative = discharge, positive = charge", -20.0, 20.0, 0.01, false },  
   { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
   { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
   { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", -10.0,   10.0, 1.0,  true  }

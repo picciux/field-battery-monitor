@@ -37,6 +37,7 @@ class Battery {
         float getSoC();
         float getCapacity();
         float getVoltage();
+        /* Convention: Negative current -> battery discharge */
         float getCurrent();
         float getRemainingAh();
         float getAutonomyHours();
