@@ -296,6 +296,8 @@ void Led::run(unsigned long now) {
         blinkState = BLINK_OFF;
         blinkLast = now;
       }
+      break;
+
     case BLINK_OFF:
       if (now - blinkLast >= offMs) {
         BaseLight::setBrightness(0.0);
@@ -309,6 +311,7 @@ void Led::run(unsigned long now) {
         }
         blinkLast = now;
       }
+      break;
 
     case BLINK_PAUSE:
       if (now - blinkLast >= pauseMs) {
@@ -316,6 +319,7 @@ void Led::run(unsigned long now) {
         blinkState = BLINK_ON;
         blinkLast = now;
       }
+      break;
   }
 }
 
