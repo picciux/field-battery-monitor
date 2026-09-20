@@ -2,36 +2,72 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEAdvertising.h>
+#include <string>
 
 #include "include_config.h"
-#include "hardware.h"
+#include "ble.h"
+
+#define BLE_UPDATE_INTERVAL_MS   5000
+//#define BLE_ADV_INTERVAL_UNITS   0x0640   // 1000 ms (unita' da 0.625 ms)
+#define BLE_ADV_INTERVAL_UNITS   0x0C80   // 2000 ms (unita' da 0.625 ms)
+
+// BTHome v2 object IDs (in ordine crescente, come richiesto dalla spec)
+#define BTH_BATTERY_PCT      0x01   // uint8, %
+#define BTH_VOLTAGE_MV       0x0C   // uint16, 0.001 V
+#define BTH_TEMPERATURE      0x45   // sint16, 0.1 C
+#define BTH_CURRENT_SIGNED   0x5D   // sint16, 0.001 A
+
+static void addU8(std::string &s, uint8_t v)   { s += (char)v; }
+static void addU16(std::string &s, uint16_t v) { s += (char)(v & 0xFF); s += (char)(v >> 8); }
+
+void BTHomeBeacon_setup(const char *deviceName) {
+  BLEDevice::init(deviceName);
+  BLEAdvertising *adv = BLEDevice::getAdvertising();
+  adv->setAdvertisementType(ADV_TYPE_NONCONN_IND);
+  adv->setMinInterval(BLE_ADV_INTERVAL_UNITS);
+  adv->setMaxInterval(BLE_ADV_INTERVAL_UNITS);
+}
 
 void BTHomeBeacon_run(Hardware &hw, unsigned long now) {
-  static unsigned long last_ble_time = 0;
-  if (now - last_ble_time < 5000) return; // Trasmette tassativamente solo ogni 5 secondi
-  last_ble_time = now;
+  static unsigned long last = 0;
+  if (now - last < BLE_UPDATE_INTERVAL_MS) return;
+  last = now;
 
-  uint8_t soc_out = (uint8_t)hw.battery->getSoC();
-  uint16_t volt_out = (uint16_t)(hw.battery->getVoltage() * 1000.0f);
-  int16_t curr_out = (int16_t)(hw.battery->getCurrent() * 1000.0f);
+  float soc = hw.battery->getSoC();
+  if (soc < 0.0f) soc = 0.0f;
+  if (soc > 100.0f) soc = 100.0f;
 
-  // Inizializziamo l'oggetto Advertising dell'ESP32
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  // Blocco service data BTHome v2: UUID 0xFCD2, device info 0x40
+  // (v2, non criptato, non trigger-based), poi gli oggetti.
+  std::string sd;
+  addU8(sd, 0x16);                       // AD type: Service Data - 16 bit UUID
+  addU16(sd, 0xFCD2);
+  addU8(sd, 0x40);                       // device info
 
-  std::string payload = "";
-  // Flags standard BLE
-  payload += (char)0x02; payload += (char)0x01; payload += (char)0x06;
-  // Intestazione BTHome v2 (UUID 0xFCD2)
-  payload += (char)0x0C; payload += (char)0x16; payload += (char)0xD2; payload += (char)0xFC; payload += (char)0x40;
+  addU8(sd, BTH_BATTERY_PCT);
+  addU8(sd, (uint8_t) roundf(soc));
 
-  // Dati Sensori
-  payload += (char)0x01; payload += (char)soc_out; // SoC
-  payload += (char)0x0C; payload += (char)(volt_out & 0xFF); payload += (char)((volt_out >> 8) & 0xFF); // Volt
-  payload += (char)0x43; payload += (char)(curr_out & 0xFF); payload += (char)((curr_out >> 8) & 0xFF); // Corrente
+  addU8(sd, BTH_VOLTAGE_MV);
+  addU16(sd, (uint16_t) roundf(hw.battery->getVoltage() * 1000.0f));
 
-  BLEAdvertisementData oAdvertisementData;
-  oAdvertisementData.addData(payload);
+  if (hw.heater->isTemperatureValid()) {
+    addU8(sd, BTH_TEMPERATURE);
+    addU16(sd, (uint16_t)(int16_t) roundf(hw.heater->getTemperature() * 10.0f));
+  }
 
-  pAdvertising->setAdvertisementData(oAdvertisementData);
-  pAdvertising->start();
+  addU8(sd, BTH_CURRENT_SIGNED);
+  addU16(sd, (uint16_t)(int16_t) roundf(hw.battery->getCurrent() * 1000.0f));
+
+  std::string payload;
+  addU8(payload, 0x02); addU8(payload, 0x01); addU8(payload, 0x06);   // flags
+  addU8(payload, (uint8_t) sd.length());                              // lunghezza AD
+  payload += sd;
+
+  BLEAdvertisementData data;
+  data.addData(payload);
+
+  BLEAdvertising *adv = BLEDevice::getAdvertising();
+  adv->stop();
+  adv->setAdvertisementData(data);
+  adv->start();
 }

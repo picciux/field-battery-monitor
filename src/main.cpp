@@ -19,6 +19,7 @@ void setup() {
 
   // 2. Avviamo la tua infrastruttura Wi-Fi, il Server Web e l'aggiornamento via rete
   wifiComm.setup(settings, &hardware);
+  BTHomeBeacon_setup(settings.getHostname());
 }
 
 void loop() {
