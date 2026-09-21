@@ -312,31 +312,31 @@ void WifiComm::updateSettings(Settings &s) {
   boolean reboot = false;
   
   for(uint8_t i = 0; i < www.args(); i++) {
-    if (www.argName(i) == String("hostname")) {
+    if (www.argName(i).equals("hostname")) {
       s.setHostname(www.arg(i).c_str());
       
-    } else if (www.argName(i) == String("display_name")) {
+    } else if (www.argName(i).equals("display_name")) {
       s.setDisplayName(www.arg(i).c_str());
       
-    } else if (www.argName(i) == String("ap_psk")) {
+    } else if (www.argName(i).equals("ap_psk")) {
       if (www.arg(i).length() >= 8)
         s.setApPsk(www.arg(i).c_str());
       
-    } else if (www.argName(i) == String("main_ssid")) {
+    } else if (www.argName(i).equals("main_ssid")) {
       s.setMainSsid(www.arg(i).c_str());
       
-    } else if (www.argName(i) == String("main_psk")) {
+    } else if (www.argName(i).equals("main_psk")) {
       if (www.arg(i).length() >= 8)
         s.setMainPsk(www.arg(i).c_str());
       
-    } else if (www.argName(i) == String("alt_ssid")) {
+    } else if (www.argName(i).equals("alt_ssid")) {
       s.setAltSsid(www.arg(i).c_str());
       
-    } else if (www.argName(i) == String("alt_psk")) {
+    } else if (www.argName(i).equals("alt_psk")) {
       if (www.arg(i).length() >= 8)
         s.setAltPsk(www.arg(i).c_str());
       
-    } else if (www.argName(i) == String("ap_no_def_gw")) {
+    } else if (www.argName(i).equals("ap_no_def_gw")) {
       s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
     } else if (www.argName(i) == String("restart")) {
       reboot = true; 
