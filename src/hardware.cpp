@@ -289,7 +289,7 @@ void Heater::run(unsigned long now)
     tempValid = false;
   }
 
-    /* 2. Automazione anti-freddo. Sempre attiva; senza dato valido
+  /* 2. Automazione anti-freddo. Sempre attiva; senza dato valido
         il riscaldatore resta spento (failsafe) */
   if (!tempValid) {
     pin.turnOn(false);

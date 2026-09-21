@@ -31,6 +31,7 @@ class Battery {
         float autonomyH = BatteryAutonomy::AUTONOMY_CAP_H;
         unsigned long _last_update;
         unsigned long _last_autonomy;
+        unsigned long _start_soc_reset_condition = 0;
 
         IHardwareChangeListener *_listener;
     public:

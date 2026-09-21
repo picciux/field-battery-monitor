@@ -12,6 +12,11 @@
 #define SOC_PERSIST_MAX_TIME     10 // minutes
 #define SOC_PERSIST_MAX_DIFF      2 // %
 
+#define SOC_RESET_VOLTAGE           14.1 // volt
+#define SOC_RESET_TAIL_CURRENT      0.02 // 2% capacity
+#define SOC_RESET_TIME              ( 3 * 60000 ) // ms: 3 minutes
+#define SOC_MIN_CURRENT_INTEGRATION 0.02 // A
+
 #define HEATER_HYSTERESIS_C              4 //C
 
 #include "config.h"

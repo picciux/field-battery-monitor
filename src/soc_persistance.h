@@ -12,6 +12,12 @@ class SoCPersistance {
         float lastSoC = 0;
         unsigned long maxTime = 10 * 60000;
         unsigned int maxVariation = 2; //%
+
+        void _write(float soc, unsigned long now) {
+            g_soc.putFloat("soc", soc);
+            lastWrite = now;
+            lastSoC = soc;
+        }
     public:
         void setup(int maxMinutes, int maxVariation) {
             g_soc.begin("soc_persist", false);
@@ -22,12 +28,13 @@ class SoCPersistance {
         void update(float soc, unsigned long now) {
             bool tooOld = ((now - lastWrite) >= maxTime);
             bool tooDiff = (fabs(soc - lastSoC) >= maxVariation);
-            if (tooOld || tooDiff) {
-                g_soc.putFloat("soc", soc);
-                lastWrite = now;
-                lastSoC = soc;
-            }
+            if (tooOld || tooDiff) 
+                _write(soc, now);
         };
+
+        void force(float soc, unsigned long now) {
+            _write(soc, now);
+        }
 
         float recover() {
             return g_soc.getFloat("soc", 100.0f);

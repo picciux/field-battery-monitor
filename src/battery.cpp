@@ -85,8 +85,11 @@ void Battery::run(unsigned long now)
     // Convenzione di progetto: l'INA226 (cablato con + verso la batteria) legge
     // positivo in scarica. Invertiamo subito: da qui in poi negativo = scarica,
     // positivo = carica.
-    current = ina.getCurrent_A() * -1.0f; 
-    ca.addSample(now, current);
+    current = ina.getCurrent_A() * -1.0f;
+
+    // Integriamo solo correnti sopra la soglia configurata.
+    if (fabs(current) > SOC_MIN_CURRENT_INTEGRATION)
+        ca.addSample(now, current);
 
     // 4. Calcolo SoC (Integrazione dei Coulomb)
     float delta_hours = (now - this->_last_update) / 3600000.0f;
@@ -95,6 +98,23 @@ void Battery::run(unsigned long now)
     soc += (current / capacity) * 100.0f * delta_hours;
     if (soc > 100.0f) soc = 100.0f;
     if (soc < 0.0f) soc = 0.0f;
+
+    // SoC reset evaluation. If voltage stays over reset threshold and
+    // current stays under reset threshold for enough time, SoC is reset
+    // to 100% and immediately saved.
+    if (soc < 100.0f) {
+        if (current <= SOC_RESET_TAIL_CURRENT && voltage >= SOC_RESET_VOLTAGE) {
+            if (_start_soc_reset_condition == 0)
+                _start_soc_reset_condition = now;
+            else if (now - _start_soc_reset_condition >= SOC_RESET_TIME) {
+                soc = 100.0f;
+                socPersistance.force(soc, now);
+                _start_soc_reset_condition = 0;
+            }            
+        } else {
+            _start_soc_reset_condition = 0;
+        }
+    }
 
     socPersistance.update(soc, now);
     if (_listener)

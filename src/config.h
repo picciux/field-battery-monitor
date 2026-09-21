@@ -11,6 +11,17 @@
 //#define SOC_PERSIST_MAX_TIME      10 // minutes
 //#define SOC_PERSIST_MAX_DIFF       2 // %
 
+/* SoC automatically resets to 100% when following coditions are all met:
+    - voltage is >= SOC_RESET_VOLTAGE
+    - charge current is <= (BATTERY_CAPACITY * SOC_RESET_TAIL_CURRENT)
+    - above conditions are continuosly met for minimum SOC_RESET_TIME ms. */ 
+//#define SOC_RESET_VOLTAGE           14.1 // volt
+//#define SOC_RESET_TAIL_CURRENT      0.02 // 2% capacity
+//#define SOC_RESET_TIME              ( 3 * 60000 ) // ms: 3 minutes
+
+/* Currents below SOC_MIN_CURRENT_INTEGRATION will not be accounted for. */
+//#define SOC_MIN_CURRENT_INTEGRATION 0.02 // A
+
 //#define HEATER_HYSTERESIS_C              4 //C
 
 //#define INA226_ADDR               0x40
