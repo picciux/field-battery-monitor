@@ -12,7 +12,7 @@
 #define ALT_PSK             "alt_psk"
 #define AP_PSK              "ap_psk"
 #define AP_NO_DEF_GW        "ap_no_def_gw"
-#define CP_LOW_THRESHOLD    "cp_low_threshold"
+#define CP_LOW_THRESHOLD    "cp_low_thr"
 #define AUTO_LIGHT          "auto_light"
 #define AUTO_LIGHT_BRIGHT   "al_brightness"
 #define AUTO_LIGHT_DURATION "al_duration"
