@@ -46,7 +46,7 @@ static AlpacaDeviceInfo g_lightSwitchInfo = {
 
 static SwitchDef g_light_switches[] = {
   //{ "ON",               "Turn ON/OFF",               0.0,  1.0, 1.0, true },
-  { "Brightness",          "Light manual brightnerr (%)",     0.0,  100.0, 1.0, true },
+  { "Brightness",          "Light manual brightness (%)",     0.0,  100.0, 1.0, true },
   { "Automation",          "Enable motion detection based light automation",           0.0, 1.0, 1.0,  true },
   { "Auto brightness",     "Light brightness when motion activated (%)", 1.0, 100.0, 1.0,  true },
   { "Auto duration",       "Light on duration after no-more motion detected (s)",      10.0,   60.0, 1.0,  true  }
