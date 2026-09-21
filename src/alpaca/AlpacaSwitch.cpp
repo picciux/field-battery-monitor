@@ -142,6 +142,18 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
     return true;
 }
 
+// La temperatura non e' disponibile se il DS18B20 non risponde: meglio un
+// errore esplicito (ValueNotSet) che uno 0.0 che sembra una lettura vera.
+static bool checkValueSet(WebServer &server, Hardware *hw, const AlpacaSwitchRequest &r) {
+  if (r.deviceNumber == BATTERY_SWITCH_DEVICE_NUMBER &&
+      r.switchId == BATTERY_TEMPERATURE &&
+      !hw->heater->isTemperatureValid()) {
+    AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
+                             "Temperature sensor not available", r.ctid);
+    return false;
+  }
+  return true;
+}
 double getSwitchValue(Hardware *hw, int number, int id) {
   switch (number) {
     case BATTERY_SWITCH_DEVICE_NUMBER:
@@ -170,32 +182,6 @@ double getSwitchValue(Hardware *hw, int number, int id) {
       return 0.0;
   }
   return 0.0;
-}
-
-void writeSwitchBool(Hardware *hw, int number, int id, bool s) {
-  switch (number) {
-    case BATTERY_SWITCH_DEVICE_NUMBER:
-      if (id == BATTERY_MIN_TEMP) hw->heater->setLowThreshold(0.0);   // da correggere
-      break;
-
-    case LIGHT_SWITCH_DEVICE_NUMBER:
-      if (!hw->light) break;
-      switch (id) {
-        case LIGHT_BRIGHTNESS:      hw->light->setBrightness(s ? 1.0f : 0.0f); break;
-        case LIGHT_AUTO_ENABLED:    hw->light->autoEnable(s); break;
-        case LIGHT_AUTO_BRIGHTNESS: hw->light->setAutoBrightness(s ? 1.0f : 0.0f); break;
-        case LIGHT_AUTO_DURATION:
-          hw->light->setAutoDuration(s ? g_light_switches[LIGHT_AUTO_DURATION].maxValue
-                                       : g_light_switches[LIGHT_AUTO_DURATION].minValue);
-          break;
-      }
-      break;
-
-    case OUTLET_SWITCH_DEVICE_NUMBER:
-      if (id >= 0 && id < hw->getOutletsNum())
-        hw->outlets[id]->setPower(s ? 1.0f : 0.0f);
-      break;
-  }
 }
 
 void writeSwitchValue(Hardware *hw, int number, int id, double v) {
@@ -290,27 +276,36 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "getswitch"), HTTP_GET, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendBool(server, getSwitchValue(hardware, r.deviceNumber, r.switchId) != 0.0, r.ctid);
+    if (!checkValueSet(server, hardware, r)) return;
+    const SwitchDef &s = g_devices[r.deviceIndex].switches[r.switchId];
+    double v = getSwitchValue(hardware, r.deviceNumber, r.switchId);
+    AlpacaHelper::sendBool(server, v > (s.minValue + s.maxValue) / 2.0, r.ctid);
   });
 
   // getswitchvalue(Id) -> il valore analogico vero e proprio (V, A, %, C)
   server.on(UriBraces(base + "getswitchvalue"), HTTP_GET, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
+    if (!checkValueSet(server, hardware, r)) return;
     AlpacaHelper::sendDouble(server, getSwitchValue(hardware, r.deviceNumber, r.switchId), r.ctid);
   });
 
-  // setswitch(Id, State) -> on/off "grezzo"
+  // setswitch(Id, State) -> equivale a setswitchvalue(Max) / setswitchvalue(Min)
   server.on(UriBraces(base + "setswitch"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
-    if (! checkRequest(server, r)) return;
-    if (!g_devices[r.deviceIndex].switches[r.switchId].canWrite) {
+    if (!checkRequest(server, r)) return;
+    const SwitchDef &s = g_devices[r.deviceIndex].switches[r.switchId];
+    if (!s.canWrite) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidOperation,
-                               "Switch read-only (sensore)", r.ctid);
+                              "Switch read-only (sensore)", r.ctid);
+      return;
+    }
+    if (!server.hasArg("State")) {
+      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Parametro State mancante", r.ctid);
       return;
     }
     bool state = AlpacaHelper::queryArgToBool(server, "State", false);
-    writeSwitchBool(hardware, r.deviceNumber, r.switchId, state);
+    writeSwitchValue(hardware, r.deviceNumber, r.switchId, state ? s.maxValue : s.minValue);
     AlpacaHelper::sendEmptyOk(server, r.ctid);
   });
 
@@ -318,7 +313,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "setswitchvalue"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    const SwitchDef s = g_devices[r.deviceIndex].switches[r.switchId];
+    const SwitchDef &s = g_devices[r.deviceIndex].switches[r.switchId];
     if (!s.canWrite) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidOperation,
                                "Switch read-only (sensore)", r.ctid);
