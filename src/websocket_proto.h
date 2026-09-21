@@ -41,10 +41,10 @@
 
 /* update battery state event.
    Pars:
-    - float voltage
-    - float current
+    - float voltage (can be null if sensor desnt't work)
+    - float current (can be null if sensor desnt't work)
     - float SoC
-    - float temperature (can be null)
+    - float temperature (can be null if sensor desnt't work)
 */
 #define EVENT_BATTERY   "battery_update"
 
@@ -53,6 +53,12 @@
     - float hours
 */
 #define EVENT_BATTERY_AUTONOMY   "battery_autonomy_update"
+
+/* update safety state event.
+   Pars:
+    - bool is_safe
+*/
+#define EVENT_SAFETY    "safety_update"
 
 /* update cold protection state event.
    Pars:

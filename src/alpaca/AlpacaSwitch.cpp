@@ -142,18 +142,27 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
     return true;
 }
 
-// La temperatura non e' disponibile se il DS18B20 non risponde: meglio un
-// errore esplicito (ValueNotSet) che uno 0.0 che sembra una lettura vera.
+// Voltage/Current: nessuna lettura valida se l'INA226 non risponde.
+// Temperature: nessuna lettura valida se il DS18B20 non risponde.
+// SoC invece resta esposto anche a sensore guasto: e' un valore accumulato
+// e persistito, l'ultima stima nota, non una lettura istantanea.
 static bool checkValueSet(WebServer &server, Hardware *hw, const AlpacaSwitchRequest &r) {
-  if (r.deviceNumber == BATTERY_SWITCH_DEVICE_NUMBER &&
-      r.switchId == BATTERY_TEMPERATURE &&
-      !hw->heater->isTemperatureValid()) {
-    AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
-                             "Temperature sensor not available", r.ctid);
-    return false;
+  if (r.deviceNumber == BATTERY_SWITCH_DEVICE_NUMBER) {
+    if (r.switchId == BATTERY_TEMPERATURE && !hw->heater->isTemperatureValid()) {
+      AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
+                               "Temperature sensor not available", r.ctid);
+      return false;
+    }
+    if ((r.switchId == BATTERY_VOLTAGE || r.switchId == BATTERY_CURRENT) &&
+        !hw->battery->isSensorValid()) {
+      AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
+                               "Battery sensor (INA226) not available", r.ctid);
+      return false;
+    }
   }
   return true;
 }
+
 double getSwitchValue(Hardware *hw, int number, int id) {
   switch (number) {
     case BATTERY_SWITCH_DEVICE_NUMBER:

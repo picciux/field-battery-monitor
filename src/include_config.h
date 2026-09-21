@@ -19,6 +19,11 @@
 
 #define HEATER_HYSTERESIS_C              4 //C
 
+#define SAFETY_SOC_LOW                  15    // %: sotto, IsSafe = false
+#define SAFETY_SOC_RECOVER              20    // %: sopra, IsSafe torna true (isteresi)
+#define SAFETY_CRITICAL_VOLTAGE_V       11.0  // V: sotto, IsSafe = false a prescindere dal SoC
+#define SAFETY_CRITICAL_VOLTAGE_HYST_V   0.3  // V: margine di isteresi sul criterio tensione
+
 #include "config.h"
 
 #ifdef WIFI_DEBUG_ON_SERIAL

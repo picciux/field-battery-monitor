@@ -31,8 +31,8 @@ void alpacaSafetyMonitorSetup(WebServer &server, Hardware *hardware) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Device number out of range", ctid);
       return;
     }
-    bool safe = hardware->battery->getSoC() > 15.0f;
-    AlpacaHelper::sendBool(server, safe, ctid);
+    
+    AlpacaHelper::sendBool(server, hardware->battery->isSafe(), ctid);
   });
 }
 

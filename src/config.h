@@ -23,6 +23,10 @@
 //#define SOC_MIN_CURRENT_INTEGRATION 0.02 // A
 
 //#define HEATER_HYSTERESIS_C              4 //C
+//#define SAFETY_SOC_LOW                  15    // %
+//#define SAFETY_SOC_RECOVER              20    // %
+//#define SAFETY_CRITICAL_VOLTAGE_V       11.0  // V
+//#define SAFETY_CRITICAL_VOLTAGE_HYST_V   0.3  // V
 
 //#define INA226_ADDR               0x40
 //#define INA226_RESISTOR           0.002 // Ohm

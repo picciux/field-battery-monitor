@@ -51,12 +51,27 @@ void Battery::setChangeListener(IHardwareChangeListener* listener)
     _listener = listener; 
 }
 
+void Battery::updateSafety()
+{
+    bool wasSafe = isSafe();
+
+    if (soc <= SAFETY_SOC_LOW) _socUnsafe = true;
+    else if (soc >= SAFETY_SOC_RECOVER) _socUnsafe = false;
+
+    if (voltage <= SAFETY_CRITICAL_VOLTAGE_V) _voltageUnsafe = true;
+    else if (voltage >= SAFETY_CRITICAL_VOLTAGE_V + SAFETY_CRITICAL_VOLTAGE_HYST_V) _voltageUnsafe = false;
+
+    if (isSafe() != wasSafe && _listener)
+        _listener->onHardwareChanged(HardwareEvent::Safety, 0);
+}
+
 void Battery::setup(float capacity)
 {
   // Start I2C bus
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
   
-  if (ina.init()) {
+  _sensorValid = ina.init();
+  if (_sensorValid) {
     // INA226 config
     ina.setResistorRange(INA226_RESISTOR, INA226_RANGE); 
     ina.setCorrectionFactor(1.0);
@@ -78,6 +93,19 @@ void Battery::run(unsigned long now)
 {
     if ((now - _last_update) < CURRENT_SAMPLE_DELAY_MS) return;
 
+    float delta_hours = (now - this->_last_update) / 3600000.0f;
+    _last_update = now;
+
+    Wire.beginTransmission(INA226_ADDR);
+    _sensorValid = (Wire.endTransmission() == 0);
+    
+    if (!_sensorValid) {
+        // Tensione, corrente e SoC restano fermi all'ultimo valore noto.
+        if (_listener)
+            _listener->onHardwareChanged(HardwareEvent::BatteryMainData, 0);
+        return;
+    }
+    
     // 1. Lettura Tensione e Corrente dall'INA226
     ina.readAndClearFlags();
     voltage = ina.getBusVoltage_V();
@@ -89,10 +117,7 @@ void Battery::run(unsigned long now)
 
     ca.addSample(now, current);
 
-    // 4. Calcolo SoC (Integrazione dei Coulomb)
-    float delta_hours = (now - this->_last_update) / 3600000.0f;
-    _last_update = now;
-
+    
     float integratedA = (fabs(current) > SOC_MIN_CURRENT_INTEGRATION) ? current : 0.0f;
     soc += (integratedA / capacity) * 100.0f * delta_hours;
     if (soc > 100.0f) soc = 100.0f;
@@ -116,6 +141,7 @@ void Battery::run(unsigned long now)
     }
 
     socPersistance.update(soc, now);
+    updateSafety();
     if (_listener)
         _listener->onHardwareChanged(HardwareEvent::BatteryMainData, 0);
 

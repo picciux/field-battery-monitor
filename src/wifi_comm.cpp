@@ -158,17 +158,26 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
 
   switch (event) {
     case HardwareEvent::BatteryMainData: {
-      // Temperatura non valida (sensore guasto/assente) -> null, non uno 0 finto
       char temp[12];
       if (h->heater->isTemperatureValid())
         snprintf(temp, sizeof(temp), "%.1f", h->heater->getTemperature());
       else
         strlcpy(temp, "null", sizeof(temp));
+
+      char volt[12], curr[12];
+      if (h->battery->isSensorValid()) {
+        snprintf(volt, sizeof(volt), "%.2f", h->battery->getVoltage());
+        snprintf(curr, sizeof(curr), "%.3f", h->battery->getCurrent());
+      } else {
+        strlcpy(volt, "null", sizeof(volt));
+        strlcpy(curr, "null", sizeof(curr));
+      }
+
       len = snprintf(buf, size,
-        "{\"event\":\"" EVENT_BATTERY "\",\"voltage\":%.2f,\"current\":%.3f,"
-        "\"soc\":%.1f,\"temperature\":%s}",
-        h->battery->getVoltage(), h->battery->getCurrent(),
-        h->battery->getSoC(), temp);
+        "{\"event\":\"" EVENT_BATTERY "\",\"voltage\":%s,\"current\":%s,"
+        "\"soc\":%.1f,\"temperature\":%s,\"battery_sensor_ok\":%s}",
+        volt, curr, h->battery->getSoC(), temp,
+        h->battery->isSensorValid() ? "true" : "false");
       break;
     }
 
@@ -176,6 +185,12 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
       len = snprintf(buf, size,
         "{\"event\":\"" EVENT_BATTERY_AUTONOMY "\",\"hours\":%.1f}",
         h->battery->getAutonomyHours());
+      break;
+
+    case HardwareEvent::Safety:
+      len = snprintf(buf, size,
+        "{\"event\":\"" EVENT_SAFETY "\",\"is_safe\":%s}",
+        h->battery->isSafe() ? "true" : "false");
       break;
 
     case HardwareEvent::Heater:
@@ -201,6 +216,7 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
         "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"power\":%.2f}",
         index, h->outlets[index]->getPower());
       break;
+  
   }
 
   if (len < 0 || (size_t) len >= size) return 0;   // errore o troncamento
@@ -227,6 +243,7 @@ void WifiComm::sendInitialState(uint8_t num)
 
   send(HardwareEvent::BatteryMainData, 0);
   send(HardwareEvent::BatteryAutonomy, 0);
+  send(HardwareEvent::Safety, 0);
   send(HardwareEvent::Heater, 0);
   send(HardwareEvent::Light, 0);
   for (int i = 0; i < hardware->getOutletsNum(); i++)
