@@ -298,11 +298,8 @@ void WifiComm::sendSettings(Settings &s) {
   JsonDocument doc;
   doc["hostname"]     = s.getHostname();
   doc["display_name"] = s.getDisplayName();
-  doc["ap_psk"]       = s.getApPsk();
   doc["main_ssid"]    = s.getMainSsid();
-  doc["main_psk"]     = s.getMainPsk();
   doc["alt_ssid"]     = s.getAltSsid();
-  doc["alt_psk"]      = s.getAltPsk();
   doc["ap_no_def_gw"] = s.isApDefaultGWDisabled();
   doc["version"]      = VERSION;
 
@@ -322,19 +319,22 @@ void WifiComm::updateSettings(Settings &s) {
       s.setDisplayName(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("ap_psk")) {
-      s.setApPsk(www.arg(i).c_str());
+      if (www.arg(i).length() >= 8)
+        s.setApPsk(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("main_ssid")) {
       s.setMainSsid(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("main_psk")) {
-      s.setMainPsk(www.arg(i).c_str());
+      if (www.arg(i).length() >= 8)
+        s.setMainPsk(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("alt_ssid")) {
       s.setAltSsid(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("alt_psk")) {
-      s.setAltPsk(www.arg(i).c_str());
+      if (www.arg(i).length() >= 8)
+        s.setAltPsk(www.arg(i).c_str());
       
     } else if (www.argName(i) == String("ap_no_def_gw")) {
       s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
