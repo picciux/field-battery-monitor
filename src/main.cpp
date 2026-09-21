@@ -15,7 +15,7 @@ void setup() {
 
   // 1. Inizializziamo il BMS hardware (INA226, Dallas, PIR)
   hardware.setup(&settings);
-  hardware.led->startBlink(.25, 100, 1900);
+  hardware.led->startBlink(.25, 50, 3950);
 
   // 2. Avviamo la tua infrastruttura Wi-Fi, il Server Web e l'aggiornamento via rete
   wifiComm.setup(settings, &hardware);
