@@ -243,7 +243,6 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       if (len > 0) webSocket.sendTXT(num, buf, len);
       sendInitialState(num);
       break;
-      break;
     }
     case WStype_TEXT:                     // if new text data is received
       bool ret = false;
@@ -263,24 +262,25 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
         ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_BRIGHTNESS)) {
         float b = doc["brightness"] | 0.0;
-        hardware->light->setBrightness(b);
+        if (hardware->light) hardware->light->setBrightness(b);
         ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_ENABLE)) {
         bool e = doc["enabled"] | DEFAULT_AUTO_LIGHT_ENABLED;
-        hardware->light->autoEnable(e);
+        if (hardware->light) hardware->light->autoEnable(e);
         ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_BRIGHTNESS)) {
         float b = doc["brightness"] | DEFAULT_AUTO_LIGHT_BRIGHTNESS;
-        hardware->light->setAutoBrightness(b);
+        if (hardware->light) hardware->light->setAutoBrightness(b);
         ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_DURATION)) {
         int s = doc["seconds"] | DEFAULT_AUTO_LIGHT_DURATION;
-        hardware->light->setAutoDuration(s);
+        if (hardware->light) hardware->light->setAutoDuration(s);
         ret = true;
       } else if (!strcmp(action, ACTION_OUTLET_POWER)) {
         int i = doc["index"] | 0;
         float p = doc["power"] | 1.0f;
-        hardware->outlets[i]->setPower(p);
+        if (i >= 0 && i < hardware->getOutletsNum())
+          hardware->outlets[i]->setPower(p);
         ret = true;
       }
 
@@ -435,7 +435,8 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
 
  hw->battery->setChangeListener(this);
  hw->heater->setChangeListener(this);
- hw->light->setChangeListener(this);
+ if (hw->light)
+  hw->light->setChangeListener(this);
  for (int i = 0; i < hw->getOutletsNum(); i++)
   hw->outlets[i]->setChangeListener(this);
 }
