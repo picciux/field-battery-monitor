@@ -30,7 +30,7 @@ class WifiComm : public IHardwareChangeListener {
     void sendSettings(Settings &s);
     int formatEvent(HardwareEvent event, int index, char *buf, size_t size);
     void sendInitialState(uint8_t num);
-    int printCaps(char *buf, int bufsize);
+    int sendCaps(char *buf, int bufsize);
 };
 
 extern WifiComm wifiComm;

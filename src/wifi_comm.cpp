@@ -141,7 +141,7 @@ boolean WifiComm::wifiStart(Settings &s) {
 }
 
 /************************* www & websocket *************************/
-int WifiComm::printCaps(char *buf, int bufsize) {
+int WifiComm::sendCaps(char *buf, int bufsize) {
   return snprintf(buf, bufsize,
     "{\"type\":\"capabilities\",\"payload\":{\"channels\":%d,\"light\":%s,\"outlets\":%d}}",
     BOARD_CHANNELS, HAS_LIGHT ? "true" : "false", OUTLET_COUNT);
@@ -239,7 +239,7 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       break;
     case WStype_CONNECTED:  {             // if a new websocket connection is established: send initial data
       char buf[128];
-      int len = printCaps(buf, sizeof(buf));
+      int len = sendCaps(buf, sizeof(buf));
       if (len > 0) webSocket.sendTXT(num, buf, len);
       sendInitialState(num);
       break;
