@@ -87,28 +87,27 @@ void Battery::run(unsigned long now)
     // positivo = carica.
     current = ina.getCurrent_A() * -1.0f;
 
-    // Integriamo solo correnti sopra la soglia configurata.
-    if (fabs(current) > SOC_MIN_CURRENT_INTEGRATION)
-        ca.addSample(now, current);
+    ca.addSample(now, current);
 
     // 4. Calcolo SoC (Integrazione dei Coulomb)
     float delta_hours = (now - this->_last_update) / 3600000.0f;
     _last_update = now;
 
-    soc += (current / capacity) * 100.0f * delta_hours;
+    float integratedA = (fabs(current) > SOC_MIN_CURRENT_INTEGRATION) ? current : 0.0f;
+    soc += (integratedA / capacity) * 100.0f * delta_hours;
     if (soc > 100.0f) soc = 100.0f;
     if (soc < 0.0f) soc = 0.0f;
 
     // SoC reset evaluation. If voltage stays over reset threshold and
     // current stays under reset threshold for enough time, SoC is reset
     // to 100% and immediately saved.
+    const float tailA = capacity * SOC_RESET_TAIL_CURRENT;
     if (soc < 100.0f) {
-        if (current <= SOC_RESET_TAIL_CURRENT && voltage >= SOC_RESET_VOLTAGE) {
+        if (fabs(current) <= tailA && voltage >= SOC_RESET_VOLTAGE) {
             if (_start_soc_reset_condition == 0)
                 _start_soc_reset_condition = now;
             else if (now - _start_soc_reset_condition >= SOC_RESET_TIME) {
-                soc = 100.0f;
-                socPersistance.force(soc, now);
+                reset();
                 _start_soc_reset_condition = 0;
             }            
         } else {
@@ -132,5 +131,7 @@ void Battery::run(unsigned long now)
 }
 
 void Battery::reset() {
-  this->soc = 100.0f;
+    soc = 100.0f;
+    _start_soc_reset_condition = 0;
+    socPersistance.force(soc, millis());  
 }
