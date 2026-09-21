@@ -14,18 +14,15 @@ struct SwitchDef {
 };
 
 struct DeviceDef {
-  const int number;
-  const struct AlpacaDeviceInfo &devInfo;
-  const struct SwitchDef *switches;
-  const int num_switches;
+  int number;
+  const AlpacaDeviceInfo *devInfo;
+  const SwitchDef *switches;
+  int num_switches;
 };
 
-
 //const AlpacaDeviceInfo& getSwitchDeviceInfo(int number);
-const int getSwitchDevicesCount();
+int getSwitchDevicesCount();
 DeviceDef *getSwitchDevices();
 
 // Registra tutti gli endpoint REST ISwitchV2 su device_number = 0
 void alpacaSwitchSetup(WebServer &server, Hardware *hardware);
-
-

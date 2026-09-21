@@ -30,6 +30,15 @@ struct AlpacaDeviceInfo {
 };
 
 // ---------------------------------------------------------------------------
+// Costanti per device Unique-ID.
+// ---------------------------------------------------------------------------
+namespace AlpacaDeviceType {
+  constexpr uint16_t Switch              = 1;
+  constexpr uint16_t SafetyMonitor       = 2;
+  constexpr uint16_t ObservingConditions = 3;
+}
+
+// ---------------------------------------------------------------------------
 // Helper per parsing parametri Alpaca e costruzione risposte JSON standard
 // ---------------------------------------------------------------------------
 class AlpacaHelper {
@@ -57,6 +66,7 @@ public:
   static int    queryArgToInt(WebServer &server, const char *name, int defaultValue = 0);
   static double queryArgToDouble(WebServer &server, const char *name, double defaultValue = 0.0);
   static bool   queryArgToBool(WebServer &server, const char *name, bool defaultValue = false);
+  static void   makeUniqueId(char *buf, size_t size, uint16_t deviceType, uint16_t deviceNumber);
 };
 
 struct AlpacaDeviceRef {

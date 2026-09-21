@@ -17,6 +17,7 @@
 #include "alpaca/AlpacaSafetyMonitor.h"
 
 #include "websocket_proto.h"
+#include "board.h"
 
 #define UPDATE_PATH "/update"
 #define CAPS_PATH "/api/cap"
@@ -141,24 +142,9 @@ boolean WifiComm::wifiStart(Settings &s) {
 
 /************************* www & websocket *************************/
 int WifiComm::printCaps(char *buf, int bufsize) {
-#ifdef CHANNELS_4
-    int nchans = 4;
-#else
-    int nchans = 2;
-#endif
-
-#ifndef DISABLE_LIGHT
-    const char *light = "true";
-#else
-    const char *light = "false";
-#endif
-
-    return snprintf(
-      buf, 
-      bufsize, 
-      "{\"type\":\"capabilities\", \"payload\":{\"channels\":%u,\"light\":%s}}",
-      nchans, light
-    );
+  return snprintf(buf, bufsize,
+    "{\"type\":\"capabilities\",\"payload\":{\"channels\":%d,\"light\":%s,\"outlets\":%d}}",
+    BOARD_CHANNELS, HAS_LIGHT ? "true" : "false", OUTLET_COUNT);
 }
 
 // Formatta un evento in JSON nel buffer. Ritorna la lunghezza scritta, oppure 0

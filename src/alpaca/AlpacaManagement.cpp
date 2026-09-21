@@ -1,14 +1,10 @@
 #include "AlpacaManagement.h"
 #include "AlpacaCommon.h"
 #include "AlpacaSwitch.h"
+#include "AlpacaSafetyMonitor.h"
 #include <ArduinoJson.h>
 
 #include "include_config.h"
-
-// TODO: genera UUID stabili e unici per il tuo dispositivo (es. da MAC address)
-// invece di questi placeholder statici.
-static const char *SWITCH_UNIQUE_ID_BASE = "esp32-switch0-0000-0000-00000000000";
-static const char *SM_UNIQUE_ID     = "esp32-sftymon-0000-0000-000000000001";
 
 void alpacaManagementSetup(WebServer &server) {
   // /management/apiversions - versioni Alpaca API supportate da questo server
@@ -48,25 +44,25 @@ void alpacaManagementSetup(WebServer &server) {
     JsonDocument doc;
     JsonArray arr = doc["Value"].to<JsonArray>();
 
+    char uid[40];
+
     DeviceDef *swDevices = getSwitchDevices();
     for (int i = 0; i < getSwitchDevicesCount(); i++) {
       JsonObject sw = arr.add<JsonObject>();
-      sw["DeviceName"] = swDevices[i].devInfo.name;
+      sw["DeviceName"] = swDevices[i].devInfo->name;
       sw["DeviceType"] = "Switch";
       sw["DeviceNumber"] = swDevices[i].number;
-      sw["UniqueID"] = SWITCH_UNIQUE_ID_BASE + i;
+      AlpacaHelper::makeUniqueId(uid, sizeof(uid), AlpacaDeviceType::Switch, swDevices[i].number);
+      sw["UniqueID"] = String(uid);   // String: ArduinoJson ne fa una copia
     }
 
     JsonObject sm = arr.add<JsonObject>();
-    sm["DeviceName"] = "Safety";
+    sm["DeviceName"] = getSafetyMonitorInfo().name;
     sm["DeviceType"] = "SafetyMonitor";
     sm["DeviceNumber"] = 0;
-    sm["UniqueID"] = SM_UNIQUE_ID;
-
-    doc["ClientTransactionID"] = AlpacaHelper::getClientTransactionID(server);
-    doc["ServerTransactionID"] = AlpacaHelper::nextServerTransactionID();
-    doc["ErrorNumber"] = AlpacaError::OK;
-    doc["ErrorMessage"] = "";
+    AlpacaHelper::makeUniqueId(uid, sizeof(uid), AlpacaDeviceType::SafetyMonitor, 0);
+    sm["UniqueID"] = String(uid);
+    
     String out;
     serializeJson(doc, out);
     server.send(200, "application/json", out);

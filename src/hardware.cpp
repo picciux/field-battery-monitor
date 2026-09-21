@@ -5,6 +5,8 @@
 #include "include_config.h"
 #include "hardware.h"
 #include "pins.h"
+#include "board.h"    
+
 
 #define TRANSITION_FPS        50
 #define TRANSITION_PWM_DELAY  ( 1000 / TRANSITION_FPS) // in milliseconds
@@ -355,83 +357,47 @@ void Led::run(unsigned long now) {
 Battery _battery;
 Heater _heater;
 Led _led;
-
-#ifdef DISABLE_LIGHT
-#ifdef CHANNELS_4
-PowerOutlet _out1;
-PowerOutlet _out2;
-PowerOutlet _out3;
-PowerOutlet *_outlets[] = {
-  &_out1, &_out2, &_out3
-};
-#define OUTLETS_COUNT   3
-#else
-PowerOutlet out1;
-PowerOutlet *outlets[] = {
-  &_out1
-};
-#define OUTLETS_COUNT   1
-#endif //CHANNELS_4
-#else
 Light _light;
-#ifdef CHANNELS_4
-PowerOutlet _out1;
-PowerOutlet _out2;
-PowerOutlet *_outlets[] = {
-  &_out1, &_out2
-};
-#define OUTLETS_COUNT   2
-#else
-PowerOutlet *_outlets[] = {};
-#define OUTLETS_COUNT    0
-#endif //CHANNELS_4
-#endif //DISABLE_LIGHT
+PowerOutlet _outletObjs[MAX_OUTLETS];
+PowerOutlet *_outletPtrs[MAX_OUTLETS];
 
 void Hardware::setup(Settings *settings)
 {
     this->battery = &_battery;
     this->heater = &_heater;
-    this->outlets = _outlets;
     this->led = &_led;
-
     this->settings = settings;
 
     this->battery->setup(BATTERY_CAPACITY);
     this->heater->setup(settings);
 
-#ifdef DISABLE_LIGHT
-#ifdef CHANNELS_4
-    this->outlets[0]->setup(PIN_MOSFET_LIGHT, 0);
-    this->outlets[1]->setup(PIN_MOSFET_CH3, 1);
-    this->outlets[2]->setup(PIN_MOSFET_CH4, 2);
-#else
-    this->outlets[0]->setup(PIN_MOSFET_LIGHT, 0);
-#endif //CHANNELS_4
-#else
-    this->light = &_light;
-    this->light->setup(PIN_MOSFET_LIGHT, PIN_PIR, settings);
-#ifdef CHANNELS_4
-    this->outlets[0]->setup(PIN_MOSFET_CH3, 0);
-    this->outlets[1]->setup(PIN_MOSFET_CH4, 1);
-#endif //CHANNELS_4
-#endif //DISABLE_LIGHT
+    if (HAS_LIGHT) {
+        this->light = &_light;
+        this->light->setup(PIN_MOSFET_LIGHT, PIN_PIR, settings);
+    } else {
+        this->light = nullptr;
+    }
 
-  this->led->setup(PIN_LED);
+    for (int i = 0; i < OUTLET_COUNT; i++) {
+        _outletPtrs[i] = &_outletObjs[i];
+        _outletPtrs[i]->setup(CHANNEL_PINS[FIRST_OUTLET_CHANNEL + i], i);
+    }
+    this->outlets = _outletPtrs;
+
+    this->led->setup(PIN_LED);
 }
 
-int Hardware::getOutletsNum() 
+int Hardware::getOutletsNum()
 {
- return OUTLETS_COUNT;
+    return OUTLET_COUNT;
 }
 
 void Hardware::run(unsigned long now)
 {
     this->battery->run(now);
     this->heater->run(now);
-    this->light->run(now);
+    if (this->light) this->light->run(now);
     this->led->run(now);
 }
-    
-
 
 

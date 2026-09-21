@@ -14,9 +14,6 @@
 
 #define HEATER_HYSTERESIS_C              4 //C
 
-#undef CHANNELS_4
-#undef DISABLE_LIGHT
-
 #include "config.h"
 
 #ifdef WIFI_DEBUG_ON_SERIAL

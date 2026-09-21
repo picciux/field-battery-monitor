@@ -124,6 +124,15 @@ void AlpacaHelper::sendError(WebServer &server, int errorNumber, const String &e
   sendJson(server, doc);
 }
 
+void AlpacaHelper::makeUniqueId(char *buf, size_t size, uint16_t deviceType, uint16_t deviceNumber) {
+  // Formato UUID 8-4-4-4-12. Deterministico: stesso device -> stesso ID a ogni
+  // boot e a ogni cambio di IP. L'ultimo gruppo e' il MAC (eFuse).
+  uint64_t mac = ESP.getEfuseMac() & 0xFFFFFFFFFFFFULL;
+  snprintf(buf, size, "%08x-%04x-%04x-%04x-%012llx",
+           0xBA77E41Cu, (unsigned) deviceType, (unsigned) deviceNumber, 0u,
+           (unsigned long long) mac);
+}
+
 // ---------------------------------------------------------------------------
 // Metodi comuni ASCOM (validi per qualunque device_type, device_number = 0)
 // ---------------------------------------------------------------------------

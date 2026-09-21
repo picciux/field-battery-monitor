@@ -5,12 +5,14 @@
 static bool g_smConnected = true;
 
 static AlpacaDeviceInfo g_smInfo = {
-  "ESP32 Safety Monitor",
-  "ESP32 Alpaca SafetyMonitor device",
+  "Battery Safety Monitor",
+  "Reports operation safety based on battery state-of-charge.",
   "ESP32 Alpaca SafetyMonitor Driver",
   "1.0",
   1 // ISafetyMonitor
 };
+
+const AlpacaDeviceInfo &getSafetyMonitorInfo() { return g_smInfo; }
 
 static AlpacaDeviceRef smResolver(int number) {
   if (number != 0) return {};
