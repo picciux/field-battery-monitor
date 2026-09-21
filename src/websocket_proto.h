@@ -44,7 +44,7 @@
     - float voltage
     - float current
     - float SoC
-    - float temperature 
+    - float temperature (can be null)
 */
 #define EVENT_BATTERY   "battery_update"
 
@@ -67,7 +67,7 @@
     - float auto brightness
     - int auto duration 
 */
-#define EVENT_LIGHT     "light update"
+#define EVENT_LIGHT     "light_update"
 
 /* update power outlets state event.
    Pars:

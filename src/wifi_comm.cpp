@@ -140,35 +140,6 @@ boolean WifiComm::wifiStart(Settings &s) {
 }
 
 /************************* www & websocket *************************/
-int WifiComm::printStatus(char *buf, int bufsize) {
-  return snprintf_P(
-    buf, 
-    bufsize, 
-    PSTR("{\"type\":\"status\",\
-       \"payload\":{\
-          voltage: %f,\
-          current: %f,\
-          soc: %u%,\
-          temp: %f,\
-          rem_hours: %f,\
-          auto_light_enabled: %s,\
-          auto_light_brightness: %u,\
-          auto_light_duration: %u,\
-          cp_low_thresh: %i\
-       }}"
-    ),
-    hardware->battery->getVoltage(),
-    hardware->battery->getCurrent(),
-    hardware->battery->getSoC(),
-    hardware->heater->getTemperature(),
-    hardware->battery->getAutonomyHours(),
-    ( hardware->light->isAutoEnabled() ? "true" : "false" ),
-    hardware->light->getAutoBrightness(),
-    hardware->light->getAutoDuration(),
-    hardware->heater->getLowThreshold()
-  );
-}
-
 int WifiComm::printCaps(char *buf, int bufsize) {
 #ifdef CHANNELS_4
     int nchans = 4;
@@ -190,17 +161,104 @@ int WifiComm::printCaps(char *buf, int bufsize) {
     );
 }
 
+// Formatta un evento in JSON nel buffer. Ritorna la lunghezza scritta, oppure 0
+// se l'evento non e' applicabile a questa variante hardware o se il buffer
+// e' troppo piccolo (snprintf ritorna la lunghezza che AVREBBE scritto:
+// len >= size significa troncamento).
+int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size)
+{
+  Hardware *h = hardware;
+  int len = -1;
+
+  switch (event) {
+    case HardwareEvent::BatteryMainData: {
+      // Temperatura non valida (sensore guasto/assente) -> null, non uno 0 finto
+      char temp[12];
+      if (h->heater->isTemperatureValid())
+        snprintf(temp, sizeof(temp), "%.1f", h->heater->getTemperature());
+      else
+        strlcpy(temp, "null", sizeof(temp));
+      len = snprintf(buf, size,
+        "{\"event\":\"" EVENT_BATTERY "\",\"voltage\":%.2f,\"current\":%.3f,"
+        "\"soc\":%.1f,\"temperature\":%s}",
+        h->battery->getVoltage(), h->battery->getCurrent(),
+        h->battery->getSoC(), temp);
+      break;
+    }
+
+    case HardwareEvent::BatteryAutonomy:
+      len = snprintf(buf, size,
+        "{\"event\":\"" EVENT_BATTERY_AUTONOMY "\",\"hours\":%.1f}",
+        h->battery->getAutonomyHours());
+      break;
+
+    case HardwareEvent::Heater:
+      len = snprintf(buf, size,
+        "{\"event\":\"" EVENT_CP "\",\"lt\":%.1f}",
+        h->heater->getLowThreshold());
+      break;
+
+    case HardwareEvent::Light:
+      if (!h->light) return 0;   // variante senza luce
+      len = snprintf(buf, size,
+        "{\"event\":\"" EVENT_LIGHT "\",\"brightness\":%.2f,\"auto\":%s,"
+        "\"auto_br\":%.2f,\"auto_dr\":%d}",
+        h->light->getBrightness(),
+        h->light->isAutoEnabled() ? "true" : "false",
+        h->light->getAutoBrightness(),
+        h->light->getAutoDuration());
+      break;
+
+    case HardwareEvent::Outlet:
+      if (index < 0 || index >= h->getOutletsNum()) return 0;
+      len = snprintf(buf, size,
+        "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"power\":%.2f}",
+        index, h->outlets[index]->getPower());
+      break;
+  }
+
+  if (len < 0 || (size_t) len >= size) return 0;   // errore o troncamento
+  return len;
+}
+
+void WifiComm::onHardwareChanged(HardwareEvent event, int index)
+{
+  char payload[128];
+  int len = formatEvent(event, index, payload, sizeof(payload));
+  if (len > 0)
+    webSocket.broadcastTXT(payload, len);
+}
+
+// Stato completo per un client appena connesso: gli stessi eventi che riceverebbe
+// dal broadcast, cosi' l'interfaccia ha un unico formato da interpretare.
+void WifiComm::sendInitialState(uint8_t num)
+{
+  char buf[128];
+  auto send = [&](HardwareEvent e, int idx) {
+    int len = formatEvent(e, idx, buf, sizeof(buf));
+    if (len > 0) webSocket.sendTXT(num, buf, len);
+  };
+
+  send(HardwareEvent::BatteryMainData, 0);
+  send(HardwareEvent::BatteryAutonomy, 0);
+  send(HardwareEvent::Heater, 0);
+  send(HardwareEvent::Light, 0);
+  for (int i = 0; i < hardware->getOutletsNum(); i++)
+    send(HardwareEvent::Outlet, i);
+}
+
 void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {  
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       break;
-    case WStype_CONNECTED:               // if a new websocket connection is established: send initial data
-      char buf[200];
-      printCaps(buf, 200);
-      webSocket.sendTXT(num, buf);
-      printStatus(buf, 200);
-      webSocket.sendTXT(num, buf);   
+    case WStype_CONNECTED:  {             // if a new websocket connection is established: send initial data
+      char buf[128];
+      int len = printCaps(buf, sizeof(buf));
+      if (len > 0) webSocket.sendTXT(num, buf, len);
+      sendInitialState(num);
       break;
+      break;
+    }
     case WStype_TEXT:                     // if new text data is received
       bool ret = false;
       JsonDocument doc;
@@ -249,97 +307,22 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
   }         
 }
 
-void WifiComm::onHardwareChanged(HardwareEvent event, int index)
-{
-    char payload[128];
-    int len = 0;
-    Hardware *h = hardware;
-
-    switch (event) {
-        case HardwareEvent::BatteryMainData:
-            len = snprintf(payload, sizeof(payload),
-                "{\"event\":\"" EVENT_BATTERY "\",\"voltage\":%.2f,\"current\":%.3f,\"soc\":%.1f,\"temperature\":%.1f}",
-                h->battery->getVoltage(), 
-                h->battery->getCurrent(), 
-                h->battery->getSoC(), 
-                h->heater->getTemperature());
-            break;
-
-        case HardwareEvent::BatteryAutonomy:
-            len = snprintf(payload, sizeof(payload),
-                "{\"event\":\"" EVENT_BATTERY_AUTONOMY "\",\"hours\":%.1f}",
-                h->battery->getAutonomyHours());
-            break;
-
-        case HardwareEvent::Heater:
-            len = snprintf(payload, sizeof(payload),
-                "{\"event\":\"" EVENT_CP "\",\"lt\":%d}",
-                h->heater->getLowThreshold());
-            break;
-
-        case HardwareEvent::Light:
-            len = snprintf(payload, sizeof(payload),
-                "{\"event\":\"" EVENT_LIGHT "\",\"brightness\":%d,\"auto\":%s,\"auto_br\":%d,\"auto_dr\":%d}",
-                h->light->getBrightness(), 
-                (h->light->isAutoEnabled() ? "true" : "false"),
-                h->light->getAutoBrightness(),
-                h->light->getAutoDuration()
-              );
-            break;
-
-        case HardwareEvent::Outlet:
-            len = snprintf(payload, sizeof(payload),
-                "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"power\":%d}",
-                index, hardware->outlets[index]->getPower());
-            break;
-    }
-
-    if (len <= 0) {
-        return; // errore di formattazione — non mandare payload vuoto/corrotto
-    }
-    if ((size_t)len >= sizeof(payload)) {
-        // troncato: snprintf ritorna la lunghezza che AVREBBE scritto, non
-        // quella effettivamente scritta — questo è il modo corretto di
-        // rilevare il troncamento, non basta controllare il contenuto.
-        // Con payload così piccoli non dovrebbe mai succedere; se càpita,
-        // è un campanello che il buffer va allargato.
-    }
-
-    webSocket.broadcastTXT(payload, len);
-}
 
 void WifiComm::sendSettings(Settings &s) {
-  char buf[800];
-  int len = 0;
+  JsonDocument doc;
+  doc["hostname"]     = s.getHostname();
+  doc["display_name"] = s.getDisplayName();
+  doc["ap_psk"]       = s.getApPsk();
+  doc["main_ssid"]    = s.getMainSsid();
+  doc["main_psk"]     = s.getMainPsk();
+  doc["alt_ssid"]     = s.getAltSsid();
+  doc["alt_psk"]      = s.getAltPsk();
+  doc["ap_no_def_gw"] = s.isApDefaultGWDisabled();
+  doc["version"]      = VERSION;
 
-  len = snprintf(buf, 800, 
-      "{\"hostname\":\"%s\",\
-       \"display_name\":\"%s\",\
-       \"ap_psk\":\"%s\",\
-       \"main_ssid\":\"%s\",\
-       \"main_psk\":\"%s\",\
-       \"alt_ssid\":\"%s\",\
-       \"alt_psk\":\"%s\",\
-       \"ap_no_def_gw\":%u,\
-       \"version\":\"%s\"\
-       }",
-      s.getHostname(),
-      s.getDisplayName(),
-      s.getApPsk(),
-      s.getMainSsid(),
-      s.getMainPsk(),
-      s.getAltSsid(),
-      s.getAltPsk(),
-      ( s.isApDefaultGWDisabled() ? "true" : "false" ),
-      VERSION
-  );
-  if (len <= 0) return;
-  if (len > sizeof(buf))
-  {
-    // buffer too small for content
-  }
-
-  www.send(200, "application/json", buf);
+  String out;
+  serializeJson(doc, out);
+  www.send(200, "application/json", out);
 }
 
 void WifiComm::updateSettings(Settings &s) {

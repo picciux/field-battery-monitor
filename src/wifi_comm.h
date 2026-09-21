@@ -28,7 +28,8 @@ class WifiComm : public IHardwareChangeListener {
     bool searchAndConnectNet(char *ssid, char *pass);
     boolean wifiStart(Settings &s);
     void sendSettings(Settings &s);
-    int printStatus(char *buf, int bufsize);
+    int formatEvent(HardwareEvent event, int index, char *buf, size_t size);
+    void sendInitialState(uint8_t num);
     int printCaps(char *buf, int bufsize);
 };
 
