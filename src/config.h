@@ -38,7 +38,7 @@
 //#define DISABLE_LIGHT
 
 // Uncomment for 4-MOSFET boards.
-#define CHANNELS_4
+//#define CHANNELS_4
 
 
 /************************** WiFi network configs *****************************
