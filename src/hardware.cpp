@@ -65,7 +65,7 @@ void BaseLight::_setBrightness(float brightness)
   this->on = (brightness > 0.0f);
 }
 
-bool BaseLight::setBrightness(float brightness, unsigned int transitionDurationMs)
+bool BaseLight::setBrightness(float brightness, unsigned long transitionDurationMs)
 {
   if (this->brightness == brightness) return false;
   if (transitionDurationMs == 0) {
@@ -127,7 +127,7 @@ void BaseLight::run(unsigned long now)
   if (now - lastPwmUpdate < TRANSITION_PWM_DELAY) return;
   lastPwmUpdate = now;
 
-  float progress = (float) (now - transitionStart) / (transition * 1000.0f);
+  float progress = (float) (now - transitionStart) / transition;
   if (progress >= 1.0) {
     _setBrightness(targetBrightness);
     transitioning = false;

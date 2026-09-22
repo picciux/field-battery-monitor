@@ -37,7 +37,7 @@ class BaseLight {
         PwmPin pin;
     public:
         bool setBrightness(float brightness);
-        bool setBrightness(float brightness, unsigned int transitionDurationMs);
+        bool setBrightness(float brightness, unsigned long transitionDurationMs);
         float getBrightness();
         unsigned long getDefaultTransision();
         void setDefaultTransition(unsigned long transitionDurationMs);
