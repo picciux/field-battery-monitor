@@ -374,6 +374,7 @@ void Hardware::setup(Settings *settings)
     if (HAS_LIGHT) {
         this->light = &_light;
         this->light->setup(PIN_MOSFET_LIGHT, PIN_PIR, settings);
+        this->light->setDefaultTransition(LIGHT_DEFAULT_TRANSITION_MS);
     } else {
         this->light = nullptr;
     }

@@ -40,6 +40,7 @@
 // Uncomment for 4-MOSFET boards.
 //#define CHANNELS_4
 
+//#define LIGHT_DEFAULT_TRANSITION_MS 1500 // default light transition in ms
 
 /************************** WiFi network configs *****************************
  * All values REQUIRED. 

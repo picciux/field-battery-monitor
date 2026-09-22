@@ -22,7 +22,9 @@
 #define SAFETY_SOC_LOW                  15    // %: sotto, IsSafe = false
 #define SAFETY_SOC_RECOVER              20    // %: sopra, IsSafe torna true (isteresi)
 #define SAFETY_CRITICAL_VOLTAGE_V       11.0  // V: sotto, IsSafe = false a prescindere dal SoC
-#define SAFETY_CRITICAL_VOLTAGE_HYST_V   0.3  // V: margine di isteresi sul criterio tensione
+#define SAFETY_CRITICAL_VOLTAGE_HYST_V  0.3   // V: margine di isteresi sul criterio tensione
+
+#define LIGHT_DEFAULT_TRANSITION_MS   1500    // default transition
 
 #include "config.h"
 
