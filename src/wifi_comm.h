@@ -19,18 +19,26 @@ class WifiComm : public IHardwareChangeListener {
     void run();
     void setup(Settings &settings, Hardware *hardware);
     void onHardwareChanged(HardwareEvent event, int index);
+    void requestRestart();
+    void restartMDNS();
   protected:
     int readByte();
     void sendByte(char b);
     //void broadcastEvent(Hardware &hw);
   private:
     Hardware *hardware;
-    bool searchAndConnectNet(char *ssid, char *pass, const char *hostname);
+    bool searchAndConnectNet(char *ssid, char *pass);
     boolean wifiStart(Settings &s);
     void sendSettings(Settings &s);
     int formatEvent(HardwareEvent event, int index, char *buf, size_t size);
     void sendInitialState(uint8_t num);
     int sendCaps(char *buf, int bufsize);
+    unsigned long _lastReconnectCheck = 0;
+    unsigned long _lastFullRetry = 0;
+    unsigned long _restartRequested = 0;
+    bool _apMode = false;
+
+    void reconnectCheck(unsigned long now);
 };
 
 extern WifiComm wifiComm;

@@ -39,6 +39,9 @@
 */
 #define ACTION_OUTLET_POWER             "outlet_power"
 
+/* requests device restart. no pars. */
+#define ACTION_RESTART                  "restart"
+
 /* update battery state event.
    Pars:
     - float voltage (can be null if sensor desnt't work)

@@ -35,6 +35,9 @@
 
 #define CONNECT_WAIT_COUNT  ( (WIFI_CONNECT_TIMEOUT * 1000) / 333 )
 
+#define STA_RECONNECT_CHECK_MS     10000    // ogni 10s, se la STA e' caduta, richiama reconnect()
+#define AP_FALLBACK_RETRY_MS      300000    // ogni 5 min, se in AP fallback, ritenta la rete principale
+
 FS* filesystem = &LittleFS;
 WebServer www(WWW_PORT);
 WebSocketsServer webSocket(81);
@@ -49,20 +52,19 @@ void _onAPStationConnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 void _onAPStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-  wifiComm.networkDisconnected();
 }
 
 /* STA event handlers */
 void _onStationConnected(WiFiEvent_t event, WiFiEventInfo_t info) {
+  wifiComm.restartMDNS();
 }
 
 void _onStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-  wifiComm.networkDisconnected();
 }
 
 void WifiComm::networkDisconnected() {}
 
-boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostname) {
+boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
   byte w = 0;
   boolean found = false;
 
@@ -79,7 +81,6 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostna
     if ( WiFi.SSID(i) == String(ssid) ) {
       //WiFi.mode(WIFI_AP_STA);
       WiFi.mode(WIFI_STA);
-      WiFi.setHostname(hostname);
       if (strlen(pass) > 0)
         WiFi.begin(ssid, pass);
       else
@@ -105,45 +106,74 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostna
 }
 
 boolean WifiComm::wifiStart(Settings &s) {
-  /* clean-up interface */
-  WiFi.disconnect(true, true); 
-  delay(500); 
-
   WiFi.persistent(false);
-  
-  uint8_t alt = 0;
-  
   WiFi.setAutoConnect(false);
   WiFi.mode(WIFI_STA);
   delay(100);
-
-  //Setting wifi hostname
   WiFi.setHostname(s.getHostname());
-  MDNS.begin(s.getHostname());
 
-  if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk(), s.getHostname())) {
+  if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk()) ||
+      searchAndConnectNet(s.getAltSsid(), s.getAltPsk())) {
+    _apMode = false;
+    restartMDNS();
     return true;
-  } else if (searchAndConnectNet(s.getAltSsid(), s.getAltPsk(), s.getHostname())) {
+  }
+
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.disconnect();
+
+  if (WiFi.softAP(s.getHostname(), s.getApPsk())) {
+    WiFi.onEvent(&_onAPStationConnected, ARDUINO_EVENT_WIFI_AP_STACONNECTED);
+    WiFi.onEvent(&_onAPStationDisconnected, ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
+    _apMode = true;
+    restartMDNS();
     return true;
+  }
+
+  return false;
+}
+
+void WifiComm::restartMDNS() {
+  // Il responder mDNS su ESP32 puo' restare in uno stato incoerente dopo un
+  // cambio di interfaccia (STA->AP o riconnessione): end()+begin() lo rifonda.
+  MDNS.end();
+  if (!MDNS.begin(hardware->settings->getHostname()))
+    DBGLN(F("ERROR (re)starting mDNS"));
+}
+
+void WifiComm::reconnectCheck(unsigned long now) {
+  if (!_apMode) {
+    // Modalita' STA: se la connessione e' caduta, richiama reconnect() (non
+    // bloccante, riusa le credenziali correnti) a intervalli regolari.
+    if (WiFi.status() != WL_CONNECTED) {
+      if (now - _lastReconnectCheck >= STA_RECONNECT_CHECK_MS) {
+        _lastReconnectCheck = now;
+        DBGLN(F("WiFi: connessione persa, tento reconnect"));
+        WiFi.reconnect();
+      }
+    }
   } else {
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.disconnect();
-    
-    if (WiFi.softAP(s.getHostname(), s.getApPsk())) {
-       /* 
-        *  if (s.ap_dont_be_default_gw) {
-        *   uint8_t router = 0;
-        *   if (!wifi_softap_set_dhcps_offer_option(OFFER_ROUTER, &router)) {}
-        *  }
-        */
-      WiFi.onEvent(& _onAPStationConnected, ARDUINO_EVENT_WIFI_AP_STACONNECTED);
-      WiFi.onEvent(& _onAPStationDisconnected, ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
-
-      return true;
+    // Modalita' AP fallback: a intervalli lunghi, ritenta la rete principale.
+    // Nota: usa una scansione, che blocca per 1-3s circa e puo' causare un
+    // breve stallo su HTTP/websocket durante il tentativo.
+    if (now - _lastFullRetry >= AP_FALLBACK_RETRY_MS) {
+      _lastFullRetry = now;
+      DBGLN(F("WiFi: in AP fallback, ritento la rete principale"));
+      Settings *s = hardware->settings;
+      if (searchAndConnectNet(s->getMainSsid(), s->getMainPsk()) ||
+          searchAndConnectNet(s->getAltSsid(), s->getAltPsk())) {
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        _apMode = false;
+        restartMDNS();
+      }
     }
   }
-     
-  return false;
+}
+
+void WifiComm::requestRestart() {
+  DBGLN(F("Restart richiesto"));
+  _restartRequested = millis();
 }
 
 /************************* www & websocket *************************/
@@ -305,6 +335,9 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
         if (i >= 0 && i < hardware->getOutletsNum())
           hardware->outlets[i]->setPower(p);
         ret = true;
+      } else if (!strcmp(action, ACTION_RESTART)) {
+        ret = true;
+        requestRestart();
       }
 
       if (ret)
@@ -362,7 +395,7 @@ void WifiComm::updateSettings(Settings &s) {
     } else if (www.argName(i).equals("ap_no_def_gw")) {
       s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
     } else if (www.argName(i) == String("restart")) {
-      reboot = true; 
+      requestRestart();
     } 
     
     //discard anything else
@@ -371,10 +404,7 @@ void WifiComm::updateSettings(Settings &s) {
   //here we're ok, send back modified settings
   sendSettings(s);
 
-  //TODO implement auto reboot
-  /*if (reboot)
-    rebootRequest = millis();*/
-}
+  }
 
 bool WifiComm::sendFile(String path) {
   if (path.endsWith("/")) {
@@ -469,6 +499,13 @@ void WifiComm::run() {
   www.handleClient();
   webSocket.loop();
   alpacaDiscoveryRun();
+  reconnectCheck(millis());
+
+  // Ritardo breve: lascia il tempo alla risposta HTTP/websocket di essere
+  // effettivamente scritta sul socket prima del reboot.
+  if (_restartRequested && (millis() - _restartRequested) >= 500) {
+    ESP.restart();
+  }
 }
 
 
