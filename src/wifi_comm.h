@@ -25,7 +25,7 @@ class WifiComm : public IHardwareChangeListener {
     //void broadcastEvent(Hardware &hw);
   private:
     Hardware *hardware;
-    bool searchAndConnectNet(char *ssid, char *pass);
+    bool searchAndConnectNet(char *ssid, char *pass, const char *hostname);
     boolean wifiStart(Settings &s);
     void sendSettings(Settings &s);
     int formatEvent(HardwareEvent event, int index, char *buf, size_t size);

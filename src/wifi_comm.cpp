@@ -62,7 +62,7 @@ void _onStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 
 void WifiComm::networkDisconnected() {}
 
-boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
+boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostname) {
   byte w = 0;
   boolean found = false;
 
@@ -79,6 +79,7 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
     if ( WiFi.SSID(i) == String(ssid) ) {
       //WiFi.mode(WIFI_AP_STA);
       WiFi.mode(WIFI_STA);
+      WiFi.setHostname(hostname);
       if (strlen(pass) > 0)
         WiFi.begin(ssid, pass);
       else
@@ -104,6 +105,10 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
 }
 
 boolean WifiComm::wifiStart(Settings &s) {
+  /* clean-up interface */
+  WiFi.disconnect(true, true); 
+  delay(500); 
+
   WiFi.persistent(false);
   
   uint8_t alt = 0;
@@ -113,12 +118,12 @@ boolean WifiComm::wifiStart(Settings &s) {
   delay(100);
 
   //Setting wifi hostname
-  WiFi.hostname(s.getHostname());
+  WiFi.setHostname(s.getHostname());
   MDNS.begin(s.getHostname());
 
-  if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk())) {
+  if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk(), s.getHostname())) {
     return true;
-  } else if (searchAndConnectNet(s.getAltSsid(), s.getAltPsk())) {
+  } else if (searchAndConnectNet(s.getAltSsid(), s.getAltPsk(), s.getHostname())) {
     return true;
   } else {
     WiFi.mode(WIFI_AP_STA);
