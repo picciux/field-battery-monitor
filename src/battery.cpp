@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <INA226_WE.h>
+#include <cmath>
 
 #include "pins.h"
 #include "include_config.h"
@@ -80,8 +81,11 @@ void Battery::setup(float capacity)
   }
 
   socPersistance.setup(SOC_PERSIST_MAX_TIME, SOC_PERSIST_MAX_DIFF);
-  
   this->soc = socPersistance.recover();
+  if (isnan(this->soc) || isinf(this->soc) || this->soc < 0.0f || this->soc > 100.0f) {
+    this->soc = 100.0f;   // valore corrotto o mai scritto: si riparte da pieno
+    socPersistance.force(this->soc, millis());
+  }
   this->capacity = capacity;
   this->voltage = 0.0f;
   this->current = 0.0f;
@@ -140,7 +144,10 @@ void Battery::run(unsigned long now)
         }
     }
 
-    socPersistance.update(soc, now);
+    if (!isnan(soc) && !isinf(soc)) {
+        socPersistance.update(soc, now);
+    }
+    
     updateSafety();
     if (_listener)
         _listener->onHardwareChanged(HardwareEvent::BatteryMainData, 0);
