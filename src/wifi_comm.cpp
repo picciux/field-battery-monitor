@@ -15,6 +15,7 @@
 #include "alpaca/AlpacaSwitch.h"
 #include "alpaca/AlpacaObservingConditions.h"
 #include "alpaca/AlpacaSafetyMonitor.h"
+#include "alpaca/AlpacaDiscovery.h"
 
 #include "websocket_proto.h"
 #include "board.h"
@@ -24,8 +25,8 @@
 #define STATUS_PATH "/api/sta"
 #define SETTINGS_PATH "/api/cfg"
 
-#ifndef WIFI_SERVER_PORT
-#define WIFI_SERVER_PORT 1000
+#ifndef WWW_PORT
+#define WWW_PORT 80
 #endif
 
 #ifndef WIFI_CONNECT_TIMEOUT
@@ -35,7 +36,7 @@
 #define CONNECT_WAIT_COUNT  ( (WIFI_CONNECT_TIMEOUT * 1000) / 333 )
 
 FS* filesystem = &LittleFS;
-WebServer www(80);
+WebServer www(WWW_PORT);
 WebSocketsServer webSocket(81);
 HTTPUpdateServer updater;
 
@@ -445,6 +446,7 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
  updater.setup(&www, UPDATE_PATH);
 
  www.begin();
+ alpacaDiscoverySetup(WWW_PORT);
  webSocket.begin();
  webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
   wifiComm.websocketEvent(num, type, payload, lenght);
@@ -461,6 +463,7 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
 void WifiComm::run() {
   www.handleClient();
   webSocket.loop();
+  alpacaDiscoveryRun();
 }
 
 
