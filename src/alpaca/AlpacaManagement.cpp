@@ -46,15 +46,13 @@ void alpacaManagementSetup(WebServer &server) {
 
     char uid[40];
 
-    DeviceDef *swDevices = getSwitchDevices();
-    for (int i = 0; i < getSwitchDevicesCount(); i++) {
-      JsonObject sw = arr.add<JsonObject>();
-      sw["DeviceName"] = swDevices[i].devInfo->name;
-      sw["DeviceType"] = "Switch";
-      sw["DeviceNumber"] = swDevices[i].number;
-      AlpacaHelper::makeUniqueId(uid, sizeof(uid), AlpacaDeviceType::Switch, swDevices[i].number);
-      sw["UniqueID"] = String(uid);   // String: ArduinoJson ne fa una copia
-    }
+    DeviceDef swDevice = getSwitchDevice();
+    JsonObject sw = arr.add<JsonObject>();
+    sw["DeviceName"] = swDevice.devInfo->name;
+    sw["DeviceType"] = "Switch";
+    sw["DeviceNumber"] = swDevice.number;
+    AlpacaHelper::makeUniqueId(uid, sizeof(uid), AlpacaDeviceType::Switch, swDevice.number);
+    sw["UniqueID"] = String(uid);   // String: ArduinoJson ne fa una copia
 
     JsonObject sm = arr.add<JsonObject>();
     sm["DeviceName"] = getSafetyMonitorInfo().name;

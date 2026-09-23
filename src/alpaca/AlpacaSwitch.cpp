@@ -5,16 +5,14 @@
 #include "include_config.h"
 #include "board.h"
 
-static const int BATTERY_SWITCH_DEVICE_NUMBER         = 0;
-static const int LIGHT_SWITCH_DEVICE_NUMBER           = 1;
-static const int OUTLET_SWITCH_DEVICE_NUMBER           = 2;
+static const int SWITCH_DEVICE_NUMBER         = 0;
 
 // ---------------------------------------------------------------------------
 // Definizione statica degli switch. Id 0-3: sensori batteria, read-only
 // (CanWrite=false). Id 4-5: uscite scrivibili (relay on/off + PWM 0-100).
 // ---------------------------------------------------------------------------
 
-static AlpacaDeviceInfo g_batterySwitchInfo = {
+static AlpacaDeviceInfo g_SwitchInfo = {
   "Battery",
   "Battery state and controls.",
   "ESP32 Alpaca Switch Driver",
@@ -22,7 +20,45 @@ static AlpacaDeviceInfo g_batterySwitchInfo = {
   2 // ISwitchV2
 };
 
-static SwitchDef g_batt_switches[] = {
+#define BATTERY_VOLTAGE          0
+#define BATTERY_CURRENT          1
+#define BATTERY_SOC              2
+#define BATTERY_TEMPERATURE      3
+#define BATTERY_MIN_TEMP         4
+
+#define BATT_SWITCHES            5
+
+
+#define LIGHT_BRIGHTNESS         0
+#define LIGHT_AUTO_ENABLED       1
+#define LIGHT_AUTO_BRIGHTNESS    2
+#define LIGHT_AUTO_DURATION      3
+
+#define LIGHT_SWITCHES           4
+
+#define OUTLET_1                 0
+#define OUTLET_2                 1
+#define OUTLET_3                 2
+
+#define MAX_SWITCHES            (BATT_SWITCHES + LIGHT_SWITCHES + MAX_OUTLETS)
+
+enum class SwitchType {
+  BatteryVoltage,
+  BatteryCurrent,
+  BatterySoC,
+  BatteryTemperature,
+  BatteryMinTemperature,
+  LightBrightness,
+  LightAutoEnabled,
+  LightAutoBrightness,
+  LightAutoDuration,
+  Outlet1,
+  Outlet2,
+  Outlet3,
+  Unknown
+};
+
+static SwitchDef g_switches[MAX_SWITCHES] = {
   { "Voltage",     "Battery voltage (V)",        0.0,  20.0, 0.01, false },
   { "Current", "Battery current (A): negative = discharge, positive = charge", -20.0, 20.0, 0.01, false },  
   { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
@@ -30,95 +66,100 @@ static SwitchDef g_batt_switches[] = {
   { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", -10.0,   10.0, 1.0,  true  }
 };
 
-#define BATTERY_VOLTAGE     0
-#define BATTERY_CURRENT     1
-#define BATTERY_SOC         2
-#define BATTERY_TEMPERATURE 3
-#define BATTERY_MIN_TEMP    4
-
-static AlpacaDeviceInfo g_lightSwitchInfo = {
-  "Light",
-  "Ambient Light controls.",
-  "ESP32 Alpaca Switch Driver",
-  "1.0",
-  2 // ISwitchV2
-};
-
-static SwitchDef g_light_switches[] = {
-  //{ "ON",               "Turn ON/OFF",               0.0,  1.0, 1.0, true },
+static SwitchDef g_lightSwitches[4] = {
   { "Brightness",          "Light manual brightness (%)",     0.0,  100.0, 1.0, true },
   { "Automation",          "Enable motion detection based light automation",           0.0, 1.0, 1.0,  true },
   { "Auto brightness",     "Light brightness when motion activated (%)", 1.0, 100.0, 1.0,  true },
   { "Auto duration",       "Light on duration after no-more motion detected (s)",      10.0,   60.0, 1.0,  true  }
 };
 
-#define LIGHT_BRIGHTNESS        0
-#define LIGHT_AUTO_ENABLED      1
-#define LIGHT_AUTO_BRIGHTNESS   2
-#define LIGHT_AUTO_DURATION     3
-
-static AlpacaDeviceInfo g_outletsSwitchInfo = {
-  "Power outlets",
-  "Power outlets controls.",
-  "ESP32 Alpaca Switch Driver",
-  "1.0",
-  2 // ISwitchV2
-};
-
-static SwitchDef g_outlet_switches[MAX_OUTLETS] = {
+static SwitchDef g_outletSwitches[MAX_OUTLETS] = {
   { "Power outlet 1", "Power outlet 1 (%)", 0.0, 100.0, 1.0, true },
   { "Power outlet 2", "Power outlet 2 (%)", 0.0, 100.0, 1.0, true },
-  { "Power outlet 3", "Power outlet 3 (%)", 0.0, 100.0, 1.0, true }
+  { "Power outlet 3", "Power outlet 3 (%)", 0.0, 100.0, 1.0, true }    
 };
 
-#define OUTLET_1      0
-#define OUTLET_2      1
-#define OUTLET_3      2
-
-static const int MAX_SWITCH_DEVICES = 3;
-
-static DeviceDef g_devices[MAX_SWITCH_DEVICES];
-static int  g_devicesCount = 0;
-static bool g_switchConnected[MAX_SWITCH_DEVICES];
+static DeviceDef g_device;
+static bool g_switchConnected;
+static int g_numSwitches;
 
 static void buildDeviceTable() {
-  g_devicesCount = 0;
+  g_numSwitches = BATT_SWITCHES;
 
-  g_devices[g_devicesCount++] = { BATTERY_SWITCH_DEVICE_NUMBER, &g_batterySwitchInfo,
-      g_batt_switches, (int)(sizeof(g_batt_switches) / sizeof(g_batt_switches[0])) };
+  if (HAS_LIGHT) {
+    for (int i = 0; i < LIGHT_SWITCHES; i++) {
+      g_switches[g_numSwitches++] = g_lightSwitches[i];
+    }
+  }
 
-  if (HAS_LIGHT)
-    g_devices[g_devicesCount++] = { LIGHT_SWITCH_DEVICE_NUMBER, &g_lightSwitchInfo,
-        g_light_switches, (int)(sizeof(g_light_switches) / sizeof(g_light_switches[0])) };
-
-  if (OUTLET_COUNT > 0)
-    g_devices[g_devicesCount++] = { OUTLET_SWITCH_DEVICE_NUMBER, &g_outletsSwitchInfo,
-        g_outlet_switches, OUTLET_COUNT };   // solo i primi OUTLET_COUNT switch
+  if (OUTLET_COUNT > 0) {
+    for (int i = 0; i < OUTLET_COUNT; i++) {
+      g_switches[g_numSwitches++] = g_outletSwitches[i];
+    }
+  }
+  g_device = { SWITCH_DEVICE_NUMBER, &g_SwitchInfo, g_switches, g_numSwitches };
 }
 
-DeviceDef *getSwitchDevices()   { return g_devices; }
-int getSwitchDevicesCount()     { return g_devicesCount; }
-
-static int findSwitchDeviceIndex(int number) {
-  for (int i = 0; i < g_devicesCount; i++)
-    if (g_devices[i].number == number) return i;
-  return -1;
+static AlpacaDeviceRef swResolver(int number) {
+  if (number != 0) return {};
+  return AlpacaDeviceRef(&g_SwitchInfo, &g_switchConnected);
 }
 
-static AlpacaDeviceRef switchResolver(int number) {
-  int idx = findSwitchDeviceIndex(number);
-  if (idx < 0) return {};
-  return AlpacaDeviceRef(g_devices[idx].devInfo, &g_switchConnected[idx]);
+static SwitchType resolveSwitchId(int id) {
+  if (id < BATT_SWITCHES) {
+    switch(id) {
+      case BATTERY_VOLTAGE:
+        return SwitchType::BatteryVoltage;
+      case BATTERY_CURRENT:
+        return SwitchType::BatteryCurrent;
+      case BATTERY_SOC:
+        return SwitchType::BatterySoC;
+      case BATTERY_TEMPERATURE:
+        return SwitchType::BatteryTemperature;
+      case BATTERY_MIN_TEMP:
+        return SwitchType::BatteryMinTemperature;
+    }
+  } else if (HAS_LIGHT && id < BATT_SWITCHES + LIGHT_SWITCHES) {
+    switch(id - BATT_SWITCHES) {
+      case LIGHT_BRIGHTNESS:
+        return SwitchType::LightBrightness;
+      case LIGHT_AUTO_ENABLED:
+        return SwitchType::LightAutoEnabled;
+      case LIGHT_AUTO_BRIGHTNESS:
+        return SwitchType::LightAutoBrightness;
+      case LIGHT_AUTO_DURATION:
+        return SwitchType::LightAutoDuration;
+    }
+  } else {
+    int prev_switches = BATT_SWITCHES + (HAS_LIGHT ? LIGHT_SWITCHES : 0);
+    if (id >= prev_switches && id < prev_switches + OUTLET_COUNT) {
+      switch(id - prev_switches) {
+        case OUTLET_1:
+          return SwitchType::Outlet1;
+        case OUTLET_2:
+          return SwitchType::Outlet2;
+        case OUTLET_3:
+          return SwitchType::Outlet3;
+      }
+    }
+  }
+
+  return SwitchType::Unknown;
 }
 
-static bool isValidSwitchId(int index, int id) {
-  return index >= 0 && id >= 0 && id < g_devices[index].num_switches;
+DeviceDef getSwitchDevice()   { return g_device; }
+int getSwitchDevicesCount()     { return 1; }
+bool getSwitchConnected() { return g_switchConnected; }
+
+/*
+static bool isValidSwitchId(int id) {
+  return id >= 0 && id < g_numSwitches;
 }
+*/
 
 struct AlpacaSwitchRequest {
-  int deviceNumber;   // numero fisso: serve a getSwitchValue/writeSwitch*
-  int deviceIndex;    // posizione in g_devices: serve a g_devices[...]
   int switchId;
+  SwitchType switchType;
   uint32_t ctid;
 };
 
@@ -126,19 +167,21 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
     int dn = AlpacaHelper::pathArgToInt(server, 0, -1);
     int id = AlpacaHelper::queryArgToInt(server, "Id", -1);
     uint32_t ctid = AlpacaHelper::getClientTransactionID(server);
-    int idx = findSwitchDeviceIndex(dn);
-    if (idx < 0) {
+    if (dn != 0) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Device number out of range", ctid);
       return false;
     }
-    if (!isValidSwitchId(idx, id)) {
+
+    SwitchType st = resolveSwitchId(id);
+    if (st == SwitchType::Unknown) {
+    /*if (!isValidSwitchId(id)) { */
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Switch Id out of range", ctid);
       return false;
     }
+    
     request.ctid = ctid;
-    request.deviceIndex = idx;
-    request.deviceNumber = dn;
     request.switchId = id;
+    request.switchType = st;
     return true;
 }
 
@@ -147,79 +190,58 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
 // SoC invece resta esposto anche a sensore guasto: e' un valore accumulato
 // e persistito, l'ultima stima nota, non una lettura istantanea.
 static bool checkValueSet(WebServer &server, Hardware *hw, const AlpacaSwitchRequest &r) {
-  if (r.deviceNumber == BATTERY_SWITCH_DEVICE_NUMBER) {
-    if (r.switchId == BATTERY_TEMPERATURE && !hw->heater->isTemperatureValid()) {
-      AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
-                               "Temperature sensor not available", r.ctid);
-      return false;
-    }
-    if ((r.switchId == BATTERY_VOLTAGE || r.switchId == BATTERY_CURRENT) &&
-        !hw->battery->isSensorValid()) {
-      AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
-                               "Battery sensor (INA226) not available", r.ctid);
-      return false;
-    }
+  /*
+  if (r.switchType == SwitchType::BatteryTemperature && !hw->heater->isTemperatureValid()) {
+    AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
+                              "Temperature sensor not available", r.ctid);
+    return false;
   }
+  if ((r.switchType == SwitchType::BatteryVoltage || r.switchType == SwitchType::BatteryCurrent ) &&
+      !hw->battery->isSensorValid()) {
+    AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
+                              "Battery sensor (INA226) not available", r.ctid);
+    return false;
+  }*/
   return true;
 }
 
-double getSwitchValue(Hardware *hw, int number, int id) {
-  switch (number) {
-    case BATTERY_SWITCH_DEVICE_NUMBER:
-      switch (id) {
-        case BATTERY_VOLTAGE:     return hw->battery->getVoltage();
-        case BATTERY_CURRENT:     return hw->battery->getCurrent();
-        case BATTERY_SOC:         return hw->battery->getSoC();
-        case BATTERY_TEMPERATURE: return hw->heater->getTemperature();
-        case BATTERY_MIN_TEMP:    return hw->heater->getLowThreshold();
-      }
-      return 0.0;
-
-    case LIGHT_SWITCH_DEVICE_NUMBER:
-      if (!hw->light) return 0.0;
-      switch (id) {
-        case LIGHT_BRIGHTNESS:      return hw->light->getBrightness() * 100.0;
-        case LIGHT_AUTO_ENABLED:    return hw->light->isAutoEnabled();
-        case LIGHT_AUTO_BRIGHTNESS: return hw->light->getAutoBrightness() * 100.0;
-        case LIGHT_AUTO_DURATION:   return hw->light->getAutoDuration();
-      }
-      return 0.0;
-
-    case OUTLET_SWITCH_DEVICE_NUMBER:
-      if (id >= 0 && id < hw->getOutletsNum())
-        return hw->outlets[id]->getPower() * 100.0;
-      return 0.0;
+double getSwitchValue(Hardware *hw, SwitchType type) {
+  switch (type) {
+    case SwitchType::BatteryVoltage:            return hw->battery->getVoltage();
+    case SwitchType::BatteryCurrent:            return hw->battery->getCurrent();
+    case SwitchType::BatterySoC:                return hw->battery->getSoC();
+    case SwitchType::BatteryTemperature:        return hw->heater->getTemperature();
+    case SwitchType::BatteryMinTemperature:     return hw->heater->getLowThreshold();
+    case SwitchType::LightBrightness:           return hw->light->getBrightness() * 100.0;
+    case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
+    case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
+    case SwitchType::LightAutoDuration:         return hw->light->getAutoDuration();
+    case SwitchType::Outlet1:                   return hw->outlets[0]->getPower() * 100.0;
+    case SwitchType::Outlet2:                   return hw->outlets[1]->getPower() * 100.0;
+    case SwitchType::Outlet3:                   return hw->outlets[2]->getPower() * 100.0;
   }
-  return 0.0;
+  return 0.0; //Unknown
 }
 
-void writeSwitchValue(Hardware *hw, int number, int id, double v) {
-  switch (number) {
-    case BATTERY_SWITCH_DEVICE_NUMBER:
-      if (id == BATTERY_MIN_TEMP) hw->heater->setLowThreshold(v);
-      break;
+void writeSwitchValue(Hardware *hw, SwitchType type, double v) {
+  switch (type) {
+    case SwitchType::BatteryMinTemperature: hw->heater->setLowThreshold(v); break;
 
-    case LIGHT_SWITCH_DEVICE_NUMBER:
-      if (!hw->light) break;
-      switch (id) {
-        case LIGHT_BRIGHTNESS:      hw->light->setBrightness(v / 100.0f); break;
-        case LIGHT_AUTO_ENABLED:    hw->light->autoEnable(v != 0.0); break;
-        case LIGHT_AUTO_BRIGHTNESS: hw->light->setAutoBrightness(v / 100.0f); break;
-        case LIGHT_AUTO_DURATION:   hw->light->setAutoDuration((int) v); break;
-      }
-      break;
+    case SwitchType::LightBrightness:       hw->light->setBrightness(v / 100.0f); break;
+    case SwitchType::LightAutoEnabled:      hw->light->autoEnable(v != 0.0); break;
+    case SwitchType::LightAutoBrightness:   hw->light->setAutoBrightness(v / 100.0f); break;
+    case SwitchType::LightAutoDuration:     hw->light->setAutoDuration((int) v); break;
 
-    case OUTLET_SWITCH_DEVICE_NUMBER:
-      if (id >= 0 && id < hw->getOutletsNum())
-        hw->outlets[id]->setPower(v / 100.0f);
-      break;
+    case SwitchType::Outlet1:               hw->outlets[0]->setPower(v / 100.0f); break;
+    case SwitchType::Outlet2:               hw->outlets[1]->setPower(v / 100.0f); break;
+    case SwitchType::Outlet3:               hw->outlets[2]->setPower(v / 100.0f); break;
   }
 }
 
 void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   buildDeviceTable();
-  for (int i = 0; i < g_devicesCount; i++) g_switchConnected[i] = true;
-  registerCommonDeviceEndpoints(server, "switch", switchResolver);
+  g_switchConnected = true;
+  registerCommonDeviceEndpoints(server, "switch", swResolver);
 
   const String base = "/api/v1/switch/{}/";
 
@@ -229,54 +251,53 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "maxswitch"), HTTP_GET, [&server]() {
     int dn = AlpacaHelper::pathArgToInt(server, 0);
     uint32_t ctid = AlpacaHelper::getClientTransactionID(server);
-    int idx = findSwitchDeviceIndex(dn);
-    if (idx < 0) {
+    if (dn < 0) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Number fuori range", ctid);
       return;
     }
-    AlpacaHelper::sendInt(server, g_devices[idx].num_switches, ctid);
+    AlpacaHelper::sendInt(server, g_device.num_switches, ctid);
   });
 
   // getswitchdescription(Id)
   server.on(UriBraces(base + "getswitchdescription"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendString(server, g_devices[r.deviceIndex].switches[r.switchId].description, r.ctid);
+    AlpacaHelper::sendString(server, g_device.switches[r.switchId].description, r.ctid);
   });
 
   // getswitchname(Id)
   server.on(UriBraces(base + "getswitchname"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendString(server, g_devices[r.deviceIndex].switches[r.switchId].name, r.ctid);
+    AlpacaHelper::sendString(server, g_device.switches[r.switchId].name, r.ctid);
   });
 
   // canwrite(Id)
   server.on(UriBraces(base + "canwrite"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendBool(server, g_devices[r.deviceIndex].switches[r.switchId].canWrite, r.ctid);
+    AlpacaHelper::sendBool(server, g_device.switches[r.switchId].canWrite, r.ctid);
   });
   
 // minswitchvalue(Id)
   server.on(UriBraces(base + "minswitchvalue"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendDouble(server, g_devices[r.deviceIndex].switches[r.switchId].minValue, r.ctid);
+    AlpacaHelper::sendDouble(server, g_device.switches[r.switchId].minValue, r.ctid);
   });
 
   // maxswitchvalue(Id)
   server.on(UriBraces(base + "maxswitchvalue"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendDouble(server, g_devices[r.deviceIndex].switches[r.switchId].maxValue, r.ctid);
+    AlpacaHelper::sendDouble(server, g_device.switches[r.switchId].maxValue, r.ctid);
   });
 
   // switchstep(Id)
   server.on(UriBraces(base + "switchstep"), HTTP_GET, [&server]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    AlpacaHelper::sendDouble(server, g_devices[r.deviceIndex].switches[r.switchId].step, r.ctid);
+    AlpacaHelper::sendDouble(server, g_device.switches[r.switchId].step, r.ctid);
   });
 
 
@@ -286,8 +307,8 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
     if (!checkValueSet(server, hardware, r)) return;
-    const SwitchDef &s = g_devices[r.deviceIndex].switches[r.switchId];
-    double v = getSwitchValue(hardware, r.deviceNumber, r.switchId);
+    const SwitchDef &s = g_device.switches[r.switchId];
+    double v = getSwitchValue(hardware, r.switchType);
     AlpacaHelper::sendBool(server, v > (s.minValue + s.maxValue) / 2.0, r.ctid);
   });
 
@@ -296,14 +317,14 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
     if (!checkValueSet(server, hardware, r)) return;
-    AlpacaHelper::sendDouble(server, getSwitchValue(hardware, r.deviceNumber, r.switchId), r.ctid);
+    AlpacaHelper::sendDouble(server, getSwitchValue(hardware, r.switchType), r.ctid);
   });
 
   // setswitch(Id, State) -> equivale a setswitchvalue(Max) / setswitchvalue(Min)
   server.on(UriBraces(base + "setswitch"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (!checkRequest(server, r)) return;
-    const SwitchDef &s = g_devices[r.deviceIndex].switches[r.switchId];
+    const SwitchDef &s = g_device.switches[r.switchId];
     if (!s.canWrite) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidOperation,
                               "Switch read-only (sensore)", r.ctid);
@@ -314,7 +335,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
       return;
     }
     bool state = AlpacaHelper::queryArgToBool(server, "State", false);
-    writeSwitchValue(hardware, r.deviceNumber, r.switchId, state ? s.maxValue : s.minValue);
+    writeSwitchValue(hardware, r.switchType, state ? s.maxValue : s.minValue);
     AlpacaHelper::sendEmptyOk(server, r.ctid);
   });
 
@@ -322,7 +343,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "setswitchvalue"), HTTP_PUT, [&server, hardware]() {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
-    const SwitchDef &s = g_devices[r.deviceIndex].switches[r.switchId];
+    const SwitchDef &s = g_device.switches[r.switchId];
     if (!s.canWrite) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidOperation,
                                "Switch read-only (sensore)", r.ctid);
@@ -338,7 +359,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
                                "Value fuori range [min,max]", r.ctid);
       return;
     }
-    writeSwitchValue(hardware, r.deviceNumber, r.switchId, value);
+    writeSwitchValue(hardware, r.switchType, value);
     AlpacaHelper::sendEmptyOk(server, r.ctid);
   });
 

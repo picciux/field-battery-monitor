@@ -22,7 +22,7 @@ struct DeviceDef {
 
 //const AlpacaDeviceInfo& getSwitchDeviceInfo(int number);
 int getSwitchDevicesCount();
-DeviceDef *getSwitchDevices();
+DeviceDef getSwitchDevice();
 
 // Registra tutti gli endpoint REST ISwitchV2 su device_number = 0
 void alpacaSwitchSetup(WebServer &server, Hardware *hardware);
