@@ -29,8 +29,8 @@ void setup() {
 }
 
 void loop() {
-  unsigned long now = millis();
   wifiComm.run();
+  unsigned long now = millis();
   BTHomeBeacon_run(hardware, now);
   hardware.run(now);
   esp_task_wdt_reset();

@@ -28,6 +28,7 @@ class BaseLight {
         unsigned long transitionStart = 0;
         unsigned long lastPwmUpdate = 0;
         bool transitioning = false;
+        int transitionFrame = 0;
         float lastBrightness = 0;
         void _setBrightness(float brightness);
 
@@ -35,6 +36,7 @@ class BaseLight {
         float brightness = 0;
         bool on = false;
         PwmPin pin;
+        virtual void transitionUpdate(float progress) {};
     public:
         bool setBrightness(float brightness);
         bool setBrightness(float brightness, unsigned long transitionDurationMs);
@@ -57,6 +59,8 @@ class Light : public BaseLight {
         int pirPin;
         Settings *settings;
         IHardwareChangeListener *_listener;
+    protected:
+        void transitionUpdate(float progress) override;
     public:
         void setBrightness(float brightness); 
         bool isAutoEnabled();

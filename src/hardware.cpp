@@ -10,6 +10,7 @@
 
 #define TRANSITION_FPS        50
 #define TRANSITION_PWM_DELAY  ( 1000 / TRANSITION_FPS) // in milliseconds
+#define TRANSITION_UPD_FRAMES 10 // call transition update every TRANSITION_UPD_FRAMES transition frames
 
 #define TEMP_SAMPLE_INTERVAL_MS   5000   // ogni quanto avviare una conversione
 #define TEMP_CONVERSION_MS         800   // DS18B20 a 12 bit: max 750 ms
@@ -75,6 +76,7 @@ bool BaseLight::setBrightness(float brightness, unsigned long transitionDuration
     this->transition = transitionDurationMs;
     startBrightness = this->brightness;
     targetBrightness = brightness;
+    transitionFrame = 0;
     transitionStart = millis();
     transitioning = true;
   }
@@ -127,15 +129,20 @@ void BaseLight::run(unsigned long now)
   if (now - lastPwmUpdate < TRANSITION_PWM_DELAY) return;
   lastPwmUpdate = now;
 
-  float progress = (float) (now - transitionStart) / transition;
+  float elapsed = (now >= transitionStart) ? (float)(now - transitionStart) : 0.0f ;
+  float progress = elapsed / transition;
   if (progress >= 1.0) {
     _setBrightness(targetBrightness);
     transitioning = false;
+    transitionUpdate(1.0);
     return;
   }
 
   /* TODO: gamma 2.2 interpolation insetead of linear */
   _setBrightness(startBrightness + progress * (targetBrightness - startBrightness));
+  
+  if ((++transitionFrame % TRANSITION_UPD_FRAMES) == 0)
+    transitionUpdate(progress); //TODO throttle based on TRANSITION_UPD_FRAMES
 }
 
 void Light::setBrightness(float brightness)
@@ -192,6 +199,12 @@ void Light::setAutoDuration(int seconds)
     if (_listener)
       _listener->onHardwareChanged(HardwareEvent::Light, 0);
   }
+}
+
+void Light::transitionUpdate(float progress)
+{
+  if (_listener)
+    _listener->onHardwareChanged(HardwareEvent::Light, 0);
 }
 
 void Light::setup(int pwmPin, int pirPin, Settings *settings)
