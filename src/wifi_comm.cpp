@@ -373,7 +373,8 @@ void WifiComm::sendSettings(Settings &s) {
 }
 
 void WifiComm::updateSettings(Settings &s) {
-  boolean reboot = false;
+  bool factoryReset = false;
+  bool factoryResetConfirm = false;
   
   for(uint8_t i = 0; i < www.args(); i++) {
     if (www.argName(i).equals("hostname")) {
@@ -404,15 +405,25 @@ void WifiComm::updateSettings(Settings &s) {
       s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
     } else if (www.argName(i) == String("restart")) {
       requestRestart();
-    } 
-    
+    } else if ( www.argName(i).equals("factory_reset")) {
+      factoryReset = true;
+    } else if ( www.argName(i).equals("factory_reset_confirm")) {
+      if (!strcmp(www.arg(i).c_str(), "CONFIRM FACTORY RESET")) {
+        factoryResetConfirm = true;
+      }
+    }
     //discard anything else
   }
 
+  if (factoryReset && factoryResetConfirm) 
+    s.factoryReset();
+  
   //here we're ok, send back modified settings
   sendSettings(s);
-
-  }
+  
+  if (factoryReset && factoryResetConfirm) 
+    requestRestart();
+}
 
 bool WifiComm::sendFile(String path) {
   if (path.endsWith("/")) {

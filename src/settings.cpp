@@ -128,6 +128,6 @@ void Settings::setup() {
 }
 
 void Settings::factoryReset() {
-
+  g_prefs.clear();
 }
 
