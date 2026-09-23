@@ -67,7 +67,7 @@ void _onStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 
 void WifiComm::networkDisconnected() {}
 
-boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
+boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostname) {
   byte w = 0;
   boolean found = false;
 
@@ -83,6 +83,7 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
   for (int i = 0; i < n; i++) {
     if ( WiFi.SSID(i) == String(ssid) ) {
       //WiFi.mode(WIFI_AP_STA);
+      WiFi.setHostname(hostname);
       WiFi.mode(WIFI_STA);
       if (strlen(pass) > 0)
         WiFi.begin(ssid, pass);
@@ -109,14 +110,18 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass) {
 }
 
 boolean WifiComm::wifiStart(Settings &s) {
+  
+  WiFi.mode(WIFI_MODE_NULL);
   WiFi.persistent(false);
-  WiFi.setAutoConnect(false);
-  WiFi.mode(WIFI_STA);
   delay(100);
-  WiFi.setHostname(s.getHostname());
 
-  if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk()) ||
-      searchAndConnectNet(s.getAltSsid(), s.getAltPsk())) {
+  WiFi.setAutoConnect(false);
+
+  WiFi.setHostname(s.getHostname());
+  WiFi.mode(WIFI_STA);
+
+  if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk(), s.getHostname()) ||
+      searchAndConnectNet(s.getAltSsid(), s.getAltPsk(), s.getHostname())) {
     _apMode = false;
     restartMDNS();
     return true;
@@ -163,8 +168,8 @@ void WifiComm::reconnectCheck(unsigned long now) {
       _lastFullRetry = now;
       DBGLN(F("WiFi: in AP fallback, ritento la rete principale"));
       Settings *s = hardware->settings;
-      if (searchAndConnectNet(s->getMainSsid(), s->getMainPsk()) ||
-          searchAndConnectNet(s->getAltSsid(), s->getAltPsk())) {
+      if (searchAndConnectNet(s->getMainSsid(), s->getMainPsk(), s->getHostname()) ||
+          searchAndConnectNet(s->getAltSsid(), s->getAltPsk(), s->getHostname())) {
         WiFi.softAPdisconnect(true);
         WiFi.mode(WIFI_STA);
         _apMode = false;
