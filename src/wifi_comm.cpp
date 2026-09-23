@@ -19,6 +19,9 @@
 
 #include "websocket_proto.h"
 #include "board.h"
+#ifdef WIFI_DEBUG_ON_WS
+  #include "ws_debug.h"
+#endif
 
 #define UPDATE_PATH "/update"
 #define CAPS_PATH "/api/cap"
@@ -483,6 +486,9 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
  www.begin();
  alpacaDiscoverySetup(WWW_PORT);
  webSocket.begin();
+#ifdef WIFI_DEBUG_ON_WS
+ wsDebugSetup(&webSocket);
+#endif
  webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
   wifiComm.websocketEvent(num, type, payload, lenght);
  });

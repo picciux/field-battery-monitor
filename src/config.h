@@ -81,14 +81,14 @@
  * For debugging purposes.
  *****************************************************************************/
 
-/* Uncomment to enable debugging over serial in wifi-mode: ignored if wifi 
- * is not enabled. */
+/* Scegli UNA delle opzioni sottostanti per il debug (o nessuna).
+   Mutuamente esclusive: solo la prima definita, in ordine, viene usata. */
+
+/* Debug via seriale USB. */
 //#define WIFI_DEBUG_ON_SERIAL
 
-/* Uncomment to enable debugging over wifi in wifi-mode: ignored if wifi is 
- * not enabled. */
-//#define WIFI_DEBUG_ON_WIFI
+/* Debug via evento websocket "debug", visibile a ogni client connesso
+   (utile senza seriale collegata, es. con la sola alimentazione USB o
+   quando il device e' remoto). */
+//#define WIFI_DEBUG_ON_WS
 
-/* Choose UDP port the debug messages will be broatcasted to. REQUIRED if
- * WIFI_DEBUG_ON_WIFI is enabled. */
-//#define WIFI_DEBUG_WIFI_UDP_PORT 1010

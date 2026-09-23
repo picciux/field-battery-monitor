@@ -1,6 +1,5 @@
 
-#ifndef INCLUDE_CONFIG_H
-#define INCLUDE_CONFIG_H
+#pragma once
 
 #define VERSION "1.0"
 
@@ -28,16 +27,23 @@
 
 #include "config.h"
 
-#ifdef WIFI_DEBUG_ON_SERIAL
-  #define DBG(t) (Serial.print(t))
-  #define DBGLN(t) (Serial.println(t))
-#elif defined(WIFI_DEBUG_ON_WIFI)
-  #include "wifi_debug.h"
-  #define DBG(t) (getWifiDebug()->print(t))
-  #define DBGLN(t) (getWifiDebug()->println(t))
+// Scegli UNA sola destinazione per il log di debug (o nessuna, il default).
+// DBG/DBGLN sono stile Print (un solo argomento, come Serial.print),
+// DBGF e' stile printf. Con nessun backend attivo, tutte e tre sono no-op:
+// restano nel codice sorgente senza alcun costo in una build di produzione.
+#if defined(WIFI_DEBUG_ON_SERIAL)
+  #define DBG(t)     (Serial.print(t))
+  #define DBGLN(t)   (Serial.println(t))
+  #define DBGF(...)  (Serial.printf(__VA_ARGS__))
+#elif defined(WIFI_DEBUG_ON_WS)
+  #include "ws_debug.h"
+  #define DBG(t)     (wsDebugPrint(t))
+  #define DBGLN(t)   (wsDebugPrintln(t))
+  #define DBGF(...)  (wsDebugf(__VA_ARGS__))
 #else
-  #define DBG(t) 
-  #define DBGLN(t) 
+  #define DBG(t)
+  #define DBGLN(t)
+  #define DBGF(...)
 #endif
 
-#endif //INCLUDE_CONFIG_H
+
