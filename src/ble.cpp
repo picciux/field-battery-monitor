@@ -14,10 +14,10 @@
 // BTHome v2 object IDs (in ordine crescente, come richiesto dalla spec)
 #define BTH_BATTERY_PCT      0x01   // uint8, %
 #define BTH_VOLTAGE_MV       0x0C   // uint16, 0.001 V
-#define BTH_PROBLEM          0x26   // uint8, bool
-#define BTH_SAFETY           0x28   // uint8, bool
+#define BTH_PROBLEM          0x26   // uint8,  bool
+#define BTH_SAFETY           0x28   // uint8,  bool
 #define BTH_COUNT_U16        0x3D   // uint16, hours
-#define BTH_TEMPERATURE      0x45   // sint16, 0.1 C
+#define BTH_TEMPERATURE      0x57   // sint8,  1 C
 #define BTH_CURRENT_SIGNED   0x5D   // sint16, 0.001 A
 
 
@@ -69,7 +69,7 @@ void BTHomeBeacon_run(Hardware &hw, unsigned long now) {
 
   if (hw.heater->isTemperatureValid()) {
     addU8(sd, BTH_TEMPERATURE);
-    addU16(sd, (uint16_t)(int16_t) roundf(hw.heater->getTemperature() * 10.0f));
+    addU16(sd, (int8_t) roundf(hw.heater->getTemperature()));
   }
 
   if (sensorOk) {
