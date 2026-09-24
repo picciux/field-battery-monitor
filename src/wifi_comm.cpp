@@ -311,7 +311,7 @@ void WifiComm::onHardwareChanged(HardwareEvent event, int index)
 // dal broadcast, cosi' l'interfaccia ha un unico formato da interpretare.
 void WifiComm::sendInitialState(uint8_t num)
 {
-  char buf[128];
+  char buf[256];
   auto send = [&](HardwareEvent e, int idx) {
     int len = formatEvent(e, idx, buf, sizeof(buf));
     if (len > 0) webSocket.sendTXT(num, buf, len);
@@ -331,7 +331,7 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       break;
     case WStype_CONNECTED:  {             // if a new websocket connection is established: send initial data
-      char buf[128];
+      char buf[256];
       int len = sendCaps(buf, sizeof(buf));
       if (len > 0) webSocket.sendTXT(num, buf, len);
       sendInitialState(num);
