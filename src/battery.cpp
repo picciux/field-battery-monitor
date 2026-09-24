@@ -66,19 +66,22 @@ void Battery::updateSafety()
         _listener->onHardwareChanged(HardwareEvent::Safety, 0);
 }
 
+// battery.cpp
+bool Battery::configureIna() {
+  if (!ina.init()) return false;
+  ina.setResistorRange(INA226_RESISTOR, INA226_RANGE);
+  ina.setCorrectionFactor(1.0);
+  ina.setAverage(INA226_AVERAGE_4);
+  return true;
+}
+
 void Battery::setup(float capacity)
 {
   // Start I2C bus
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
   
-  _sensorValid = ina.init();
-  if (_sensorValid) {
-    // INA226 config
-    ina.setResistorRange(INA226_RESISTOR, INA226_RANGE); 
-    ina.setCorrectionFactor(1.0);
-    // 4-sample internal average
-    ina.setAverage(INA226_AVERAGE_4);
-  }
+  _inaConfigured = configureIna();
+  _sensorValid = _inaConfigured;
 
   socPersistance.setup(SOC_PERSIST_MAX_TIME, SOC_PERSIST_MAX_DIFF);
   this->soc = socPersistance.recover();
@@ -101,8 +104,14 @@ void Battery::run(unsigned long now)
     _last_update = now;
 
     Wire.beginTransmission(INA226_ADDR);
-    _sensorValid = (Wire.endTransmission() == 0);
-    
+    bool present = (Wire.endTransmission() == 0);
+    if (!present) 
+        _inaConfigured = false;
+    else if (!_inaConfigured) 
+        _inaConfigured = configureIna();
+
+    _sensorValid = present && _inaConfigured;
+
     if (!_sensorValid) {
         // Tensione, corrente e SoC restano fermi all'ultimo valore noto.
         if (_listener)

@@ -35,10 +35,12 @@ class Battery {
         unsigned long _last_update;
         unsigned long _last_autonomy;
         unsigned long _start_soc_reset_condition = 0;
+        bool _inaConfigured = false;
 
         IHardwareChangeListener *_listener;
 
         void updateSafety();
+        bool configureIna();
         
     public:
         float getSoC();
