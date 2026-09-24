@@ -20,9 +20,9 @@ static AlpacaDeviceInfo g_SwitchInfo = {
 #define BATTERY_SOC              2
 #define BATTERY_TEMPERATURE      3
 #define BATTERY_MIN_TEMP         4
+#define BATTERY_AUTONOMY         5
 
-#define BATT_SWITCHES            5
-
+#define BATT_SWITCHES            6
 
 #define LIGHT_BRIGHTNESS         0
 #define LIGHT_AUTO_ENABLED       1
@@ -43,6 +43,7 @@ enum class SwitchType {
   BatterySoC,
   BatteryTemperature,
   BatteryMinTemperature,
+  BatteryAutonomy,
   LightBrightness,
   LightAutoEnabled,
   LightAutoBrightness,
@@ -58,7 +59,8 @@ static SwitchDef g_switches[MAX_SWITCHES] = {
   { "Current", "Battery current (A): negative = discharge, positive = charge", -20.0, 20.0, 0.01, false },  
   { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
   { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
-  { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true}
+  { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true},
+  { "Autonomy", "Estimated remaining autonomy (h), capped at 24: 24 = charging or negligible load", 0.0, 24.0, 0.1, false }  
 };
 
 static SwitchDef g_lightSwitches[4] = {
@@ -113,6 +115,8 @@ static SwitchType resolveSwitchId(int id) {
         return SwitchType::BatteryTemperature;
       case BATTERY_MIN_TEMP:
         return SwitchType::BatteryMinTemperature;
+      case BATTERY_AUTONOMY:
+        return SwitchType::BatteryAutonomy;
     }
   } else if (HAS_LIGHT && id < BATT_SWITCHES + LIGHT_SWITCHES) {
     switch(id - BATT_SWITCHES) {
@@ -207,6 +211,7 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::BatterySoC:                return hw->battery->getSoC();
     case SwitchType::BatteryTemperature:        return hw->heater->getTemperature();
     case SwitchType::BatteryMinTemperature:     return hw->heater->getLowThreshold();
+    case SwitchType::BatteryAutonomy:           return hw->battery->getAutonomyHours();
     case SwitchType::LightBrightness:           return hw->light->getBrightness() * 100.0;
     case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
     case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
