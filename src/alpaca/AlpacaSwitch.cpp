@@ -7,11 +7,6 @@
 
 static const int SWITCH_DEVICE_NUMBER         = 0;
 
-// ---------------------------------------------------------------------------
-// Definizione statica degli switch. Id 0-3: sensori batteria, read-only
-// (CanWrite=false). Id 4-5: uscite scrivibili (relay on/off + PWM 0-100).
-// ---------------------------------------------------------------------------
-
 static AlpacaDeviceInfo g_SwitchInfo = {
   "Battery",
   "Battery state and controls.",
@@ -251,7 +246,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
   server.on(UriBraces(base + "maxswitch"), HTTP_GET, [&server]() {
     int dn = AlpacaHelper::pathArgToInt(server, 0);
     uint32_t ctid = AlpacaHelper::getClientTransactionID(server);
-    if (dn < 0) {
+    if (dn != 0) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Number fuori range", ctid);
       return;
     }
