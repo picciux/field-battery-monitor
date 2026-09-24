@@ -5,7 +5,7 @@
 // proprietà — Battery ne ha due, con cadenze diverse (dati principali vs autonomia);
 // gli altri oggetti hardware, per ora, uno solo ciascuno.
 enum class HardwareEvent {
-    BatteryMainData,   // Voltage, Current, SoC, Temperature, stato riscaldatore
+    BatteryMainData,   // Voltage, Current, SoC, Temperature
     BatteryAutonomy,   // AutonomyRemaining — ricalcolata/pushata ogni 30s
     Safety,
     Heater,
