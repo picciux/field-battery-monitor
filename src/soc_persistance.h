@@ -37,7 +37,10 @@ class SoCPersistance {
         }
 
         float recover() {
-            return g_soc.getFloat("soc", 100.0f);
+            float v = g_soc.getFloat("soc", 100.0f);
+            lastSoC = v;
+            lastWrite = millis();
+            return v;
         };
 };
 
