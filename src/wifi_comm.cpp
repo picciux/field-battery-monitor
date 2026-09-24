@@ -19,7 +19,7 @@
 
 #include "websocket_proto.h"
 #include "board.h"
-#ifdef WIFI_DEBUG_ON_WS
+#ifdef DEBUG_ON_WS
   #include "ws_debug.h"
 #endif
 
@@ -269,7 +269,7 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
 
 void WifiComm::onHardwareChanged(HardwareEvent event, int index)
 {
-  char payload[128];
+  char payload[256];
   int len = formatEvent(event, index, payload, sizeof(payload));
   if (len > 0)
     webSocket.broadcastTXT(payload, len);
@@ -322,27 +322,46 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
         hardware->heater->setLowThreshold(lt);
         ret = true;
       } else if (!strcmp(action, ACTION_LIGHT_BRIGHTNESS)) {
-        float b = doc["brightness"] | 0.0;
-        if (hardware->light) hardware->light->setBrightness(b);
-        ret = true;
+        if (HAS_LIGHT) {
+          float b = doc["brightness"] | 0.0;
+          if (hardware->light) hardware->light->setBrightness(b);
+          ret = true;
+        } else {
+          ret = false;
+        }
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_ENABLE)) {
-        bool e = doc["enabled"] | DEFAULT_AUTO_LIGHT_ENABLED;
-        if (hardware->light) hardware->light->autoEnable(e);
-        ret = true;
+        if (HAS_LIGHT) {
+          bool e = doc["enabled"] | DEFAULT_AUTO_LIGHT_ENABLED;
+          if (hardware->light) hardware->light->autoEnable(e);
+          ret = true;
+        } else {
+          ret = false;
+        }
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_BRIGHTNESS)) {
-        float b = doc["brightness"] | DEFAULT_AUTO_LIGHT_BRIGHTNESS;
-        if (hardware->light) hardware->light->setAutoBrightness(b);
-        ret = true;
+        if (HAS_LIGHT) {
+          float b = doc["brightness"] | DEFAULT_AUTO_LIGHT_BRIGHTNESS;
+          if (hardware->light) hardware->light->setAutoBrightness(b);
+          ret = true;
+        } else {
+          ret = false;
+        }
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_DURATION)) {
-        int s = doc["seconds"] | DEFAULT_AUTO_LIGHT_DURATION;
-        if (hardware->light) hardware->light->setAutoDuration(s);
-        ret = true;
+        if (HAS_LIGHT) {
+          int s = doc["seconds"] | DEFAULT_AUTO_LIGHT_DURATION;
+          if (hardware->light) hardware->light->setAutoDuration(s);
+          ret = true;
+        } else {
+          ret = false;
+        }
       } else if (!strcmp(action, ACTION_OUTLET_POWER)) {
         int i = doc["index"] | 0;
         float p = doc["power"] | 1.0f;
-        if (i >= 0 && i < hardware->getOutletsNum())
+        if (i >= 0 && i < hardware->getOutletsNum()) {
           hardware->outlets[i]->setPower(p);
-        ret = true;
+          ret = true;
+        } else {
+          ret = false;
+        }
       } else if (!strcmp(action, ACTION_RESTART)) {
         ret = true;
         requestRestart();
@@ -461,16 +480,6 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
  this->hardware = hw;
  if (! wifiStart(s)) return;
 
-#ifdef WIFI_DEBUG_ON_WIFI
- const IPAddress APbcastip = { 192, 168, 4, 255 };
- const IPAddress STAbcastip = { 255, 255, 255, 255 };
-
- if (WiFi.getMode() == WIFI_STA)
-  getWifiDebug()->start(STAbcastip, WIFI_DEBUG_WIFI_UDP_PORT);
- else
-  getWifiDebug()->start(APbcastip, WIFI_DEBUG_WIFI_UDP_PORT);
-#endif
-
  if (!LittleFS.begin(true))
   DBGLN(F("ERROR initializing fs"));
 
@@ -502,7 +511,7 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
  www.begin();
  alpacaDiscoverySetup(WWW_PORT);
  webSocket.begin();
-#ifdef WIFI_DEBUG_ON_WS
+#ifdef DEBUG_ON_WS
  wsDebugSetup(&webSocket);
 #endif
  webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
