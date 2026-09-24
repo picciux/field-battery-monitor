@@ -6,12 +6,12 @@ export default defineConfig({
     viteCompression({
       algorithm: 'gzip',
       ext: '.gz',
-      deleteOriginFile: false // Mantiene anche i file .html/.js normali per debug
+      deleteOriginFile: true // Mantiene anche i file .html/.js normali per debug
     })
   ],
   build: {
     // Unifica tutto in file unici per ridurre le richieste HTTP sull'ESP32
-    outDir: 'data',
+    outDir: '../data',
     emptyOutDir: true, 
     assetsInlineLimit: 100000, 
     rollupOptions: {
