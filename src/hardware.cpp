@@ -16,6 +16,9 @@
 #define TEMP_CONVERSION_MS         800   // DS18B20 a 12 bit: max 750 ms
 #define TEMP_STALE_TIMEOUT_MS    60000   // oltre, il dato e' considerato non valido
 
+template <typename T>
+static inline T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
 /* temperature sensor */
 OneWire oneWire(PIN_ONE_WIRE);
 DallasTemperature sensors(&oneWire);
@@ -68,6 +71,7 @@ void BaseLight::_setBrightness(float brightness)
 
 bool BaseLight::setBrightness(float brightness, unsigned long transitionDurationMs)
 {
+  brightness = clampT(brightness, 0.0f, 1.0f);
   if (this->brightness == brightness) return false;
   if (transitionDurationMs == 0) {
     _setBrightness(brightness);
@@ -178,6 +182,7 @@ float Light::getAutoBrightness()
 
 void Light::setAutoBrightness(float brightness)
 {
+  brightness = clampT(brightness, LIGHT_AUTO_BRIGHTNESS_MIN, 1.0f);
   if (brightness != autoBrightness) {
     this->autoBrightness = brightness;
     settings->setAutoLightBrightness(brightness);
@@ -193,6 +198,7 @@ int Light::getAutoDuration()
 
 void Light::setAutoDuration(int seconds)
 {
+  seconds = clampT(seconds, LIGHT_AUTO_DURATION_MIN_S, LIGHT_AUTO_DURATION_MAX_S);
   if (seconds != autoDuration) {
     this->autoDuration = seconds;
     settings->setAutoLightDuration(seconds);
@@ -215,8 +221,8 @@ void Light::setup(int pwmPin, int pirPin, Settings *settings)
     this->settings = settings;
 
     this->autoEnabled = settings->isAutoLightEnabled();
-    this->autoBrightness = settings->getAutoLightBrightness();
-    this->autoDuration = settings->getAutoLightDuration();
+    this->autoBrightness = clampT(settings->getAutoLightBrightness(), LIGHT_AUTO_BRIGHTNESS_MIN, 1.0f);
+    this->autoDuration = clampT(settings->getAutoLightDuration(), (uint8_t) LIGHT_AUTO_DURATION_MIN_S, (uint8_t) LIGHT_AUTO_DURATION_MAX_S);
 }
 
 void Light::run(unsigned long now)
@@ -261,19 +267,20 @@ float Heater::getLowThreshold()
 
 void Heater::setLowThreshold(float c)
 {
-    if (c != lowThreshold) {
-      this->lowThreshold = c;
-      settings->setCpLowThreshold(c);
-      if (_listener)
-        _listener->onHardwareChanged(HardwareEvent::Heater, 0);
-    }
+  c = clampT(c, CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C);
+  if (c != lowThreshold) {
+    this->lowThreshold = c;
+    settings->setCpLowThreshold(c);
+    if (_listener)
+      _listener->onHardwareChanged(HardwareEvent::Heater, 0);
+  }
 }
 
 void Heater::setup(Settings *settings)
 {
   this->pin.setup(PIN_MOSFET_HEATER);
   this->settings = settings;
-  this->lowThreshold = settings->getCpLowThreshold();
+  this->lowThreshold = clampT(settings->getCpLowThreshold(), CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C);
   sensors.begin();
   sensors.setWaitForConversion(false);   // niente attese bloccanti
 }
@@ -314,9 +321,7 @@ void Heater::run(unsigned long now)
 }
 
 void PowerOutlet::setPower(float power) {
-  if (power != _pin.getValue()) {
-    _pin.setValue(power);
-    if (_listener)
+  if (_pin.setValue(power) && _listener) {
       _listener->onHardwareChanged(HardwareEvent::Outlet, _index);
   }
 }

@@ -24,6 +24,13 @@
 #define SAFETY_CRITICAL_VOLTAGE_HYST_V  0.3   // V: margine di isteresi sul criterio tensione
 
 #define LIGHT_DEFAULT_TRANSITION_MS   1500    // default transition
+#define LIGHT_AUTO_DURATION_MIN_S     10
+#define LIGHT_AUTO_DURATION_MAX_S     60
+#define LIGHT_AUTO_BRIGHTNESS_MIN_PCT  1
+#define LIGHT_AUTO_BRIGHTNESS_MIN     (LIGHT_AUTO_BRIGHTNESS_MIN_PCT / 100.0f)
+
+#define CP_LOW_THRESHOLD_MIN_C       -10.0f
+#define CP_LOW_THRESHOLD_MAX_C        10.0f
 
 #include "config.h"
 

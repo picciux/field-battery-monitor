@@ -67,7 +67,7 @@
 /************************ Cold protection defaults ***************************
  * All values REQUIRED. 
  *****************************************************************************/
-#define DEFAULT_COLD_PROTECTION_LOW_THRESHOLD   5 // °C
+#define DEFAULT_COLD_PROTECTION_LOW_THRESHOLD   5.0f // °C
 
 /*************** Automatic motion detection light defaults *******************
  * All values REQUIRED. 

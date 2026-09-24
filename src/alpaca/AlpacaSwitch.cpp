@@ -58,14 +58,14 @@ static SwitchDef g_switches[MAX_SWITCHES] = {
   { "Current", "Battery current (A): negative = discharge, positive = charge", -20.0, 20.0, 0.01, false },  
   { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
   { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
-  { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", -10.0,   10.0, 1.0,  true  }
+  { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true}
 };
 
 static SwitchDef g_lightSwitches[4] = {
-  { "Brightness",          "Light manual brightness (%)",     0.0,  100.0, 1.0, true },
-  { "Automation",          "Enable motion detection based light automation",           0.0, 1.0, 1.0,  true },
-  { "Auto brightness",     "Light brightness when motion activated (%)", 1.0, 100.0, 1.0,  true },
-  { "Auto duration",       "Light on duration after no-more motion detected (s)",      10.0,   60.0, 1.0,  true  }
+  { "Brightness", "Light manual brightness (%)", 0.0, 100.0, 1.0, true },
+  { "Automation", "Enable motion detection based light automation", 0.0, 1.0, 1.0,  true },
+  { "Auto brightness", "Light brightness when motion activated (%)", LIGHT_AUTO_BRIGHTNESS_MIN_PCT, 100.0, 1.0,  true },
+  { "Auto duration", "Light on duration after no-more motion detected (s)", LIGHT_AUTO_DURATION_MIN_S, LIGHT_AUTO_DURATION_MAX_S, 1.0, true }
 };
 
 static SwitchDef g_outletSwitches[MAX_OUTLETS] = {
