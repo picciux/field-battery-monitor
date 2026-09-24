@@ -9,6 +9,8 @@
 #include "hardware.h"
 #include "ihardware_change_listener.h"
 
+enum class RetryState : uint8_t { Idle, Scanning, Connecting };
+
 class WifiComm : public IHardwareChangeListener {
   public:
     void networkDisconnected();
@@ -36,7 +38,9 @@ class WifiComm : public IHardwareChangeListener {
     unsigned long _lastFullRetry = 0;
     unsigned long _restartRequested = 0;
     bool _apMode = false;
-
+    RetryState _retryState = RetryState::Idle;
+    unsigned long _retryStart = 0;
+    void apRetryStep(unsigned long now);
     void reconnectCheck(unsigned long now);
 };
 

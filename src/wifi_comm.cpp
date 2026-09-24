@@ -50,22 +50,66 @@ WifiComm wifiComm; //WifiComm static instance
 
 /*************************** WI-FI ****************************************/
 
-/* AP event handlers */
-void _onAPStationConnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-}
-
-void _onAPStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-}
+static volatile bool g_mdnsRestartPending = false;
+static void _onStationGotIp(WiFiEvent_t, WiFiEventInfo_t) { g_mdnsRestartPending = true; }
 
 /* STA event handlers */
 void _onStationConnected(WiFiEvent_t event, WiFiEventInfo_t info) {
   wifiComm.restartMDNS();
 }
 
-void _onStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-}
-
 void WifiComm::networkDisconnected() {}
+
+void WifiComm::apRetryStep(unsigned long now) {
+  Settings *s = hardware->settings;
+  switch (_retryState) {
+    case RetryState::Idle:
+      if (now - _lastFullRetry < AP_FALLBACK_RETRY_MS) return;
+      _lastFullRetry = now;
+      if (WiFi.softAPgetStationNum() > 0) return;   // qualcuno usa l'AP: non disturbare
+      WiFi.scanNetworks(true);                      // asincrona
+      _retryStart = now;
+      _retryState = RetryState::Scanning;
+      break;
+
+    case RetryState::Scanning: {
+      int n = WiFi.scanComplete();
+      if (n == WIFI_SCAN_RUNNING) {
+        if (now - _retryStart > 15000) { WiFi.scanDelete(); _retryState = RetryState::Idle; }
+        return;
+      }
+      if (n < 0) { _retryState = RetryState::Idle; return; }
+      bool mainSeen = false, altSeen = false;
+      for (int i = 0; i < n; i++) {
+        String f = WiFi.SSID(i);
+        if (f == s->getMainSsid()) mainSeen = true;
+        if (f == s->getAltSsid())  altSeen = true;
+      }
+      WiFi.scanDelete();
+      const char *ssid = nullptr, *psk = nullptr;
+      if (mainSeen && strlen(s->getMainSsid())) { ssid = s->getMainSsid(); psk = s->getMainPsk(); }
+      else if (altSeen && strlen(s->getAltSsid())) { ssid = s->getAltSsid(); psk = s->getAltPsk(); }
+      if (!ssid) { _retryState = RetryState::Idle; return; }
+      if (strlen(psk)) WiFi.begin(ssid, psk); else WiFi.begin(ssid);   // AP_STA: l'AP resta su
+      _retryStart = now;
+      _retryState = RetryState::Connecting;
+      break;
+    }
+
+    case RetryState::Connecting:
+      if (WiFi.status() == WL_CONNECTED) {
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        _apMode = false;
+        g_mdnsRestartPending = true;
+        _retryState = RetryState::Idle;
+      } else if (now - _retryStart >= (unsigned long) WIFI_CONNECT_TIMEOUT * 1000UL) {
+        WiFi.disconnect(false);                     // resta in AP_STA
+        _retryState = RetryState::Idle;
+      }
+      break;
+  }
+}
 
 boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostname) {
   byte w = 0;
@@ -76,7 +120,6 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostna
   WiFi.disconnect();
 
   WiFi.onEvent(& _onStationConnected, ARDUINO_EVENT_WIFI_STA_GOT_IP);
-  WiFi.onEvent(& _onStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   
   int n = WiFi.scanNetworks();
 
@@ -123,7 +166,7 @@ boolean WifiComm::wifiStart(Settings &s) {
   if (searchAndConnectNet(s.getMainSsid(), s.getMainPsk(), s.getHostname()) ||
       searchAndConnectNet(s.getAltSsid(), s.getAltPsk(), s.getHostname())) {
     _apMode = false;
-    restartMDNS();
+    g_mdnsRestartPending = true;
     return true;
   }
 
@@ -131,8 +174,6 @@ boolean WifiComm::wifiStart(Settings &s) {
   WiFi.disconnect();
 
   if (WiFi.softAP(s.getHostname(), s.getApPsk())) {
-    WiFi.onEvent(&_onAPStationConnected, ARDUINO_EVENT_WIFI_AP_STACONNECTED);
-    WiFi.onEvent(&_onAPStationDisconnected, ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
     _apMode = true;
     restartMDNS();
     return true;
@@ -165,16 +206,7 @@ void WifiComm::reconnectCheck(unsigned long now) {
     // Nota: usa una scansione, che blocca per 1-3s circa e puo' causare un
     // breve stallo su HTTP/websocket durante il tentativo.
     if (now - _lastFullRetry >= AP_FALLBACK_RETRY_MS) {
-      _lastFullRetry = now;
-      DBGLN(F("WiFi: in AP fallback, ritento la rete principale"));
-      Settings *s = hardware->settings;
-      if (searchAndConnectNet(s->getMainSsid(), s->getMainPsk(), s->getHostname()) ||
-          searchAndConnectNet(s->getAltSsid(), s->getAltPsk(), s->getHostname())) {
-        WiFi.softAPdisconnect(true);
-        WiFi.mode(WIFI_STA);
-        _apMode = false;
-        restartMDNS();
-      }
+      apRetryStep(now);
     }
   }
 }
@@ -477,28 +509,29 @@ bool WifiComm::sendFile(String path) {
 
 /************************* setup *************************/
 void WifiComm::setup(Settings &s, Hardware *hw) {
- this->hardware = hw;
- if (! wifiStart(s)) return;
+  this->hardware = hw;
+  if (! wifiStart(s)) return;
 
- if (!LittleFS.begin(true))
-  DBGLN(F("ERROR initializing fs"));
+  WiFi.onEvent(_onStationGotIp, ARDUINO_EVENT_WIFI_STA_GOT_IP);
 
- www.on(SETTINGS_PATH, HTTP_GET, [this, &s]() {
+  if (!LittleFS.begin(true))
+    DBGLN(F("ERROR initializing fs"));
+
+  www.on(SETTINGS_PATH, HTTP_GET, [this, &s]() {
     this->sendSettings(s);
- });
+  });
 
- www.on(SETTINGS_PATH, HTTP_POST, [this, &s]() {
+  www.on(SETTINGS_PATH, HTTP_POST, [this, &s]() {
     this->updateSettings(s);
- });
+  });
 
- //serve files from SPIFFS or not found
- www.onNotFound([this]() {
+  //serve files from SPIFFS or not found
+  www.onNotFound([this]() {
     if (!this->sendFile(www.uri())) {
       www.send(404, "text/plain", "Uri not found " + www.uri());
     }
- });
+  });
 
- 
   alpacaManagementSetup(www);
   alpacaSwitchSetup(www, hw);
   //alpacaObservingConditionsSetup(www);
@@ -506,24 +539,24 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
 
   //setup_alpaca(s, www, hw); 
 
- updater.setup(&www, UPDATE_PATH);
+  updater.setup(&www, UPDATE_PATH);
 
- www.begin();
- alpacaDiscoverySetup(WWW_PORT);
- webSocket.begin();
+  www.begin();
+  alpacaDiscoverySetup(WWW_PORT);
+  webSocket.begin();
 #ifdef DEBUG_ON_WS
- wsDebugSetup(&webSocket);
+  wsDebugSetup(&webSocket);
 #endif
- webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
+  webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
   wifiComm.websocketEvent(num, type, payload, lenght);
- });
+  });
 
- hw->battery->setChangeListener(this);
- hw->heater->setChangeListener(this);
- if (hw->light)
-  hw->light->setChangeListener(this);
- for (int i = 0; i < hw->getOutletsNum(); i++)
-  hw->outlets[i]->setChangeListener(this);
+  hw->battery->setChangeListener(this);
+  hw->heater->setChangeListener(this);
+  if (hw->light)
+    hw->light->setChangeListener(this);
+  for (int i = 0; i < hw->getOutletsNum(); i++)
+    hw->outlets[i]->setChangeListener(this);
 }
 
 void WifiComm::run() {
@@ -531,6 +564,8 @@ void WifiComm::run() {
   webSocket.loop();
   alpacaDiscoveryRun();
   reconnectCheck(millis());
+
+  if (g_mdnsRestartPending) { g_mdnsRestartPending = false; restartMDNS(); }
 
   // Ritardo breve: lascia il tempo alla risposta HTTP/websocket di essere
   // effettivamente scritta sul socket prima del reboot.
