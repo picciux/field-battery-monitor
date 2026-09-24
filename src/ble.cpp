@@ -14,8 +14,12 @@
 // BTHome v2 object IDs (in ordine crescente, come richiesto dalla spec)
 #define BTH_BATTERY_PCT      0x01   // uint8, %
 #define BTH_VOLTAGE_MV       0x0C   // uint16, 0.001 V
+#define BTH_PROBLEM          0x26   // uint8, bool
+#define BTH_SAFETY           0x28   // uint8, bool
+#define BTH_COUNT_U16        0x3D   // uint16, hours
 #define BTH_TEMPERATURE      0x45   // sint16, 0.1 C
 #define BTH_CURRENT_SIGNED   0x5D   // sint16, 0.001 A
+
 
 static void addU8(std::string &s, uint8_t v)   { s += (char)v; }
 static void addU16(std::string &s, uint16_t v) { s += (char)(v & 0xFF); s += (char)(v >> 8); }
@@ -33,6 +37,8 @@ void BTHomeBeacon_run(Hardware &hw, unsigned long now) {
   if (now - last < BLE_UPDATE_INTERVAL_MS) return;
   last = now;
 
+  const bool sensorOk = hw.battery->isSensorValid();
+
   float soc = hw.battery->getSoC();
   if (soc < 0.0f) soc = 0.0f;
   if (soc > 100.0f) soc = 100.0f;
@@ -47,16 +53,29 @@ void BTHomeBeacon_run(Hardware &hw, unsigned long now) {
   addU8(sd, BTH_BATTERY_PCT);
   addU8(sd, (uint8_t) roundf(soc));
 
-  addU8(sd, BTH_VOLTAGE_MV);
-  addU16(sd, (uint16_t) roundf(hw.battery->getVoltage() * 1000.0f));
+  if (sensorOk) {
+    addU8(sd, BTH_VOLTAGE_MV);
+    addU16(sd, (uint16_t) roundf(hw.battery->getVoltage() * 1000.0f));
+  }
+
+  addU8(sd, BTH_PROBLEM);
+  addU8(sd, sensorOk ? 0 : 1);
+
+  addU8(sd, BTH_SAFETY);
+  addU8(sd, hw.battery->isSafe() ? 1 : 0);
+
+  addU8(sd, BTH_COUNT_U16);
+  addU16(sd, (uint16_t) roundf(hw.battery->getAutonomyHours() * 60.0f));
 
   if (hw.heater->isTemperatureValid()) {
     addU8(sd, BTH_TEMPERATURE);
     addU16(sd, (uint16_t)(int16_t) roundf(hw.heater->getTemperature() * 10.0f));
   }
 
-  addU8(sd, BTH_CURRENT_SIGNED);
-  addU16(sd, (uint16_t)(int16_t) roundf(hw.battery->getCurrent() * 1000.0f));
+  if (sensorOk) {
+    addU8(sd, BTH_CURRENT_SIGNED);
+    addU16(sd, (uint16_t)(int16_t) roundf(hw.battery->getCurrent() * 1000.0f));
+  }
 
   std::string payload;
   addU8(payload, 0x02); addU8(payload, 0x01); addU8(payload, 0x06);   // flags
