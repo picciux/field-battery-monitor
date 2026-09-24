@@ -48,6 +48,7 @@
     - float current (can be null if sensor desnt't work)
     - float SoC
     - float temperature (can be null if sensor desnt't work)
+    - bool battery_sensor_ok (false when INA226 not responding)
 */
 #define EVENT_BATTERY   "battery_update"
 
@@ -65,7 +66,7 @@
 
 /* update cold protection state event.
    Pars:
-    - int low threshold temperature 
+    - float lt low threshold temperature 
 */
 #define EVENT_CP        "cold_protection_update"
 
