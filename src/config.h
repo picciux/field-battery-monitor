@@ -85,10 +85,10 @@
    Mutuamente esclusive: solo la prima definita, in ordine, viene usata. */
 
 /* Debug via seriale USB. */
-//#define WIFI_DEBUG_ON_SERIAL
+//#define DEBUG_ON_SERIAL
 
 /* Debug via evento websocket "debug", visibile a ogni client connesso
    (utile senza seriale collegata, es. con la sola alimentazione USB o
    quando il device e' remoto). */
-//#define WIFI_DEBUG_ON_WS
+//#define DEBUG_ON_WS
 

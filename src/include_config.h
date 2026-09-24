@@ -31,11 +31,11 @@
 // DBG/DBGLN sono stile Print (un solo argomento, come Serial.print),
 // DBGF e' stile printf. Con nessun backend attivo, tutte e tre sono no-op:
 // restano nel codice sorgente senza alcun costo in una build di produzione.
-#if defined(WIFI_DEBUG_ON_SERIAL)
+#if defined(DEBUG_ON_SERIAL)
   #define DBG(t)     (Serial.print(t))
   #define DBGLN(t)   (Serial.println(t))
   #define DBGF(...)  (Serial.printf(__VA_ARGS__))
-#elif defined(WIFI_DEBUG_ON_WS)
+#elif defined(DEBUG_ON_WS)
   #include "ws_debug.h"
   #define DBG(t)     (wsDebugPrint(t))
   #define DBGLN(t)   (wsDebugPrintln(t))
