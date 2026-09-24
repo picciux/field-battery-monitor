@@ -175,6 +175,27 @@ void registerCommonDeviceEndpoints(WebServer &server, const char *deviceType,
     AlpacaHelper::sendEmptyOk(server, ctid);
   });
 
+  server.on(UriBraces(base + "supportedactions"), HTTP_GET, [&server, resolver]() {
+    AlpacaDeviceRef ref; uint32_t ctid;
+    if (!resolveDevice(server, resolver, ref, ctid)) return;
+    AlpacaHelper::sendStringArray(server, nullptr, 0, ctid);   // array vuoto
+  });
+
+  server.on(UriBraces(base + "action"), HTTP_PUT, [&server, resolver]() {
+    AlpacaDeviceRef ref; uint32_t ctid;
+    if (!resolveDevice(server, resolver, ref, ctid)) return;
+    AlpacaHelper::sendError(server, AlpacaError::ActionNotImplemented, "No actions", ctid);
+  });
+
+  static const char *const CMDS[] = { "commandblind", "commandbool", "commandstring" };
+  for (const char *c : CMDS) {
+    server.on(UriBraces(base + c), HTTP_PUT, [&server, resolver]() {
+      AlpacaDeviceRef ref; uint32_t ctid;
+      if (!resolveDevice(server, resolver, ref, ctid)) return;
+      AlpacaHelper::sendError(server, AlpacaError::NotImplemented, "Not implemented", ctid);
+    });
+  }
+
   registerStringProperty(server, base + "description",   resolver, &AlpacaDeviceInfo::description);
   registerStringProperty(server, base + "driverinfo",    resolver, &AlpacaDeviceInfo::driverInfo);
   registerStringProperty(server, base + "driverversion", resolver, &AlpacaDeviceInfo::driverVersion);
