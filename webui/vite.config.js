@@ -11,6 +11,8 @@ export default defineConfig({
   ],
   build: {
     // Unifica tutto in file unici per ridurre le richieste HTTP sull'ESP32
+    outDir: 'data',
+    emptyOutDir: true, 
     assetsInlineLimit: 100000, 
     rollupOptions: {
       output: {

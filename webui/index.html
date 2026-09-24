@@ -10,52 +10,61 @@
 
   <!-- Barra di Navigazione -->
   <nav>
-    <button id="btn-home" class="nav-btn active">🏠 Dashboard</button>
-    <button id="btn-settings" class="nav-btn">⚙️ Impostazioni</button>
+    <button id="btn-home" class="nav-btn active">🏠</button>
+    <button id="btn-settings" class="nav-btn">⚙️</button>
+    <button id="btn-theme" class="nav-btn theme-toggle">🌙</button>
   </nav>
 
   <!-- Stato della connessione WebSocket -->
-  <div id="ws-status" class="status-bar offline">WebSocket: Disconnesso</div>
+  <div id="ws-status" class="status-bar offline">Disconnesso</div>
 
   <main>
     <!-- PAGINA HOME (DASHBOARD) -->
     <section id="page-home" class="page-section">
       <!-- Sezione Batteria -->
       <div class="card">
-        <h3>🔋 Stato Batteria</h3>
+        <h3>🔋 Battery</h3>
         <div class="grid-2">
-          <div>Sensore 1: <span id="batt-s1">--</span>V</div>
-          <div>Sensore 2: <span id="batt-s2">--</span>V</div>
-          <div>Sensore 3: <span id="batt-s3">--</span>V</div>
-          <div>Sensore 4: <span id="batt-s4">--</span>V</div>
+          <div>Voltage: <span id="batt-voltage">--</span>V</div>
+          <div>Current: <span id="batt-current">--</span>A</div>
+          <div>State of charge: <span id="batt-soc">--</span>%</div>
+          <div>Autonomy: <span id="batt-autonomy">--</span>hours</div>
+          <div>Temperature: <span id="batt-temperature">--</span>°C</div>
+          <div>State of sensors: <span id="batt-sensors">--</span></div>
         </div>
-        <p>Temp. Batteria: <span id="batt-temp">--</span>°C</p>
-      </div>
+        <div class="control-group">
+          <label>Min temperature: <span id="val-batt-lt">--</span>°C</label>
+          <input type="range" id="slider-batt-lt" min="-10" max="10" value="5">
+        </div>
+       </div>
 
       <!-- Sezione Luci (Slider) -->
-      <div class="card">
-        <h3>💡 Controllo Luci</h3>
+      <div id="light-container" class="card hidden">
+        <h3>💡 Light</h3>
         <div class="control-group">
-          <label>Luce 1: <span id="val-light1">50</span>%</label>
-          <input type="range" id="slider-light1" min="0" max="100" value="50">
+          <label>Brightness: <span id="val-light-brightness">--</span>%</label>
+          <input type="range" id="slider-light-brightness" min="0" max="100" value="0">
+        </div>
+        <div class="switch-container">
+          <label>Auto (motion detection): <span id="txt-light-auto">ON</span></label>
+          <label class="switch">
+            <input type="checkbox" id="switch-light-auto" checked />
+            <span class="slider-toggle"></span>
+          </label>  
         </div>
         <div class="control-group">
-          <label>Luce 2: <span id="val-light2">50</span>%</label>
-          <input type="range" id="slider-light2" min="0" max="100" value="50">
+          <label>Auto ON brightness: <span id="val-light-auto-brightness">25</span>%</label>
+          <input type="range" id="slider-light-auto-brightness" min="0" max="100" value="25">
         </div>
         <div class="control-group">
-          <label>Luce 3: <span id="val-light3">50</span>%</label>
-          <input type="range" id="slider-light3" min="0" max="100" value="50">
-        </div>
-        <div class="control-group">
-          <label>Luce 4: <span id="val-light4">50</span>%</label>
-          <input type="range" id="slider-light4" min="0" max="100" value="50">
+          <label>Auto ON duration: <span id="val-light-auto-duration">40</span>s</label>
+          <input type="range" id="slider-light-auto-duration" min="10" max="60" value="40">
         </div>
       </div>
 
       <!-- Sezione Prese (Power Outlets) -->
-      <div class="card">
-        <h3>🔌 Prese di Corrente</h3>
+      <div id="outlets-container" class="card">
+        <h3>🔌 Power Outlets</h3>
         <div class="control-group">
           <label>Presa 1: <span id="val-outlet1">0</span>%</label>
           <input type="range" id="slider-outlet1" min="0" max="100" value="0">
@@ -75,29 +84,49 @@
     <section id="page-settings" class="page-section hidden">
       <!-- Form Parametri -->
       <div class="card">
-        <h3>⚙️ Configurazione Parametri</h3>
-        <form action="/save-settings" method="POST">
+        <h3>⚙️ Settings</h3>
+        <form action="/settings" method="POST">
           <div class="form-group">
-            <label>SSID Wi-Fi:</label>
-            <input type="text" name="ssid" required minlength="2">
+            <label>System name:</label>
+            <input type="text" name="display_name" required minlength="8">
           </div>
           <div class="form-group">
-            <label>Password Wi-Fi:</label>
-            <input type="password" name="password" required minlength="8">
+            <label>Hostname:</label>
+            <input type="text" name="hostname" required minlength="8">
           </div>
           <div class="form-group">
-            <label>Soglia Temp. Batteria (°C):</label>
-            <input type="number" name="temp_thresh" min="0" max="80" value="45" required>
+            <label>Main Wi-Fi SSID:</label>
+            <input type="text" name="main_ssid" required minlength="2">
+          </div>
+          <div class="form-group">
+            <label>Main Wi-Fi Password:</label>
+            <input type="password" name="main_psk" minlength="8">
+          </div>
+          <div class="form-group">
+            <label>Alt. Wi-Fi SSID:</label>
+            <input type="text" name="alt_ssid" required minlength="2">
+          </div>
+          <div class="form-group">
+            <label>Alt. Wi-Fi Password:</label>
+            <input type="password" name="alt_psk" minlength="8">
+          </div>
+          <div class="form-group">
+            <label>Access-Point mode Password:</label>
+            <input type="password" name="ap_psk" minlength="8">
+          </div>
+          <div class="form-group">
+            <label>Don't be default gateway (when in AP mode):</label>
+            <input type="checkbox" name="ap_no_def_gw" >
           </div>
           <!-- Aggiungi qui gli altri 4-5 campi testuali richiesti -->
           
-          <button type="submit" class="btn-submit">Salva Impostazioni</button>
+          <button type="submit" class="btn-submit">Save settings</button>
         </form>
       </div>
 
       <!-- Form Aggiornamento Firmware / Filesystem -->
       <div class="card">
-        <h3>🚀 Aggiornamento Sistema (OTA)</h3>
+        <h3>🚀 System update (OTA)</h3>
         <form action="/update" method="POST" enctype="multipart/form-data">
           <div class="form-group">
             <label>Firmware (.bin):</label>
@@ -107,7 +136,7 @@
             <label>Filesystem (.bin):</label>
             <input type="file" name="filesystem" accept=".bin">
           </div>
-          <button type="submit" class="btn-submit btn-danger">Avvia Aggiornamento</button>
+          <button type="submit" class="btn-submit btn-danger">Start update</button>
         </form>
       </div>
     </section>

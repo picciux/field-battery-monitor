@@ -5,6 +5,16 @@
   --primary: #0076ff;
   --danger: #d9534f;
   --border: #ddd;
+  --input-bg: #ffffff;
+}
+
+body.dark {
+  --bg-color: #121212;
+  --card-bg: #1e1e1e;
+  --text-color: #ff6e30bc;
+  --border: #333333;
+  --input-bg: #2d2d2d;
+  --nav-btn-bg: #2d2d2d;
 }
 
 body {
@@ -15,17 +25,22 @@ body {
   padding: 10px;
 }
 
-nav {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg-color);
+  color: var(--text-color);
+  margin: 0;
+  padding: 10px;
+  transition: background 0.3s, color 0.3s; /* Transizione fluida al cambio tema */
 }
 
+/* Aggiorna lo stile dei bottoni di navigazione per supportare il tema scuro */
 .nav-btn {
   flex: 1;
   padding: 12px;
   border: none;
-  background: var(--border);
+  background: var(--nav-btn-bg, var(--border));
+  color: var(--text-color);
   cursor: pointer;
   font-weight: bold;
   border-radius: 8px;
@@ -34,6 +49,12 @@ nav {
 .nav-btn.active {
   background: var(--primary);
   color: white;
+}
+
+/* Rendi il bottone del tema leggermente più stretto se vuoi */
+.theme-toggle {
+  /*flex: 0 0 50px;
+  font-size: 1.2em;*/
 }
 
 .status-bar {
@@ -78,12 +99,10 @@ input[type="range"] {
   font-weight: bold;
 }
 
-.form-group input {
-  width: 100%;
-  padding: 8px;
-  box-sizing: border-box;
+.form-group input, input[type="text"], input[type="password"], input[type="number"] {
+  background-color: var(--input-bg);
+  color: var(--text-color);
   border: 1px solid var(--border);
-  border-radius: 4px;
 }
 
 .btn-submit {
@@ -100,3 +119,98 @@ input[type="range"] {
 .btn-danger { background: var(--danger); }
 
 .hidden { display: none !important; }
+
+/* --- PERSONALIZZAZIONE SLIDER (TRACK) PER IL TEMA SCURO --- */
+
+/* Per Chrome, Edge, Opera e browser basati su Chromium */
+body.dark input[type="range"]::-webkit-slider-runnable-track {
+  background: #333333; /* Sfondo scuro della barra */
+  border-radius: 4px;
+}
+
+/* Per Firefox */
+body.dark input[type="range"]::-moz-range-track {
+  background: #333333; /* Sfondo scuro della barra */
+  border-radius: 4px;
+}
+
+/* Rimuove l'effetto flash o i bordi nativi su alcuni sistemi */
+body.dark input[type="range"] {
+  background: transparent;
+}
+
+
+/* --- LAYOUT PER SCHERMI GRANDI (DESKTOP) --- */
+@media (min-width: 768px) {
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* Organizza le card su due colonne */
+  .page-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* Forza la sezione di Upload a occupare l'intera larghezza se necessario */
+  #page-settings {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* --- STILE SWITCH ON/OFF --- */
+.switch-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 15px 0;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider-toggle {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .3s;
+  border-radius: 34px;
+}
+
+.slider-toggle:before {
+  position: absolute;
+  content: "";
+  height: 18px; width: 18px;
+  left: 4px; bottom: 4px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+/* Stato Attivo (ON) */
+input:checked + .slider-toggle {
+  background-color: var(--primary);
+}
+
+input:checked + .slider-toggle:before {
+  transform: translateX(24px);
+}
+
+/* Adattamento Tema Scuro */
+body.dark .slider-toggle {
+  background-color: #333;
+}

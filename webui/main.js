@@ -22,92 +22,172 @@ btnHome.addEventListener('click', () => switchPage('home'));
 btnSettings.addEventListener('click', () => switchPage('settings'));
 
 
-// --- 2. AGGIORNAMENTO GRAFICO SLIDER IN TEMPO REALE ---
-// Trova tutti gli input range e aggiorna il testo a fianco quando l'utente li muove
-document.querySelectorAll('input[type="range"]').forEach(slider => {
+// --- 2. GESTIONE DINAMICA DEI CONTROLLI (Luci, Prese, Switch) ---
+const containerLights = document.getElementById('light-container');
+const containerOutlets = document.getElementById('outlets-container');
+const generatedControls = new Set();
+
+// Funzione per creare uno Slider 
+function createDynamicSlider(container, type, idNumber, labelName, initialValue, minValue=0, maxValue=100) {
+  const key = `${type}${idNumber}`;
+  if (generatedControls.has(key)) return;
+  
+  if (generatedControls.size === 0 || container.querySelector('.loading-text')) container.innerHTML = '';
+  generatedControls.add(key);
+
+  const controlGroup = document.createElement('div');
+  controlGroup.className = 'control-group';
+  controlGroup.innerHTML = `
+    <label>${labelName} ${idNumber}: <span id="val-${key}">${initialValue}</span>%</label>
+    <input type="range" id="slider-${key}" min="${minValue}" max="${maxValue}" value="${initialValue}">
+  `;
+  container.appendChild(controlGroup);
+
+  const slider = controlGroup.querySelector('input[type="range"]');
   slider.addEventListener('input', (e) => {
-    const id = e.target.id.replace('slider-', 'val-');
-    const txtSpan = document.getElementById(id);
+    const txtSpan = document.getElementById(`val-${key}`);
     if (txtSpan) txtSpan.innerText = e.target.value;
-    
-    // Invia il valore via WebSocket
-    sendWsMessage({ action: 'set_' + e.target.id.replace('slider-', ''), value: parseInt(e.target.value) });
+    sendWsMessage({ action: `set_${key}`, value: parseInt(e.target.value) });
   });
-});
+}
 
+// Funzione per creare uno Switch ON/OFF (Valori Booleani true/false)
+function createDynamicSwitch(container, type, idNumber, labelName, initialValue) {
+  const key = `${type}${idNumber}`;
+  if (generatedControls.has(key)) return;
 
-// --- 3. LOGICA WEBSOCKET & SIMULATORE PER TESTING LOCALE ---
+  if (generatedControls.size === 0 || container.querySelector('.loading-text')) container.innerHTML = '';
+  generatedControls.add(key);
+
+  const switchGroup = document.createElement('div');
+  switchGroup.className = 'switch-container';
+  switchGroup.innerHTML = `
+    <label>${labelName} ${idNumber}: <span id="txt-${key}">${initialValue ? 'ON' : 'OFF'}</span></label>
+    <label class="switch">
+      <input type="checkbox" id="switch-${key}" ${initialValue ? 'checked' : ''}>
+      <span class="slider-toggle"></span>
+    </label>
+  `;
+  container.appendChild(switchGroup);
+
+  const toggle = switchGroup.querySelector('input[type="checkbox"]');
+  toggle.addEventListener('change', (e) => {
+    const txtSpan = document.getElementById(`txt-${key}`);
+    if (txtSpan) txtSpan.innerText = e.target.checked ? 'ON' : 'OFF';
+    sendWsMessage({ action: `set_${key}`, value: e.target.checked });
+  });
+}
+
+// --- 3. LOGICA WEBSOCKET & SIMULATORE AGGIORNATO ---
 const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const wsStatus = document.getElementById('ws-status');
 let ws;
 
 function initWebSocket() {
   if (isLocalTest) {
-    // AMBIENTE DI TEST LOCALE (PC)
     console.log("🛠️ Esecuzione in locale: Simulazione WebSocket attiva.");
     wsStatus.innerText = "WebSocket: Connesso (Simulazione Locale)";
     wsStatus.className = "status-bar online";
     
-    // Simula la ricezione di dati periodici dai sensori dell'ESP32 ogni 2 secondi
+    // PRIMO MESSAGGIO SIMULATO: Configura la UI a run-time con un mix di Slider e Switch Booleani
+    /*setTimeout(() => {
+      handleIncomingData({
+        light1: 30, light2: 65,
+        light3: true,  // <-- Booleano: Diventerà uno Switch ON/OFF automaticamente!
+        light4: false, // <-- Booleano: Diventerà uno Switch ON/OFF automaticamente!
+        outlet1: 0, outlet2: 100,
+        outlet3: false // <-- Anche le prese possono essere switch fisici puri
+      });
+    }, 500);*/
+
+    // MESSAGGI SUCCESSIVI: Aggiornamento ciclico dei sensori fissi
     setInterval(() => {
       handleIncomingData({
+        event: 'battery_update',
         temperature: (25 + Math.random() * 5).toFixed(1),
-        s1: (3.7 + Math.random() * 0.4).toFixed(2),
-        s2: (3.8 + Math.random() * 0.3).toFixed(2),
-        s3: (3.6 + Math.random() * 0.5).toFixed(2),
-        s4: (3.9 + Math.random() * 0.2).toFixed(2),
+        voltage: (13.1 + Math.random() * 0.4).toFixed(2),
+        current: (-0.8 + Math.random() * 0.3).toFixed(2),
+        soc: (100 - Math.random() * 3.5).toFixed(0),
+        battery_sensor_ok: true,
       });
     }, 2000);
     return;
   }
 
-  // AMBIENTE REALE (SULL'ESP32)
-  ws = new WebSocket(`ws://${window.location.hostname}/ws`);
-
-  ws.onopen = () => {
-    wsStatus.innerText = "WebSocket: Connesso";
-    wsStatus.className = "status-bar online";
-  };
-
-  ws.onclose = () => {
-    wsStatus.innerText = "WebSocket: Disconnesso. Riconnessione...";
-    wsStatus.className = "status-bar offline";
-    setTimeout(initWebSocket, 2000); // Tenta di riconnettersi
-  };
-
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    handleIncomingData(data);
-  };
+  // AMBIENTE REALE (ESP32)
+  ws = new WebSocket(`ws://${window.location.hostname}:81`);
+  ws.onopen = () => { wsStatus.innerText = "Connesso"; wsStatus.className = "status-bar online"; };
+  ws.onclose = () => { wsStatus.innerText = "Disconnesso..."; wsStatus.className = "status-bar offline"; setTimeout(initWebSocket, 2000); };
+  ws.onmessage = (event) => { handleIncomingData(JSON.parse(event.data)); };
 }
 
-// Funzione centrale per applicare i dati ricevuti alla UI
+// Funzione centrale per applicare i dati o discriminare il tipo di controllo
 function handleIncomingData(data) {
-  if (data.temperature) document.getElementById('batt-temp').innerText = data.temperature;
-  if (data.s1) document.getElementById('batt-s1').innerText = data.s1;
-  if (data.s2) document.getElementById('batt-s2').innerText = data.s2;
-  if (data.s3) document.getElementById('batt-s3').innerText = data.s3;
-  if (data.s4) document.getElementById('batt-s4').innerText = data.s4;
-  
-  // Aggiorna gli slider se l'evento arriva da fuori (es. cambio da altro smartphone)
-  ['light1', 'light2', 'light3', 'light4', 'outlet1', 'outlet2', 'outlet3'].forEach(key => {
-    if (data[key] !== undefined) {
-      const slider = document.getElementById(`slider-${key}`);
-      const txt = document.getElementById(`val-${key}`);
-      if (slider) slider.value = data[key];
-      if (txt) txt.innerText = data[key];
-    }
-  });
-}
+  console.log(data);
+  if (data.type) {
+    if (type == 'capabilities') {
+        //const channels = data.payload.channels;
+        const outlets = data.payload.outlets;
+        if (data.payload.light)
+            containerLights.classList.remove('hidden');
 
-// Funzione per inviare i messaggi
-function sendWsMessage(obj) {
-  if (isLocalTest) {
-    console.log("➡️ [WS SIMULATO] Invio:", obj);
-  } else if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(obj));
+        if (data.payload.outlets == 0)
+            containerOutlets.classList.add('hidden');
+        else {
+            for (var i = 0; i < outlets; i++) 
+                createDynamicSlider(containerOutlets, 'outlet', i, 'Outlet ' + (i+1), 0);
+        }
+    }
+  }
+
+  if (data.event) {
+    switch(data.event) {
+        case 'battery_update':
+            for (const el of ['voltage', 'current', 'soc', 'temperature']) {
+                document.getElementById('batt-' + el).innerText = data[el];
+            }
+            document.getElementById('batt-sensors').innerText = (data.battery_sensor_ok ? 'OK' : 'FAIL' );
+        break;
+
+        case 'battery-autonomy-update':
+            document.getElementById('batt-autonomy').innerText = data.hours;
+        break;
+    }
   }
 }
 
-// Avvia il WebSocket al caricamento
+function sendWsMessage(obj) {
+  if (isLocalTest) { console.log("➡️ [WS SIMULATO] Invio:", obj); }
+  else if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify(obj)); }
+}
+
 initWebSocket();
+
+// --- 4. GESTIONE CAMBIO TEMA (CHIARO / SCURO) ---
+const btnTheme = document.getElementById('btn-theme');
+
+// Controlla se l'utente aveva già salvato una preferenza, altrimenti usa il tema chiaro
+const currentTheme = localStorage.getItem('theme') || 'light';
+
+if (currentTheme === 'dark') {
+  document.body.classList.add('dark');
+  btnTheme.innerText = '☀️';
+} else {
+  btnTheme.innerText = '🌙';
+}
+
+btnTheme.addEventListener('click', () => {
+  // Cambia la classe sul body
+  document.body.classList.toggle('dark');
+  
+  // Determina il tema corrente e aggiorna localStorage e icona
+  if (document.body.classList.contains('dark')) {
+    localStorage.setItem('theme', 'dark');
+    btnTheme.innerText = '☀️';
+  } else {
+    localStorage.setItem('theme', 'light');
+    btnTheme.innerText = '🌙';
+  }
+});
+
+
