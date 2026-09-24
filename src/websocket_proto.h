@@ -72,10 +72,10 @@
 
 /* update light state event.
    Pars: 
-    - float light brightness
+    - float brightness
     - bool auto enabled/disabled
-    - float auto brightness
-    - int auto duration 
+    - float auto_br brightness
+    - int auto_dr duration 
 */
 #define EVENT_LIGHT     "light_update"
 
