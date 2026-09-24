@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Battery Monitor</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- Barra di Navigazione -->
+  <nav>
+    <button id="btn-home" class="nav-btn active">🏠 Dashboard</button>
+    <button id="btn-settings" class="nav-btn">⚙️ Impostazioni</button>
+  </nav>
+
+  <!-- Stato della connessione WebSocket -->
+  <div id="ws-status" class="status-bar offline">WebSocket: Disconnesso</div>
+
+  <main>
+    <!-- PAGINA HOME (DASHBOARD) -->
+    <section id="page-home" class="page-section">
+      <!-- Sezione Batteria -->
+      <div class="card">
+        <h3>🔋 Stato Batteria</h3>
+        <div class="grid-2">
+          <div>Sensore 1: <span id="batt-s1">--</span>V</div>
+          <div>Sensore 2: <span id="batt-s2">--</span>V</div>
+          <div>Sensore 3: <span id="batt-s3">--</span>V</div>
+          <div>Sensore 4: <span id="batt-s4">--</span>V</div>
+        </div>
+        <p>Temp. Batteria: <span id="batt-temp">--</span>°C</p>
+      </div>
+
+      <!-- Sezione Luci (Slider) -->
+      <div class="card">
+        <h3>💡 Controllo Luci</h3>
+        <div class="control-group">
+          <label>Luce 1: <span id="val-light1">50</span>%</label>
+          <input type="range" id="slider-light1" min="0" max="100" value="50">
+        </div>
+        <div class="control-group">
+          <label>Luce 2: <span id="val-light2">50</span>%</label>
+          <input type="range" id="slider-light2" min="0" max="100" value="50">
+        </div>
+        <div class="control-group">
+          <label>Luce 3: <span id="val-light3">50</span>%</label>
+          <input type="range" id="slider-light3" min="0" max="100" value="50">
+        </div>
+        <div class="control-group">
+          <label>Luce 4: <span id="val-light4">50</span>%</label>
+          <input type="range" id="slider-light4" min="0" max="100" value="50">
+        </div>
+      </div>
+
+      <!-- Sezione Prese (Power Outlets) -->
+      <div class="card">
+        <h3>🔌 Prese di Corrente</h3>
+        <div class="control-group">
+          <label>Presa 1: <span id="val-outlet1">0</span>%</label>
+          <input type="range" id="slider-outlet1" min="0" max="100" value="0">
+        </div>
+        <div class="control-group">
+          <label>Presa 2: <span id="val-outlet2">0</span>%</label>
+          <input type="range" id="slider-outlet2" min="0" max="100" value="0">
+        </div>
+        <div class="control-group">
+          <label>Presa 3: <span id="val-outlet3">0</span>%</label>
+          <input type="range" id="slider-outlet3" min="0" max="100" value="0">
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGINA SETTINGS & UPLOAD -->
+    <section id="page-settings" class="page-section hidden">
+      <!-- Form Parametri -->
+      <div class="card">
+        <h3>⚙️ Configurazione Parametri</h3>
+        <form action="/save-settings" method="POST">
+          <div class="form-group">
+            <label>SSID Wi-Fi:</label>
+            <input type="text" name="ssid" required minlength="2">
+          </div>
+          <div class="form-group">
+            <label>Password Wi-Fi:</label>
+            <input type="password" name="password" required minlength="8">
+          </div>
+          <div class="form-group">
+            <label>Soglia Temp. Batteria (°C):</label>
+            <input type="number" name="temp_thresh" min="0" max="80" value="45" required>
+          </div>
+          <!-- Aggiungi qui gli altri 4-5 campi testuali richiesti -->
+          
+          <button type="submit" class="btn-submit">Salva Impostazioni</button>
+        </form>
+      </div>
+
+      <!-- Form Aggiornamento Firmware / Filesystem -->
+      <div class="card">
+        <h3>🚀 Aggiornamento Sistema (OTA)</h3>
+        <form action="/update" method="POST" enctype="multipart/form-data">
+          <div class="form-group">
+            <label>Firmware (.bin):</label>
+            <input type="file" name="firmware" accept=".bin">
+          </div>
+          <div class="form-group">
+            <label>Filesystem (.bin):</label>
+            <input type="file" name="filesystem" accept=".bin">
+          </div>
+          <button type="submit" class="btn-submit btn-danger">Avvia Aggiornamento</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
