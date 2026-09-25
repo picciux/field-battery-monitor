@@ -4,6 +4,7 @@
 
 #include <WiFi.h>
 #include <WebSocketsServer.h>
+#include <ArduinoJson.h>
 
 #include "settings.h"
 #include "hardware.h"
@@ -30,7 +31,7 @@ class WifiComm : public IHardwareChangeListener {
     bool searchAndConnectNet(char *ssid, char *pass, const char *hostname);
     boolean wifiStart(Settings &s);
     void sendSettings(Settings &s, uint8_t num);
-    void updateSettings(Settings &s, uint8_t num, uint8_t *payload, size_t length);
+    void updateSettings(Settings &s, uint8_t num, JsonVariantConst payload);
     int formatEvent(HardwareEvent event, int index, char *buf, size_t size);
     void sendInitialState(uint8_t num);
     int sendCaps(char *buf, int bufsize);

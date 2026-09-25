@@ -395,7 +395,7 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
         sendSettings(s, num);
         return;
       } else if (!strcmp(action, ACTION_UPDATE_SETTINGS)) {
-        updateSettings(s, num, payload, lenght);
+        updateSettings(s, num, doc["payload"]);
         return;
       }
 
@@ -425,18 +425,10 @@ void WifiComm::sendSettings(Settings &s, uint8_t num) {
   webSocket.sendTXT(num, out);
 }
 
-void WifiComm::updateSettings(Settings &s, uint8_t num, uint8_t *payload, size_t length) {
+void WifiComm::updateSettings(Settings &s, uint8_t num, JsonVariantConst p) {
   bool factoryReset = false;
   bool factoryResetConfirm = false;
 
-  JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, payload, length);
-  if (error) {
-    webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":false}");
-    return;
-  }
-
-  JsonVariant p = doc["payload"];
   const char *val = nullptr;
 
   // Campi senza vincolo di lunghezza minima
