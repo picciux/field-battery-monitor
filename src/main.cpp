@@ -12,7 +12,9 @@ Settings settings;
 
 void setup() {
   // Avvia la seriale di debug integrata nel core
+#ifdef DEBUG_ON_SERIAL
   Serial.begin(115200);
+#endif
 
   settings.setup();
 
