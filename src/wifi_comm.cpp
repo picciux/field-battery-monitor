@@ -53,10 +53,10 @@ WifiComm wifiComm; //WifiComm static instance
 static volatile bool g_mdnsRestartPending = false;
 static void _onStationGotIp(WiFiEvent_t, WiFiEventInfo_t) { g_mdnsRestartPending = true; }
 
-/* STA event handlers */
+/* STA event handlers 
 void _onStationConnected(WiFiEvent_t event, WiFiEventInfo_t info) {
   wifiComm.restartMDNS();
-}
+}*/
 
 void WifiComm::networkDisconnected() {}
 
@@ -118,8 +118,6 @@ boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostna
   if (strlen(ssid) == 0) return false;
 
   WiFi.disconnect();
-
-  WiFi.onEvent(& _onStationConnected, ARDUINO_EVENT_WIFI_STA_GOT_IP);
   
   int n = WiFi.scanNetworks();
 
@@ -202,12 +200,7 @@ void WifiComm::reconnectCheck(unsigned long now) {
       }
     }
   } else {
-    // Modalita' AP fallback: a intervalli lunghi, ritenta la rete principale.
-    // Nota: usa una scansione, che blocca per 1-3s circa e puo' causare un
-    // breve stallo su HTTP/websocket durante il tentativo.
-    if (now - _lastFullRetry >= AP_FALLBACK_RETRY_MS) {
-      apRetryStep(now);
-    }
+    apRetryStep(now);
   }
 }
 
