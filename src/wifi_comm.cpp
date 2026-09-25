@@ -210,8 +210,8 @@ void WifiComm::requestRestart() {
 int WifiComm::sendCaps(char *buf, int bufsize) {
   return snprintf(buf, bufsize,
     "{\"type\":\"capabilities\",\"payload\":{\"channels\":%d,\"light\":%s,\"outlets\":%d,\
-    \"light_auto_br_min_pct\":%u,\"light_auto_dr_min\":%u,\"light_auto_dr_max\":%u \
-    \"cp_lt_min\":%d, \"cp_lt_max\":%d,\"fs_size\":%u }}",
+    \"light_auto_br_min_pct\":%u,\"light_auto_dr_min\":%u,\"light_auto_dr_max\":%u,\
+    \"cp_lt_min\":%d,\"cp_lt_max\":%d,\"fs_size\":%u}}",
     BOARD_CHANNELS, HAS_LIGHT ? "true" : "false", OUTLET_COUNT, 
     LIGHT_AUTO_BRIGHTNESS_MIN_PCT, LIGHT_AUTO_DURATION_MIN_S, LIGHT_AUTO_DURATION_MAX_S, 
     CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, ESP.getFlashChipSize());
