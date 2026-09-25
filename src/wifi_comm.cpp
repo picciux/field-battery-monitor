@@ -24,9 +24,6 @@
 #endif
 
 #define UPDATE_PATH "/update"
-#define CAPS_PATH "/api/cap"
-#define STATUS_PATH "/api/sta"
-#define SETTINGS_PATH "/api/cfg"
 
 #ifndef WWW_PORT
 #define WWW_PORT 80
@@ -323,7 +320,7 @@ void WifiComm::sendInitialState(uint8_t num)
     send(HardwareEvent::Outlet, i);
 }
 
-void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {  
+void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {  
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       break;
@@ -394,6 +391,12 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
       } else if (!strcmp(action, ACTION_RESTART)) {
         ret = true;
         requestRestart();
+      } else if (!strcmp(action, ACTION_GET_SETTINGS)) {
+        sendSettings(s, num);
+        return;
+      } else if (!strcmp(action, ACTION_UPDATE_SETTINGS)) {
+        updateSettings(s, num, payload, lenght);
+        return;
       }
 
       if (ret)
@@ -405,71 +408,99 @@ void WifiComm::websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, siz
   }         
 }
 
-
-void WifiComm::sendSettings(Settings &s) {
+void WifiComm::sendSettings(Settings &s, uint8_t num) {
   JsonDocument doc;
-  doc["hostname"]     = s.getHostname();
-  doc["display_name"] = s.getDisplayName();
-  doc["main_ssid"]    = s.getMainSsid();
-  doc["alt_ssid"]     = s.getAltSsid();
-  doc["ap_no_def_gw"] = s.isApDefaultGWDisabled();
-  doc["version"]      = VERSION;
-
+  doc["type"] = "settings";
+  
+  JsonObject pld = doc["payload"].to<JsonObject>();
+  pld["hostname"]     = s.getHostname();
+  pld["display_name"] = s.getDisplayName();
+  pld["main_ssid"]    = s.getMainSsid();
+  pld["alt_ssid"]     = s.getAltSsid();
+  pld["ap_no_def_gw"] = s.isApDefaultGWDisabled();
+  pld["version"]      = VERSION;
+ 
   String out;
   serializeJson(doc, out);
-  www.send(200, "application/json", out);
+  webSocket.sendTXT(num, out);
 }
 
-void WifiComm::updateSettings(Settings &s) {
+void WifiComm::updateSettings(Settings &s, uint8_t num, uint8_t *payload, size_t length) {
   bool factoryReset = false;
   bool factoryResetConfirm = false;
-  
-  for(uint8_t i = 0; i < www.args(); i++) {
-    if (www.argName(i).equals("hostname")) {
-      s.setHostname(www.arg(i).c_str());
-      
-    } else if (www.argName(i).equals("display_name")) {
-      s.setDisplayName(www.arg(i).c_str());
-      
-    } else if (www.argName(i).equals("ap_psk")) {
-      if (www.arg(i).length() >= 8)
-        s.setApPsk(www.arg(i).c_str());
-      
-    } else if (www.argName(i).equals("main_ssid")) {
-      s.setMainSsid(www.arg(i).c_str());
-      
-    } else if (www.argName(i).equals("main_psk")) {
-      if (www.arg(i).length() >= 8)
-        s.setMainPsk(www.arg(i).c_str());
-      
-    } else if (www.argName(i).equals("alt_ssid")) {
-      s.setAltSsid(www.arg(i).c_str());
-      
-    } else if (www.argName(i).equals("alt_psk")) {
-      if (www.arg(i).length() >= 8)
-        s.setAltPsk(www.arg(i).c_str());
-      
-    } else if (www.argName(i).equals("ap_no_def_gw")) {
-      s.setApDefaultGWDisabled(www.arg(i).toInt() != 0);
-    } else if (www.argName(i) == String("restart")) {
-      requestRestart();
-    } else if ( www.argName(i).equals("factory_reset")) {
-      factoryReset = true;
-    } else if ( www.argName(i).equals("factory_reset_confirm")) {
-      if (!strcmp(www.arg(i).c_str(), "CONFIRM FACTORY RESET")) {
-        factoryResetConfirm = true;
-      }
-    }
-    //discard anything else
+
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload, length);
+  if (error) {
+    webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":false}");
+    return;
   }
 
-  if (factoryReset && factoryResetConfirm) 
+  JsonVariant p = doc["payload"];
+  const char *val = nullptr;
+
+  // Campi senza vincolo di lunghezza minima
+
+  if (p["hostname"].is<const char *>()) {
+    val = p["hostname"];
+    if (strlen(val) > 0)
+      s.setHostname(val);
+  }
+  if (p["display_name"].is<const char *>()) {
+    val = p["display_name"];
+    if (strlen(val) > 0)
+      s.setDisplayName(val);
+  }
+  if (p["main_ssid"].is<const char *>()) {
+    val = p["main_ssid"];
+    if (val && strlen(val) > 0)
+      s.setMainSsid(val);
+  }
+  if (p["alt_ssid"].is<const char *>()) {
+    val = p["alt_ssid"];
+    if (val && strlen(val) > 0)
+      s.setAltSsid(val);
+  }
+
+  // PSK: vincolo minimo 8 caratteri (requisito WPA2)
+  if (p["ap_psk"].is<const char *>()) {
+    val = p["ap_psk"];
+    if (val && strlen(val) >= 8)
+      s.setApPsk(val);
+  }
+  if (p["main_psk"].is<const char *>()) {
+    val = p["main_psk"];
+    if (val && strlen(val) >= 8)
+      s.setMainPsk(val);
+  }
+  if (p["alt_psk"].is<const char *>()) {
+    val = p["alt_psk"];
+    if (val && strlen(val) >= 8)
+      s.setAltPsk(val);
+  }
+
+  if (p["ap_no_def_gw"].is<bool>() || p["ap_no_def_gw"].is<int>()) {
+    s.setApDefaultGWDisabled(p["ap_no_def_gw"].as<bool>());
+  }
+
+  if (p["factory_reset"].is<bool>() && p["factory_reset"].as<bool>()) {
+    factoryReset = true;
+  }
+
+  if (p["factory_reset_confirm"].is<const char*>()) {
+    const char *confirm = p["factory_reset_confirm"];
+    if (!strcmp(confirm, "CONFIRM FACTORY RESET")) {
+      factoryResetConfirm = true;
+    }
+  }
+
+  if (factoryReset && factoryResetConfirm)
     s.factoryReset();
-  
-  //here we're ok, send back modified settings
-  sendSettings(s);
-  
-  if (factoryReset && factoryResetConfirm) 
+
+  // qui siamo ok, rimandiamo indietro le impostazioni modificate
+  sendSettings(s, num);
+
+  if (factoryReset && factoryResetConfirm)
     requestRestart();
 }
 
@@ -514,14 +545,6 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
   if (!LittleFS.begin(true))
     DBGLN(F("ERROR initializing fs"));
 
-  www.on(SETTINGS_PATH, HTTP_GET, [this, &s]() {
-    this->sendSettings(s);
-  });
-
-  www.on(SETTINGS_PATH, HTTP_POST, [this, &s]() {
-    this->updateSettings(s);
-  });
-
   //serve files from SPIFFS or not found
   www.onNotFound([this]() {
     if (!this->sendFile(www.uri())) {
@@ -544,8 +567,8 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
 #ifdef DEBUG_ON_WS
   wsDebugSetup(&webSocket);
 #endif
-  webSocket.onEvent([this](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
-  wifiComm.websocketEvent(num, type, payload, lenght);
+  webSocket.onEvent([this, &s](uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
+    wifiComm.websocketEvent(s, num, type, payload, lenght);
   });
 
   hw->battery->setChangeListener(this);

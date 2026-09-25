@@ -14,10 +14,9 @@ enum class RetryState : uint8_t { Idle, Scanning, Connecting };
 class WifiComm : public IHardwareChangeListener {
   public:
     void networkDisconnected();
-    void getSettings(Settings &settings);
-    void updateSettings(Settings &settings);
+    //void getSettings(Settings &settings);
     bool sendFile(String path);
-    void websocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght);
+    void websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t * payload, size_t lenght);
     void run();
     void setup(Settings &settings, Hardware *hardware);
     void onHardwareChanged(HardwareEvent event, int index);
@@ -30,7 +29,8 @@ class WifiComm : public IHardwareChangeListener {
     Hardware *hardware;
     bool searchAndConnectNet(char *ssid, char *pass, const char *hostname);
     boolean wifiStart(Settings &s);
-    void sendSettings(Settings &s);
+    void sendSettings(Settings &s, uint8_t num);
+    void updateSettings(Settings &s, uint8_t num, uint8_t *payload, size_t length);
     int formatEvent(HardwareEvent event, int index, char *buf, size_t size);
     void sendInitialState(uint8_t num);
     int sendCaps(char *buf, int bufsize);
