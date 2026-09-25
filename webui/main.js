@@ -187,18 +187,19 @@ if (formSettings) {
     // Sfrutta FormData per raccogliere automaticamente i dati della form
     const formData = new FormData(formSettings);
     const settingsData = {
-      action: "update_settings"
+      action: "update_settings",
+      payload: {}
     };
 
     // Converte i campi della form in un oggetto chiave-valore JSON
     formData.forEach((value, key) => {
       // Se il valore è un numero, convertilo (opzionale ma consigliato per C++)
-      settingsData[key] = isNaN(value) || value === '' ? value : Number(value);
+      settingsData.payload[key] = isNaN(value) || value === '' ? value : Number(value);
     });
 
     // Invia i dati tramite l'unica connessione WebSocket attiva
     sendWsMessage(settingsData);
-    alert("Impostazioni inviate all'ESP32!"); 
+    alert("Settings saved!"); 
   });
 }
 
