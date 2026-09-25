@@ -32,13 +32,13 @@ function createDynamicSlider(container, type, idNumber, labelName, initialValue,
   const key = `${type}${idNumber}`;
   if (generatedControls.has(key)) return;
   
-  if (generatedControls.size === 0 || container.querySelector('.loading-text')) container.innerHTML = '';
+  //if (generatedControls.size === 0 || container.querySelector('.loading-text')) container.innerHTML = '';
   generatedControls.add(key);
 
   const controlGroup = document.createElement('div');
   controlGroup.className = 'control-group';
   controlGroup.innerHTML = `
-    <label>${labelName} ${idNumber}: <span id="val-${key}">${initialValue}</span>%</label>
+    <label>${labelName}: <span id="val-${key}">${initialValue}</span>%</label>
     <input type="range" id="slider-${key}" min="${minValue}" max="${maxValue}" value="${initialValue}">
   `;
   container.appendChild(controlGroup);
@@ -86,19 +86,22 @@ let ws;
 function initWebSocket() {
   if (isLocalTest) {
     console.log("🛠️ Esecuzione in locale: Simulazione WebSocket attiva.");
-    wsStatus.innerText = "WebSocket: Connesso (Simulazione Locale)";
+    wsStatus.innerText = "Connesso (Simulazione Locale)";
     wsStatus.className = "status-bar online";
     
-    // PRIMO MESSAGGIO SIMULATO: Configura la UI a run-time con un mix di Slider e Switch Booleani
-    /*setTimeout(() => {
+    var autonomy = 12.0;
+
+    // PRIMO MESSAGGIO SIMULATO: send 4-chs, light and 2 outlets caps.
+    setTimeout(() => {
       handleIncomingData({
-        light1: 30, light2: 65,
-        light3: true,  // <-- Booleano: Diventerà uno Switch ON/OFF automaticamente!
-        light4: false, // <-- Booleano: Diventerà uno Switch ON/OFF automaticamente!
-        outlet1: 0, outlet2: 100,
-        outlet3: false // <-- Anche le prese possono essere switch fisici puri
+        type: 'capabilities',
+        payload: {
+            channels: 4,
+            light: true,
+            outlets: 2
+        }
       });
-    }, 500);*/
+    }, 500);
 
     // MESSAGGI SUCCESSIVI: Aggiornamento ciclico dei sensori fissi
     setInterval(() => {
@@ -111,6 +114,15 @@ function initWebSocket() {
         battery_sensor_ok: true,
       });
     }, 2000);
+
+    // Autonomia
+    setInterval(() => {
+      handleIncomingData({
+        event: 'battery_autonomy_update',
+        hours: (autonomy - (10.0 / 3600.0)).toFixed(2)
+      });
+    }, 10000);
+
     return;
   }
 
@@ -125,13 +137,13 @@ function initWebSocket() {
 function handleIncomingData(data) {
   console.log(data);
   if (data.type) {
-    if (type == 'capabilities') {
+    if (data.type == 'capabilities') {
         //const channels = data.payload.channels;
         const outlets = data.payload.outlets;
         if (data.payload.light)
             containerLights.classList.remove('hidden');
 
-        if (data.payload.outlets == 0)
+        if (outlets == 0)
             containerOutlets.classList.add('hidden');
         else {
             for (var i = 0; i < outlets; i++) 
@@ -149,7 +161,7 @@ function handleIncomingData(data) {
             document.getElementById('batt-sensors').innerText = (data.battery_sensor_ok ? 'OK' : 'FAIL' );
         break;
 
-        case 'battery-autonomy-update':
+        case 'battery_autonomy_update':
             document.getElementById('batt-autonomy').innerText = data.hours;
         break;
     }
