@@ -15,11 +15,15 @@ function switchPage(page) {
     btnSettings.classList.add('active');
     pageHome.classList.add('hidden');
     pageSettings.classList.remove('hidden');
+    
+    sendWsMessage({ action: "get_settings" });
   }
 }
 
 btnHome.addEventListener('click', () => switchPage('home'));
 btnSettings.addEventListener('click', () => switchPage('settings'));
+
+
 
 
 // --- 2. GESTIONE DINAMICA DEI CONTROLLI (Luci, Prese, Switch) ---
@@ -78,6 +82,16 @@ function createDynamicSwitch(container, type, idNumber, labelName, initialValue)
   });
 }
 
+function setSlider(field, value) {
+    document.getElementById('val-' + field).innerText = value;
+    document.getElementById('slider-' + field).value = value;
+}
+
+function setSwitch(field, value) {
+    document.getElementById('txt-' + field).innerText = ( value ? 'ON' : 'OFF' );
+    document.getElementById('switch-' + field).checked = value;
+}
+
 // --- 3. LOGICA WEBSOCKET & SIMULATORE AGGIORNATO ---
 const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const wsStatus = document.getElementById('ws-status');
@@ -123,6 +137,34 @@ function initWebSocket() {
       });
     }, 10000);
 
+    // Light
+    setInterval(() => {
+      handleIncomingData({
+        event: 'light_update',
+        brightness: Math.random(),
+        auto: true,
+        auto_br: Math.random(),
+        auto_dr: (40 + Math.random() * 5).toFixed(0),
+      });
+    }, 6000);
+
+    // outlets 1 & 2
+    setInterval(() => {
+      handleIncomingData({
+        event: 'outlet_update',
+        index: 0,
+        power: Math.random(),
+      });
+    }, 7000);
+
+    setInterval(() => {
+      handleIncomingData({
+        event: 'outlet_update',
+        index: 1,
+        power: Math.random(),
+      });
+    }, 3500);
+
     return;
   }
 
@@ -133,10 +175,48 @@ function initWebSocket() {
   ws.onmessage = (event) => { handleIncomingData(JSON.parse(event.data)); };
 }
 
+// --- 4. GESTIONE SETTINGS VIA WEBSOCKET ---
+
+const formSettings = document.getElementById('form-settings');
+
+// A. Intercetta il click sul pulsante Salva
+if (formSettings) {
+  formSettings.addEventListener('submit', (e) => {
+    e.preventDefault(); // Blocca l'invio HTTP classico della form
+
+    // Sfrutta FormData per raccogliere automaticamente i dati della form
+    const formData = new FormData(formSettings);
+    const settingsData = {
+      action: "update_settings"
+    };
+
+    // Converte i campi della form in un oggetto chiave-valore JSON
+    formData.forEach((value, key) => {
+      // Se il valore è un numero, convertilo (opzionale ma consigliato per C++)
+      settingsData[key] = isNaN(value) || value === '' ? value : Number(value);
+    });
+
+    // Invia i dati tramite l'unica connessione WebSocket attiva
+    sendWsMessage(settingsData);
+    alert("Impostazioni inviate all'ESP32!"); 
+  });
+}
+
 // Funzione centrale per applicare i dati o discriminare il tipo di controllo
 function handleIncomingData(data) {
   console.log(data);
   if (data.type) {
+
+    /*
+        - channels
+        - light
+        - outlets
+        - light_auto_br_min_pct
+        - light_auto_dr_min
+        - light_auto_dr_max
+        - cp_lt_min
+        - cp_lt_max
+    */
     if (data.type == 'capabilities') {
         //const channels = data.payload.channels;
         const outlets = data.payload.outlets;
@@ -149,21 +229,105 @@ function handleIncomingData(data) {
             for (var i = 0; i < outlets; i++) 
                 createDynamicSlider(containerOutlets, 'outlet', i, 'Outlet ' + (i+1), 0);
         }
+
+        if (data.payload.cp_lt_max) {
+            document.getElementById('slider-batt-lt').min = data.payload.cp_lt_min;
+            document.getElementById('slider-batt-lr').max = data.payload.cp_lt_max;
+        }
+
+        if (data.payload.light_auto_br_min_pct)
+            document.getElementById('slider-light-auto_br').min = data.payload.light_auto_br_min_pct;
+
+        if (data.payload.light_auto_dr_max) {
+            document.getElementById('slider-light-auto_dr').min = data.payload.light_auto_dr_min;
+            document.getElementById('slider-light-auto_dr').max = data.payload.light_auto_dr_max;
+        }
+    } else if (data.type == 'result') {
+        if (data.payload == false) {
+            //TODO error
+        }
+    } else if (data.type == 'settings') {
+        for (const [k,v] of Object.entries(data.payload)) {
+            if (k == 'ap_no_def_gw')
+                document.getElementById('stg-ap_no_def_gw').checked = v;
+            else
+                document.getElementById('stg-' + k).value = v;
+        }
     }
   }
 
   if (data.event) {
     switch(data.event) {
+        /* update battery state event.
+        Pars:
+            - float voltage (can be null if sensor desnt't work)
+            - float current (can be null if sensor desnt't work)
+            - float SoC
+            - float temperature (can be null if sensor desnt't work)
+            - bool battery_sensor_ok (false when INA226 not responding)
+        */
         case 'battery_update':
             for (const el of ['voltage', 'current', 'soc', 'temperature']) {
                 document.getElementById('batt-' + el).innerText = data[el];
             }
             document.getElementById('batt-sensors').innerText = (data.battery_sensor_ok ? 'OK' : 'FAIL' );
-        break;
+            break;
 
-        case 'battery_autonomy_update':
+        /* update battery state event.
+        Pars:
+            - float hours
+        */
+       case 'battery_autonomy_update':
             document.getElementById('batt-autonomy').innerText = data.hours;
-        break;
+            break;
+
+        /* update safety state event.
+        Pars:
+            - bool is_safe
+        */
+        case 'safety_update':
+            //TODO
+            break;
+
+        /* update cold protection state event.
+        Pars:
+            - float lt low threshold temperature 
+        */
+        case 'cold_protection_update':
+            setSlider('batt-lt', data.lt);
+            break
+
+        /* update light state event.
+        Pars: 
+            - float brightness
+            - bool auto enabled/disabled
+            - float auto_br brightness
+            - int auto_dr duration 
+        */
+        case 'light_update':
+            //set sliders
+            [ 'brightness', 'auto_br', 'auto_dr' ].forEach(function(k, i) {
+                var v = parseFloat(data[k]);
+                if (k == 'auto_dr')
+                    v = v.toFixed(0);
+                else
+                    v = (v * 100.0).toFixed(0);
+                setSlider('light-' + k, v);
+            });
+
+            //set switch
+            setSwitch('light-auto', data.auto);
+            break
+
+        /* update power outlets state event.
+        Pars:
+            - int index
+            - float power 
+        */
+        case 'outlet_update':
+            var v = parseFloat(data.power) * 100.0;
+            setSlider('outlet' + data.index, v.toFixed(0));
+            break            
     }
   }
 }

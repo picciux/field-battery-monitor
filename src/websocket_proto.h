@@ -42,6 +42,9 @@
 /* requests device restart. no pars. */
 #define ACTION_RESTART                  "restart"
 
+#define ACTION_GET_SETTINGS             "get_settings"
+#define ACTION_UPDATE_SETTINGS          "update_settings"
+
 /* update battery state event.
    Pars:
     - float voltage (can be null if sensor desnt't work)

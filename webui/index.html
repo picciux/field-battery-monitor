@@ -53,12 +53,12 @@
           </label>  
         </div>
         <div class="control-group">
-          <label>Auto ON brightness: <span id="val-light-auto-brightness">25</span>%</label>
-          <input type="range" id="slider-light-auto-brightness" min="0" max="100" value="25">
+          <label>Auto ON brightness: <span id="val-light-auto_br">25</span>%</label>
+          <input type="range" id="slider-light-auto_br" min="1" max="100" value="25">
         </div>
         <div class="control-group">
-          <label>Auto ON duration: <span id="val-light-auto-duration">40</span>s</label>
-          <input type="range" id="slider-light-auto-duration" min="10" max="60" value="40">
+          <label>Auto ON duration: <span id="val-light-auto_dr">40</span>s</label>
+          <input type="range" id="slider-light-auto_dr" min="10" max="60" value="40">
         </div>
       </div>
 
@@ -73,40 +73,39 @@
       <!-- Form Parametri -->
       <div class="card">
         <h3>⚙️ Settings</h3>
-        <form action="/settings" method="POST">
+        <form id="form-settings" onsubmit="return false;">
           <div class="form-group">
             <label>System name:</label>
-            <input type="text" name="display_name" required minlength="8">
+            <input id="stg-display_name" type="text" name="display_name" required minlength="1">
           </div>
           <div class="form-group">
             <label>Hostname:</label>
-            <input type="text" name="hostname" required minlength="8">
+            <input id="stg-hostname" type="text" name="hostname" required minlength="1">
           </div>
           <div class="form-group">
             <label>Main Wi-Fi SSID:</label>
-            <input type="text" name="main_ssid" required minlength="2">
+            <input id="stg-main_ssid" type="text" name="main_ssid" required minlength="2">
           </div>
           <div class="form-group">
             <label>Main Wi-Fi Password:</label>
-            <input type="password" name="main_psk" minlength="8">
+            <input id="stg-main_psk" type="password" name="main_psk" minlength="8">
           </div>
           <div class="form-group">
             <label>Alt. Wi-Fi SSID:</label>
-            <input type="text" name="alt_ssid" required minlength="2">
+            <input id="stg-alt_ssid" type="text" name="alt_ssid" required minlength="2">
           </div>
           <div class="form-group">
             <label>Alt. Wi-Fi Password:</label>
-            <input type="password" name="alt_psk" minlength="8">
+            <input id="stg-alt_psk" type="password" name="alt_psk" minlength="8">
           </div>
           <div class="form-group">
             <label>Access-Point mode Password:</label>
-            <input type="password" name="ap_psk" minlength="8">
+            <input id="stg-ap_psk" type="password" name="ap_psk" minlength="8">
           </div>
           <div class="form-group">
             <label>Don't be default gateway (when in AP mode):</label>
-            <input type="checkbox" name="ap_no_def_gw" >
+            <input id="stg-ap_no_def_gw" type="checkbox" name="ap_no_def_gw" >
           </div>
-          <!-- Aggiungi qui gli altri 4-5 campi testuali richiesti -->
           
           <button type="submit" class="btn-submit">Save settings</button>
         </form>
