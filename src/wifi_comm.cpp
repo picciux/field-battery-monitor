@@ -214,7 +214,7 @@ int WifiComm::sendCaps(char *buf, int bufsize) {
     \"cp_lt_min\":%d,\"cp_lt_max\":%d,\"fs_size\":%u,\"fw_ver\":\"%s\"}}",
     BOARD_CHANNELS, HAS_LIGHT ? "true" : "false", OUTLET_COUNT, 
     LIGHT_AUTO_BRIGHTNESS_MIN_PCT, LIGHT_AUTO_DURATION_MIN_S, LIGHT_AUTO_DURATION_MAX_S, 
-    CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, ESP.getFlashChipSize(), VERSION);
+    (int)CP_LOW_THRESHOLD_MIN_C, (int) CP_LOW_THRESHOLD_MAX_C, ESP.getFlashChipSize(), VERSION);
 }
 
 // Formatta un evento in JSON nel buffer. Ritorna la lunghezza scritta, oppure 0
@@ -325,7 +325,7 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       break;
     case WStype_CONNECTED:  {             // if a new websocket connection is established: send initial data
-      char buf[256];
+      char buf[512];
       int len = sendCaps(buf, sizeof(buf));
       if (len > 0) webSocket.sendTXT(num, buf, len);
       sendInitialState(num);
