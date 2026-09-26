@@ -21,8 +21,9 @@ static AlpacaDeviceInfo g_SwitchInfo = {
 #define BATTERY_TEMPERATURE      3
 #define BATTERY_MIN_TEMP         4
 #define BATTERY_AUTONOMY         5
+#define BATTERY_SENSORS_OK       6
 
-#define BATT_SWITCHES            6
+#define BATT_SWITCHES            7
 
 #define LIGHT_BRIGHTNESS         0
 #define LIGHT_AUTO_ENABLED       1
@@ -44,6 +45,7 @@ enum class SwitchType {
   BatteryTemperature,
   BatteryMinTemperature,
   BatteryAutonomy,
+  BatterySensorsOK,
   LightBrightness,
   LightAutoEnabled,
   LightAutoBrightness,
@@ -60,7 +62,8 @@ static SwitchDef g_switches[MAX_SWITCHES] = {
   { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
   { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
   { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true},
-  { "Autonomy", "Estimated remaining autonomy (h), capped at 24: 24 = charging or negligible load", 0.0, 24.0, 0.1, false }  
+  { "Autonomy", "Estimated remaining autonomy (h), capped at 24: 24 = charging or negligible load", 0.0, 24.0, 0.1, false }, 
+  { "Sensors state", "Working state of current/voltage and temperature sensors", 0.0, 1.0, 1.0, false }, 
 };
 
 static SwitchDef g_lightSwitches[4] = {
@@ -117,6 +120,8 @@ static SwitchType resolveSwitchId(int id) {
         return SwitchType::BatteryMinTemperature;
       case BATTERY_AUTONOMY:
         return SwitchType::BatteryAutonomy;
+      case BATTERY_SENSORS_OK:
+        return SwitchType::BatterySensorsOK;
     }
   } else if (HAS_LIGHT && id < BATT_SWITCHES + LIGHT_SWITCHES) {
     switch(id - BATT_SWITCHES) {
@@ -184,10 +189,7 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
     return true;
 }
 
-// Voltage/Current: nessuna lettura valida se l'INA226 non risponde.
-// Temperature: nessuna lettura valida se il DS18B20 non risponde.
-// SoC invece resta esposto anche a sensore guasto: e' un valore accumulato
-// e persistito, l'ultima stima nota, non una lettura istantanea.
+/// Disabled. No more exceptions for broken sensors. Signal in sensors_ok switch.
 static bool checkValueSet(WebServer &server, Hardware *hw, const AlpacaSwitchRequest &r) {
   /*
   if (r.switchType == SwitchType::BatteryTemperature && !hw->heater->isTemperatureValid()) {
@@ -212,6 +214,7 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::BatteryTemperature:        return hw->heater->getTemperature();
     case SwitchType::BatteryMinTemperature:     return hw->heater->getLowThreshold();
     case SwitchType::BatteryAutonomy:           return hw->battery->getAutonomyHours();
+    case SwitchType::BatterySensorsOK:          return (hw->battery->isSensorValid() && hw->heater->isTemperatureValid());
     case SwitchType::LightBrightness:           return hw->light->getBrightness() * 100.0;
     case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
     case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
