@@ -100,7 +100,7 @@ void otaSetup(WebServer &server, const char *path, OtaDoneCallback onDone) {
       // e la riconnessione WiFi/mDNS prima che il browser ricarichi la pagina.
       String msg = g_isFilesystem ? "Filesystem " : "Firmware ";
       String html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'>"
-                    "<meta http-equiv='refresh' content='10;url=/'>"
+                    "<meta http-equiv='refresh' content='15;url=/'>"
                     "<title>OTA Update</title></head><body>"
                     "<p>" + msg + "update, rebooting...</p>"
                     "</body></html>";
