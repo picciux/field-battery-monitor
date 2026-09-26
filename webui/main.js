@@ -1,3 +1,6 @@
+
+const VERSION = '0.9';
+
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
 const btnSettings = document.getElementById('btn-settings');
@@ -23,10 +26,9 @@ function switchPage(page) {
 btnHome.addEventListener('click', () => switchPage('home'));
 btnSettings.addEventListener('click', () => switchPage('settings'));
 
-
-
-
 // --- 2. GESTIONE DINAMICA DEI CONTROLLI (Luci, Prese, Switch) ---
+document.getElementById('version-ui').innerText = VERSION;
+
 const containerLights = document.getElementById('light-container');
 const containerOutlets = document.getElementById('outlets-container');
 const generatedControls = new Set();
@@ -105,16 +107,62 @@ function initWebSocket() {
     
     var autonomy = 12.0;
 
-    // PRIMO MESSAGGIO SIMULATO: send 4-chs, light and 2 outlets caps.
+    // PRIMO MESSAGGIO SIMULATO: capabilities e situazione iniziale.
     setTimeout(() => {
       handleIncomingData({
         type: 'capabilities',
         payload: {
             channels: 4,
             light: true,
-            outlets: 2
+            outlets: 2,
+            fw_ver: "1.0-sim"
         }
       });
+
+      //battery
+      handleIncomingData({
+        event: 'battery_update',
+        temperature: (25 + Math.random() * 5).toFixed(1),
+        voltage: (13.1 + Math.random() * 0.4).toFixed(2),
+        current: (-0.8 + Math.random() * 0.3).toFixed(2),
+        soc: (100 - Math.random() * 3.5).toFixed(0),
+        battery_sensor_ok: true,
+      });
+
+      //autonomy 
+      handleIncomingData({
+        event: 'battery_autonomy_update',
+        hours: autonomy.toFixed(2)
+      });
+
+      // cold protection
+      handleIncomingData({
+        event: 'cold_protection_update',
+        lt: 5.0
+      });
+
+      //light
+      handleIncomingData({
+        event: 'light_update',
+        brightness: Math.random(),
+        auto: true,
+        auto_br: Math.random(),
+        auto_dr: (40 + Math.random() * 5).toFixed(0),
+      });
+
+      //outlets
+      handleIncomingData({
+        event: 'outlet_update',
+        index: 0,
+        power: Math.random(),
+      });
+
+      handleIncomingData({
+        event: 'outlet_update',
+        index: 1,
+        power: Math.random(),
+      });
+
     }, 500);
 
     // MESSAGGI SUCCESSIVI: Aggiornamento ciclico dei sensori fissi
@@ -131,39 +179,12 @@ function initWebSocket() {
 
     // Autonomia
     setInterval(() => {
+      autonomy -= (10.0 / 3600.0);
       handleIncomingData({
         event: 'battery_autonomy_update',
-        hours: (autonomy - (10.0 / 3600.0)).toFixed(2)
+        hours: autonomy.toFixed(2)
       });
     }, 10000);
-
-    // Light
-    setInterval(() => {
-      handleIncomingData({
-        event: 'light_update',
-        brightness: Math.random(),
-        auto: true,
-        auto_br: Math.random(),
-        auto_dr: (40 + Math.random() * 5).toFixed(0),
-      });
-    }, 6000);
-
-    // outlets 1 & 2
-    setInterval(() => {
-      handleIncomingData({
-        event: 'outlet_update',
-        index: 0,
-        power: Math.random(),
-      });
-    }, 7000);
-
-    setInterval(() => {
-      handleIncomingData({
-        event: 'outlet_update',
-        index: 1,
-        power: Math.random(),
-      });
-    }, 3500);
 
     return;
   }
@@ -207,7 +228,6 @@ if (formSettings) {
 function handleIncomingData(data) {
   console.log(data);
   if (data.type) {
-
     /*
         - channels
         - light
@@ -243,6 +263,10 @@ function handleIncomingData(data) {
             document.getElementById('slider-light-auto_dr').min = data.payload.light_auto_dr_min;
             document.getElementById('slider-light-auto_dr').max = data.payload.light_auto_dr_max;
         }
+
+        if (data.payload.fw_ver)
+          document.getElementById('version-fw').innerText = data.payload.fw_ver;
+
     } else if (data.type == 'result') {
         if (data.payload == false) {
             //TODO error

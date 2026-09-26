@@ -67,6 +67,8 @@ body {
 .status-bar.online { background: #d4edda; color: #155724; }
 .status-bar.offline { background: #f8d7da; color: #721c24; }
 
+.version-box { font-size: 0.7em; margin-bottom:12px; }
+
 .card {
   background: var(--card-bg);
   padding: 15px;
