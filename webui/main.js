@@ -1,5 +1,5 @@
 
-const VERSION = '0.9.1';
+const VERSION = '0.9.2';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -33,12 +33,34 @@ const containerLights = document.getElementById('light-container');
 const containerOutlets = document.getElementById('outlets-container');
 const generatedControls = new Set();
 
-// Funzione per creare uno Slider 
+// Solo aggiornamento visivo, ad ogni tick del trascinamento: leggero, nessun invio.
+function linkSliderLabel(sliderKey) {
+  const txtSpan = document.getElementById(`val-${sliderKey}`);
+  if (txtSpan) {
+    const slider = document.getElementById(`slider-${sliderKey}`);
+    if (slider)
+      slider.addEventListener('input', (e) => {
+        txtSpan.innerText = e.target.value;
+      });
+      return slider;
+  }
+}
+
+function linkSwitchLabel(switchKey) {
+  const txtSpan = document.getElementById(`txt-${switchKey}`);
+  const sw = document.getElementById(`switch-${switchKey}`);
+  if (sw && txtSpan) {
+    sw.addEventListener('change', (e) => {
+      if (txtSpan) txtSpan.innerText = e.target.checked ? 'ON' : 'OFF';
+    });
+    return sw;
+  }
+}
+
 function createDynamicSlider(container, type, idNumber, labelName, initialValue, minValue=0, maxValue=100) {
   const key = `${type}${idNumber}`;
   if (generatedControls.has(key)) return;
-  
-  //if (generatedControls.size === 0 || container.querySelector('.loading-text')) container.innerHTML = '';
+
   generatedControls.add(key);
 
   const controlGroup = document.createElement('div');
@@ -49,39 +71,7 @@ function createDynamicSlider(container, type, idNumber, labelName, initialValue,
   `;
   container.appendChild(controlGroup);
 
-  const slider = controlGroup.querySelector('input[type="range"]');
-  slider.addEventListener('input', (e) => {
-    const txtSpan = document.getElementById(`val-${key}`);
-    if (txtSpan) txtSpan.innerText = e.target.value;
-    sendWsMessage({ action: `set_${key}`, value: parseInt(e.target.value) });
-  });
-}
-
-// Funzione per creare uno Switch ON/OFF (Valori Booleani true/false)
-function createDynamicSwitch(container, type, idNumber, labelName, initialValue) {
-  const key = `${type}${idNumber}`;
-  if (generatedControls.has(key)) return;
-
-  if (generatedControls.size === 0 || container.querySelector('.loading-text')) container.innerHTML = '';
-  generatedControls.add(key);
-
-  const switchGroup = document.createElement('div');
-  switchGroup.className = 'switch-container';
-  switchGroup.innerHTML = `
-    <label>${labelName} ${idNumber}: <span id="txt-${key}">${initialValue ? 'ON' : 'OFF'}</span></label>
-    <label class="switch">
-      <input type="checkbox" id="switch-${key}" ${initialValue ? 'checked' : ''}>
-      <span class="slider-toggle"></span>
-    </label>
-  `;
-  container.appendChild(switchGroup);
-
-  const toggle = switchGroup.querySelector('input[type="checkbox"]');
-  toggle.addEventListener('change', (e) => {
-    const txtSpan = document.getElementById(`txt-${key}`);
-    if (txtSpan) txtSpan.innerText = e.target.checked ? 'ON' : 'OFF';
-    sendWsMessage({ action: `set_${key}`, value: e.target.checked });
-  });
+  return controlGroup.querySelector('input[type="range"]');
 }
 
 function setSlider(field, value) {
@@ -239,16 +229,27 @@ function handleIncomingData(data) {
         - cp_lt_max
     */
     if (data.type == 'capabilities') {
-        //const channels = data.payload.channels;
-        const outlets = data.payload.outlets;
-        if (data.payload.light)
-            containerLights.classList.remove('hidden');
+          linkSliderLabel('batt-lt').addEventListener('change', (e) => {
+            sendWsMessage({ action: 'cp_low_threshold', temperature: parseInt(e.target.value) });
+          });
 
+        //const channels = data.payload.channels;
+        if (data.payload.light) {
+          containerLights.classList.remove('hidden');
+        }
+
+        const outlets = data.payload.outlets;
         if (outlets == 0)
             containerOutlets.classList.add('hidden');
         else {
-            for (var i = 0; i < outlets; i++) 
-                createDynamicSlider(containerOutlets, 'outlet', i, 'Outlet ' + (i+1), 0);
+            for (var i = 0; i < outlets; i++) {
+              const slider = createDynamicSlider(containerOutlets, 'outlet', i, 'Outlet ' + (i+1), 0);
+              linkSliderLabel(`outlet${i}`);
+              const index = i;
+              slider.addEventListener('change', (e) => {
+                sendWsMessage({ action: 'outlet_power', index: index, value: parseInt(e.target.value) });
+              });
+            }
         }
 
         if (data.payload.cp_lt_max) {
@@ -303,7 +304,9 @@ function handleIncomingData(data) {
             - float hours
         */
        case 'battery_autonomy_update':
-            document.getElementById('batt-autonomy').innerText = data.hours;
+            const h = Math.trunc(data.hours);
+            const m = Math.trunc((data.hours - h) * 60.0);
+            document.getElementById('batt-autonomy').innerText = `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
             break;
 
         /* update safety state event.
@@ -391,4 +394,34 @@ btnTheme.addEventListener('click', () => {
   }
 });
 
+// --- 5. Controls listeners
+linkSliderLabel('light-brightness').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'light_brightness', brightness: parseInt(e.target.value) });
+});
 
+linkSwitchLabel('light-auto').addEventListener('change', e => {
+  sendWsMessage({ action: 'light_auto_enabled', enabled: e.target.checked });            
+});
+
+linkSliderLabel('light-auto_br').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'light_auto_brightness', brightness: parseInt(e.target.value) });
+});
+
+linkSliderLabel('light-auto_dr').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'light_auto_duration', seconds: parseInt(e.target.value) });
+});
+
+document.getElementById('btn-reset-soc').addEventListener('click', e => {
+  if (confirm("Are you sure you want to reset battery charge to 100%?"))
+    sendWsMessage({ action: 'battery_soc_reset' })
+});
+
+document.getElementById('btn-restart').addEventListener('click', e => {
+  if (confirm("Are you sure you want to restart the unit?"))
+    sendWsMessage({ action: 'restart' })
+});
+
+document.getElementById('btn-factory-reset').addEventListener('click', e => {
+  if (confirm("Are you sure you want to factory reset the unit? You will probably loose connection to your configured WiFi."))
+    alert('Not-implemented-ATM');
+});

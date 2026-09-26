@@ -28,7 +28,7 @@
           <div>Voltage: <span id="batt-voltage">--</span> V</div>
           <div>Current: <span id="batt-current">--</span> A</div>
           <div>State of charge: <span id="batt-soc">--</span> %</div>
-          <div>Autonomy: <span id="batt-autonomy">--</span> hours</div>
+          <div>Remaining: <span id="batt-autonomy">--</span></div>
           <div>Temperature: <span id="batt-temperature">--</span> °C</div>
           <div>State of sensors: <span id="batt-sensors">--</span></div>
         </div>
@@ -36,7 +36,7 @@
           <label>Min temperature: <span id="val-batt-lt">--</span> °C</label>
           <input type="range" id="slider-batt-lt" min="-10" max="10" value="5">
         </div>
-       </div>
+      </div>
 
       <!-- Sezione Luci (Slider) -->
       <div id="light-container" class="card hidden">
@@ -106,9 +106,9 @@
             <label>Don't be default gateway (when in AP mode):</label>
             <input id="stg-ap_no_def_gw" type="checkbox" name="ap_no_def_gw" >
           </div>
-          
           <button type="submit" class="btn-submit">Save settings</button>
         </form>
+        <button id="btn-factory-reset" class="btn-submit btn-danger">Factory reset</button>
       </div>
 
       <!-- Form Aggiornamento Firmware / Filesystem -->
@@ -129,6 +129,16 @@
             <button type="submit" class="btn-update btn-danger">Update filesystem</button>
           </div>
         </form>
+      </div>
+
+      <div class="card">
+        <h3>🔄 Reset battery to 100% charge</h3>
+        <button id="btn-reset-soc" class="btn-submit btn-danger">Reset</button>
+      </div>
+
+      <div class="card">
+        <h3>🌀 Restart unit</h3>
+        <button id="btn-restart" class="btn-submit btn-danger">Restart</button>
       </div>
     </section>
   </main>
