@@ -1,5 +1,5 @@
 
-const VERSION = '0.9';
+const VERSION = '0.9.1';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -253,7 +253,7 @@ function handleIncomingData(data) {
 
         if (data.payload.cp_lt_max) {
             document.getElementById('slider-batt-lt').min = data.payload.cp_lt_min;
-            document.getElementById('slider-batt-lr').max = data.payload.cp_lt_max;
+            document.getElementById('slider-batt-lt').max = data.payload.cp_lt_max;
         }
 
         if (data.payload.light_auto_br_min_pct)
