@@ -1,6 +1,5 @@
 
 #include <WebServer.h>
-#include <HTTPUpdateServer.h>
 #include <ESPmDNS.h>
 #include <FS.h>
 #include <LittleFS.h>
@@ -19,6 +18,8 @@
 
 #include "websocket_proto.h"
 #include "board.h"
+#include "ota.h"
+
 #ifdef DEBUG_ON_WS
   #include "ws_debug.h"
 #endif
@@ -41,7 +42,6 @@
 FS* filesystem = &LittleFS;
 WebServer www(WWW_PORT);
 WebSocketsServer webSocket(81);
-HTTPUpdateServer updater;
 
 WifiComm wifiComm; //WifiComm static instance
 
@@ -549,9 +549,10 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
   //alpacaObservingConditionsSetup(www);
   alpacaSafetyMonitorSetup(www, hw);
 
-  //setup_alpaca(s, www, hw); 
-
-  updater.setup(&www, UPDATE_PATH);
+  // OTA
+  otaSetup(www, UPDATE_PATH, [](bool success, bool isFilesystem) {
+    if (success) wifiComm.requestRestart();
+  });
 
   www.begin();
   alpacaDiscoverySetup(WWW_PORT);
