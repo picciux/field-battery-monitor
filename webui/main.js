@@ -1,5 +1,5 @@
 
-const VERSION = '0.9.3';
+const VERSION = '0.9.4';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -216,7 +216,7 @@ if (formSettings) {
 
 // Funzione centrale per applicare i dati o discriminare il tipo di controllo
 function handleIncomingData(data) {
-  console.log(data);
+  //console.log(data);
   if (data.type) {
     /*
         - channels
@@ -229,10 +229,6 @@ function handleIncomingData(data) {
         - cp_lt_max
     */
     if (data.type == 'capabilities') {
-          linkSliderLabel('batt-lt').addEventListener('change', (e) => {
-            sendWsMessage({ action: 'cp_low_threshold', temperature: parseInt(e.target.value) });
-          });
-
         //const channels = data.payload.channels;
         if (data.payload.light) {
           containerLights.classList.remove('hidden');
@@ -247,7 +243,7 @@ function handleIncomingData(data) {
               linkSliderLabel(`outlet${i}`);
               const index = i;
               slider.addEventListener('change', (e) => {
-                sendWsMessage({ action: 'outlet_power', index: index, value: parseInt(e.target.value) });
+                sendWsMessage({ action: 'outlet_power', index: index, power: (parseFloat(e.target.value) / 100.0) });
               });
             }
         }
@@ -362,7 +358,10 @@ function handleIncomingData(data) {
 
 function sendWsMessage(obj) {
   if (isLocalTest) { console.log("➡️ [WS SIMULATO] Invio:", obj); }
-  else if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify(obj)); }
+  else if (ws && ws.readyState === WebSocket.OPEN) { 
+    //console.log("➡️ ", obj);
+    ws.send(JSON.stringify(obj)); 
+  }
 }
 
 initWebSocket();
@@ -395,8 +394,12 @@ btnTheme.addEventListener('click', () => {
 });
 
 // --- 5. Controls listeners
+linkSliderLabel('batt-lt').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'cp_low_threshold', temperature: parseInt(e.target.value) });
+});
+
 linkSliderLabel('light-brightness').addEventListener('change', (e) => {
-  sendWsMessage({ action: 'light_brightness', brightness: parseInt(e.target.value) });
+  sendWsMessage({ action: 'light_brightness', brightness: (parseFloat(e.target.value) / 100.0)});
 });
 
 linkSwitchLabel('light-auto').addEventListener('change', e => {
@@ -404,7 +407,7 @@ linkSwitchLabel('light-auto').addEventListener('change', e => {
 });
 
 linkSliderLabel('light-auto_br').addEventListener('change', (e) => {
-  sendWsMessage({ action: 'light_auto_brightness', brightness: parseInt(e.target.value) });
+  sendWsMessage({ action: 'light_auto_brightness', brightness: (parseFloat(e.target.value) / 100.0) });
 });
 
 linkSliderLabel('light-auto_dr').addEventListener('change', (e) => {
