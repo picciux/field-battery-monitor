@@ -19,7 +19,7 @@ const char OTA_PAGE[] PROGMEM = R"HTML(<!DOCTYPE html>
     <input type='file' accept='.bin' name='firmware'>
     <input type='submit' value='Update firmware'>
   </form>
-  <h3>AFilesystem (LittleFS)</h3>
+  <h3>Filesystem (LittleFS)</h3>
   <form method='POST' action='' enctype='multipart/form-data'>
     <input type='file' accept='.bin' name='filesystem'>
     <input type='submit' value='Update filesystem'>
@@ -94,11 +94,17 @@ void otaSetup(WebServer &server, const char *path, OtaDoneCallback onDone) {
     // (con successo o errore), qui ci si limita a rispondere al client.
     server.sendHeader("Connection", "close");
     if (g_error) {
-      server.send(200, "text/plain", "Update failed - " + g_errorMsg);
+      server.send(500, "text/plain", "Update failed - " + g_errorMsg);
     } else {
-      server.send(200, "text/plain",
-                  g_isFilesystem ? "Filesystem updated, restarting..."
-                                 : "Firmware updated, restarting...");
+     // Auto-refresh lato client verso "/": 10s coprono il riavvio del device
+      // e la riconnessione WiFi/mDNS prima che il browser ricarichi la pagina.
+      String msg = g_isFilesystem ? "Filesystem " : "Firmware ";
+      String html = "<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'>"
+                    "<meta http-equiv='refresh' content='10;url=/'>"
+                    "<title>OTA Update</title></head><body>"
+                    "<p>" + msg + "update, rebooting...</p>"
+                    "</body></html>";
+      server.send(200, "text/html", html);     
     }
     if (g_onDone) g_onDone(!g_error, g_isFilesystem);
   }, [&server]() {
