@@ -104,6 +104,7 @@ void Battery::run(unsigned long now)
     _last_update = now;
 
     Wire.beginTransmission(INA226_ADDR);
+    Wire.setTimeOut(50);
     bool present = (Wire.endTransmission() == 0);
     if (!present) 
         _inaConfigured = false;
