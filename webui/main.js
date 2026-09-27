@@ -1,5 +1,5 @@
 
-const VERSION = '0.9.4';
+const VERSION = '0.9.5';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -366,7 +366,7 @@ function sendWsMessage(obj) {
 
 initWebSocket();
 
-// --- 4. GESTIONE CAMBIO TEMA (CHIARO / SCURO) ---
+// --- 5. GESTIONE CAMBIO TEMA (CHIARO / SCURO) ---
 const btnTheme = document.getElementById('btn-theme');
 
 // Controlla se l'utente aveva già salvato una preferenza, altrimenti usa il tema chiaro
@@ -393,7 +393,149 @@ btnTheme.addEventListener('click', () => {
   }
 });
 
-// --- 5. Controls listeners
+// --- 6. CONFIRM MODAL (sostituisce i confirm() nativi del browser) ---
+// Un solo modal condiviso: ogni chiamata a showConfirm() sovrascrive i
+// listener di ok/cancel invece di accumularli (niente doppie conferme se
+// showConfirm viene richiamata più volte prima che l'utente risponda).
+const confirmModal = document.getElementById('confirm-modal');
+const confirmMessage = document.getElementById('confirm-message');
+const confirmOkBtn = document.getElementById('confirm-ok');
+const confirmCancelBtn = document.getElementById('confirm-cancel');
+
+function showConfirm(message, onConfirm, options = {}) {
+  confirmMessage.innerText = message;
+  confirmOkBtn.innerText = options.confirmLabel || 'Confirm';
+  confirmOkBtn.className = (options.danger === false) ? 'btn-submit' : 'btn-submit btn-danger';
+
+  confirmOkBtn.onclick = () => {
+    confirmModal.classList.add('hidden');
+    onConfirm();
+  };
+  confirmCancelBtn.onclick = () => {
+    confirmModal.classList.add('hidden');
+  };
+
+  confirmModal.classList.remove('hidden');
+}
+
+// --- 7. PROGRESS MODAL + UPLOAD OTA (firmware/filesystem) ---
+const progressModal = document.getElementById('progress-modal');
+const progressTitle = document.getElementById('progress-title');
+const progressFill = document.getElementById('progress-bar-fill');
+const progressPercent = document.getElementById('progress-percent');
+const progressStatus = document.getElementById('progress-status');
+const progressCloseBtn = document.getElementById('progress-close');
+
+function showProgressModal(title) {
+  progressTitle.innerText = title;
+  progressFill.classList.remove('error');
+  progressFill.style.width = '0%';
+  progressPercent.innerText = '0%';
+  progressStatus.innerText = '';
+  progressCloseBtn.classList.add('hidden');
+  progressModal.classList.remove('hidden');
+}
+
+function setProgress(pct, statusText) {
+  progressFill.style.width = pct + '%';
+  progressPercent.innerText = pct + '%';
+  if (statusText !== undefined) progressStatus.innerText = statusText;
+}
+
+function setProgressError(statusText) {
+  progressFill.classList.add('error');
+  progressStatus.innerText = statusText;
+  progressCloseBtn.classList.remove('hidden');
+}
+
+function setProgressDone(statusText) {
+  setProgress(100, statusText);
+  progressCloseBtn.classList.remove('hidden');
+}
+
+progressCloseBtn.addEventListener('click', () => {
+  progressModal.classList.add('hidden');
+});
+
+// Upload reale via XMLHttpRequest: serve xhr.upload.onprogress per il
+// progress reale del caricamento, cosa che fetch() non offre in modo
+// altrettanto diretto.
+function uploadOtaFile(file, fieldName, title) {
+  showProgressModal(title);
+
+  if (isLocalTest) {
+    // Simulazione locale, cosi' il modal si puo' provare senza hardware.
+    let pct = 0;
+    const interval = setInterval(() => {
+      pct += 8 + Math.random() * 12;
+      if (pct >= 100) {
+        pct = 100;
+        clearInterval(interval);
+        setProgressDone('Upload completato (simulato). Riavvio in corso...');
+      } else {
+        const p = Math.round(pct);
+        setProgress(p, `Caricamento (simulato): ${p}%`);
+      }
+    }, 250);
+    return;
+  }
+
+  const xhr = new XMLHttpRequest();
+  const formData = new FormData();
+  formData.append(fieldName, file);
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      setProgress(pct, `Caricamento: ${pct}%`);
+    }
+  };
+
+  xhr.onload = () => {
+    if (xhr.status === 200) {
+      setProgressDone('Upload completato. Il dispositivo si sta riavviando...');
+      // Il device riavvia e riconnette WiFi/mDNS: attendiamo prima di
+      // ricaricare la SPA, coerente col refresh lato server dopo un OTA.
+      setTimeout(() => { window.location.href = '/'; }, 15000);
+    } else {
+      setProgressError(`Errore (${xhr.status}): ${xhr.responseText || 'update failed'}`);
+    }
+  };
+
+  xhr.onerror = () => {
+    // Puo' capitare anche a upload riuscito, se il device si riavvia prima
+    // di chiudere la risposta HTTP: non e' necessariamente un fallimento.
+    setProgressError('Errore di rete durante l\'upload (il device potrebbe già essere in riavvio)');
+  };
+
+  xhr.open('POST', '/update');
+  xhr.send(formData);
+}
+
+function wireOtaForm(formId, inputId, fieldName, title) {
+  const form = document.getElementById(formId);
+  const input = document.getElementById(inputId);
+  if (!form || !input) return;
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    if (!input.files || input.files.length === 0) {
+      alert('Select a file first');
+      return;
+    }
+
+    showConfirm(
+      `Are you sure you want to update the ${title.toLowerCase()}? The device will reboot.`,
+      () => uploadOtaFile(input.files[0], fieldName, title)
+    );
+  });
+}
+
+wireOtaForm('form-ota-firmware', 'input-ota-firmware', 'firmware', 'Firmware update');
+wireOtaForm('form-ota-filesystem', 'input-ota-filesystem', 'filesystem', 'Filesystem update');
+
+// --- 8. Controls listeners
 linkSliderLabel('batt-lt').addEventListener('change', (e) => {
   sendWsMessage({ action: 'cp_low_threshold', temperature: parseInt(e.target.value) });
 });
@@ -415,16 +557,20 @@ linkSliderLabel('light-auto_dr').addEventListener('change', (e) => {
 });
 
 document.getElementById('btn-reset-soc').addEventListener('click', e => {
-  if (confirm("Are you sure you want to reset battery charge to 100%?"))
-    sendWsMessage({ action: 'battery_soc_reset' })
+  showConfirm("Are you sure you want to reset battery charge to 100%?", () => {
+    sendWsMessage({ action: 'battery_soc_reset' });
+  });
 });
 
 document.getElementById('btn-restart').addEventListener('click', e => {
-  if (confirm("Are you sure you want to restart the unit?"))
-    sendWsMessage({ action: 'restart' })
+  showConfirm("Are you sure you want to restart the unit?", () => {
+    sendWsMessage({ action: 'restart' });
+  });
 });
 
 document.getElementById('btn-factory-reset').addEventListener('click', e => {
-  if (confirm("Are you sure you want to factory reset the unit? You will probably loose connection to your configured WiFi."))
-    alert('Not-implemented-ATM');
+  showConfirm(
+    "Are you sure you want to factory reset the unit? You will probably loose connection to your configured WiFi.",
+    () => { alert('Not-implemented-ATM'); }
+  );
 });
