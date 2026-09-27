@@ -4,6 +4,7 @@
 #include "wifi_comm.h"
 #include "hardware.h"
 #include "ble.h"
+#include "diag.h"
 
 #define WDT_TIMEOUT_S   30
 
@@ -11,6 +12,8 @@ Hardware hardware;
 Settings settings;
 
 void setup() {
+  diagSetup();
+
   // Avvia la seriale di debug integrata nel core
 #ifdef DEBUG_ON_SERIAL
   Serial.begin(115200);

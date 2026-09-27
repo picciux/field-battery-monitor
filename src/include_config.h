@@ -1,7 +1,7 @@
 
 #pragma once
 
-#define VERSION "0.9.1"
+#define VERSION "0.9.2"
 
 // Defaults, can be overriden by config.h
 #define INA226_ADDR           0x40
