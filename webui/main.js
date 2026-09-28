@@ -471,10 +471,10 @@ function uploadOtaFile(file, fieldName, title) {
       if (pct >= 100) {
         pct = 100;
         clearInterval(interval);
-        setProgressDone('Upload completato (simulato). Riavvio in corso...');
+        setProgressDone('Upload done (simulation). Restart in progress...');
       } else {
         const p = Math.round(pct);
-        setProgress(p, `Caricamento (simulato): ${p}%`);
+        setProgress(p, 'Upload in progress (simulation)...');
       }
     }, 250);
     return;
@@ -487,25 +487,25 @@ function uploadOtaFile(file, fieldName, title) {
   xhr.upload.onprogress = (e) => {
     if (e.lengthComputable) {
       const pct = Math.round((e.loaded / e.total) * 100);
-      setProgress(pct, `Caricamento: ${pct}%`);
+      setProgress(pct, 'Upload in progress...');
     }
   };
 
   xhr.onload = () => {
     if (xhr.status === 200) {
-      setProgressDone('Upload completato. Il dispositivo si sta riavviando...');
+      setProgressDone('Upload done. Device is restarting...');
       // Il device riavvia e riconnette WiFi/mDNS: attendiamo prima di
       // ricaricare la SPA, coerente col refresh lato server dopo un OTA.
       setTimeout(() => { window.location.href = '/'; }, 15000);
     } else {
-      setProgressError(`Errore (${xhr.status}): ${xhr.responseText || 'update failed'}`);
+      setProgressError(`Error (${xhr.status}): ${xhr.responseText || 'update failed'}`);
     }
   };
 
   xhr.onerror = () => {
     // Puo' capitare anche a upload riuscito, se il device si riavvia prima
     // di chiudere la risposta HTTP: non e' necessariamente un fallimento.
-    setProgressError('Errore di rete durante l\'upload (il device potrebbe già essere in riavvio)');
+    setProgressError('Network error during upload (device could be already rebooting...)');
   };
 
   xhr.open('POST', '/update');
