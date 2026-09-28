@@ -515,6 +515,8 @@ bool WifiComm::sendFile(String path) {
     contentType =  "application/javascript";
   } else if (path.endsWith(".gif")) {
     contentType =  "image/gif";
+  } else if (path.endsWith(".svg")) {
+    contentType =  "image/svg+xml";
   }
 
   String pathWithGz = path + ".gz";
