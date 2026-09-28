@@ -132,6 +132,9 @@ input[type="range"] {
 
 .btn-danger { background: var(--danger); }
 
+#btn-save-settings { width: 66%; }
+#btn-factory-reset { width: 33%; }
+
 .hidden { display: none !important; }
 
 /* --- PERSONALIZZAZIONE SLIDER (TRACK) PER IL TEMA SCURO --- */

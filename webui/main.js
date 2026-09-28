@@ -569,8 +569,19 @@ document.getElementById('btn-restart').addEventListener('click', e => {
 });
 
 document.getElementById('btn-factory-reset').addEventListener('click', e => {
+  // Invia i dati tramite l'unica connessione WebSocket attiva
   showConfirm(
-    "Are you sure you want to factory reset the unit? You will probably loose connection to your configured WiFi.",
-    () => { alert('Not-implemented-ATM'); }
+    "Are you sure you want to factory reset the unit?",
+    () => { 
+      showConfirm("Are you REALLY shure you want to factory reset the unit? You'll loose all Wi-Fi settings.",
+        () => {
+          const data = {
+            action: "update_settings",
+            payload: { factory_reset: true, factory_reset_confirm: "CONFIRM FACTORY RESET" }
+          };
+          sendWsMessage(data);
+        }
+      );
+     }
   );
 });
