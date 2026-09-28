@@ -1,5 +1,5 @@
 
-const VERSION = '0.9.5';
+const VERSION = '0.9.6';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -84,6 +84,29 @@ function setSwitch(field, value) {
     document.getElementById('switch-' + field).checked = value;
 }
 
+function createOutletSliders(n) {
+  for (var i = 0; i < n; i++) {
+    const label = `<svg class="icon"><use href="#i-bolt"/></svg> ${i+1}`
+    const slider = createDynamicSlider(containerOutlets, 'outlet', i, label, 0);
+    linkSliderLabel(`outlet${i}`);
+    const index = i;
+    slider.addEventListener('change', (e) => {
+      sendWsMessage({ action: 'outlet_power', index: index, power: (parseFloat(e.target.value) / 100.0) });
+    });
+  }  
+}
+
+function setControlAlarm(controls, al=true) {
+  const lst = Array.isArray(controls) ? controls : [controls];
+  lst.forEach(cid => {
+    const c = document.getElementById(cid);
+    if (al)
+      c.classList.add('alarm');
+    else
+      c.classList.remove('alarm');
+  });
+}
+
 // --- 3. LOGICA WEBSOCKET & SIMULATORE AGGIORNATO ---
 const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const wsStatus = document.getElementById('ws-status');
@@ -156,13 +179,14 @@ function initWebSocket() {
     }, 500);
 
     // MESSAGGI SUCCESSIVI: Aggiornamento ciclico dei sensori fissi
+    
     setInterval(() => {
       handleIncomingData({
         event: 'battery_update',
         temperature: (25 + Math.random() * 5).toFixed(1),
         voltage: (13.1 + Math.random() * 0.4).toFixed(2),
         current: (-0.8 + Math.random() * 0.3).toFixed(2),
-        soc: (100 - Math.random() * 3.5).toFixed(0),
+        soc: (100 - Math.random() * 72).toFixed(0),
         battery_sensor_ok: true,
       });
     }, 2000);
@@ -234,18 +258,9 @@ function handleIncomingData(data) {
           containerLights.classList.remove('hidden');
         }
 
-        const outlets = data.payload.outlets;
-        if (outlets == 0)
-            containerOutlets.classList.add('hidden');
-        else {
-            for (var i = 0; i < outlets; i++) {
-              const slider = createDynamicSlider(containerOutlets, 'outlet', i, 'Outlet ' + (i+1), 0);
-              linkSliderLabel(`outlet${i}`);
-              const index = i;
-              slider.addEventListener('change', (e) => {
-                sendWsMessage({ action: 'outlet_power', index: index, power: (parseFloat(e.target.value) / 100.0) });
-              });
-            }
+        if (data.payload.outlets > 0) {
+            createOutletSliders(data.payload.outlets);
+            containerOutlets.classList.remove('hidden');
         }
 
         if (data.payload.cp_lt_max) {
@@ -290,9 +305,55 @@ function handleIncomingData(data) {
         */
         case 'battery_update':
             for (const el of ['voltage', 'current', 'soc', 'temperature']) {
-                document.getElementById('batt-' + el).innerText = data[el];
+                if (data[el] !== null)
+                  document.getElementById('batt-' + el).innerText = data[el];
             }
-            document.getElementById('batt-sensors').innerText = (data.battery_sensor_ok ? 'OK' : 'FAIL' );
+            var battery_icon = 'empty';
+            if (data.soc > 95)
+              battery_icon = 'full';
+            else if (data.soc > 60) 
+              battery_icon = 'three-quarters';
+            else if (data.soc > 49)
+              battery_icon = 'half';
+            else if (data.soc > 25)
+              battery_icon = 'quarter';
+            
+            // dynamic icon and favicon
+            document.querySelector("#icon-battery use").setAttribute("href", `#i-battery-${battery_icon}`);
+            document.querySelector("link[rel*='icon']").href = `battery-${battery_icon}.svg`;
+
+            // alarms
+            let alarm = false;
+            let alarmText = '';
+
+            setControlAlarm(['icon-battery', 'batt-soc'], (data.soc <= 15));
+            if (data.soc <= 15) {
+              alarm = true;
+              alarmText = 'Battery is low! ';
+            }
+
+            const temperature_valid = (data.temperature !== null);
+            const battery_valid = (data.battery_sensor_ok && (data.voltage !== null));
+            
+            setControlAlarm(['batt-voltage', 'batt-current'], ! battery_valid);
+            setControlAlarm('batt-temperature', ! temperature_valid);
+
+            if (! battery_valid) {
+              alarm = true;
+              alarmText += "Battery voltage/current sensor is not working. ";
+            }
+
+            if (! temperature_valid) {
+              alarm = true;
+              alarmText += "Battery temperature sensor is not working. ";
+            }
+
+            const alarm_box = document.getElementById('batt-alarm');
+            alarm_box.title = alarmText;
+            if (alarm) 
+              alarm_box.classList.remove('hidden'); 
+            else 
+              alarm_box.classList.add('hidden');
             break;
 
         /* update battery state event.
@@ -356,6 +417,8 @@ function handleIncomingData(data) {
   }
 }
 
+window.handleIncomingData = handleIncomingData;
+
 function sendWsMessage(obj) {
   if (isLocalTest) { console.log("➡️ [WS SIMULATO] Invio:", obj); }
   else if (ws && ws.readyState === WebSocket.OPEN) { 
@@ -374,9 +437,9 @@ const currentTheme = localStorage.getItem('theme') || 'light';
 
 if (currentTheme === 'dark') {
   document.body.classList.add('dark');
-  btnTheme.innerText = '☀️';
+  btnTheme.title = "Switch to light theme"
 } else {
-  btnTheme.innerText = '🌙';
+  btnTheme.title = "Switch to light theme"
 }
 
 btnTheme.addEventListener('click', () => {
@@ -386,10 +449,11 @@ btnTheme.addEventListener('click', () => {
   // Determina il tema corrente e aggiorna localStorage e icona
   if (document.body.classList.contains('dark')) {
     localStorage.setItem('theme', 'dark');
-    btnTheme.innerText = '☀️';
+    btnTheme.title = "Switch to light theme"
+
   } else {
     localStorage.setItem('theme', 'light');
-    btnTheme.innerText = '🌙';
+    btnTheme.title = "Switch to dark theme"
   }
 });
 

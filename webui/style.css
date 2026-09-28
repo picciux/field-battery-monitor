@@ -36,6 +36,20 @@ body {
   transition: background 0.3s, color 0.3s; /* Transizione fluida al cambio tema */
 }
 
+.icon {
+  width: 1.4em;
+  height: 1.4em;
+  fill: currentColor;
+  vertical-align: -0.250em;
+}
+
+h3 .icon {
+  width: 2em;
+  height: 2em;
+  fill: currentColor;
+  vertical-align: -0.5em;
+}
+
 /* Aggiorna lo stile dei bottoni di navigazione per supportare il tema scuro */
 .nav-btn {
   flex: 1;
@@ -53,11 +67,12 @@ body {
   color: white;
 }
 
+.nav-btn .icon { width: 1.5em; height: 1.5em; }
+
 /* Rendi il bottone del tema leggermente più stretto se vuoi */
-.theme-toggle {
-  /*flex: 0 0 50px;
-  font-size: 1.2em;*/
-}
+.theme-toggle .i-sun { display: none; }
+body.dark .theme-toggle .i-sun { display: inline; }
+body.dark .theme-toggle .i-moon { display: none; }
 
 .status-bar {
   text-align: center;
@@ -72,6 +87,8 @@ body {
 
 body.dark .status-bar.online { background: #2a382e; color: #ff6e30; }
 body.dark .status-bar.offline { background: #3e0e12; color: #ff6e30; }
+
+.alarm { color: #9e1422;; }
 
 .version-box { font-size: 0.7em; margin-bottom:12px; }
 
@@ -138,10 +155,9 @@ input[type="range"] {
 
 .btn-danger { background: var(--danger); }
 
-#btn-save-settings { width: 100%; }
+#btn-save-settings { width: 66%; }
 
-#btn-restart { margin-top: 4px; }
-#btn-factory-reset { margin-top: 4px; width: 100%; }
+#btn-factory-reset { margin-top: 4px; width: 33%; }
 
 .hidden { display: none !important; }
 
