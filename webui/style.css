@@ -12,6 +12,8 @@ body.dark {
   --bg-color: #121212;
   --card-bg: #1e1e1e;
   --text-color: #ff6e30bc;
+  --primary: #6d5353;
+  --danger: #6e0400;
   --border: #333333;
   --input-bg: #2d2d2d;
   --nav-btn-bg: #2d2d2d;
@@ -62,10 +64,14 @@ body {
   padding: 5px;
   font-size: 0.9em;
   border-radius: 4px;
-  margin-bottom: 15px;
+  margin-top: 4px;
+  margin-bottom: 16px;
 }
 .status-bar.online { background: #d4edda; color: #155724; }
 .status-bar.offline { background: #f8d7da; color: #721c24; }
+
+body.dark .status-bar.online { background: #2a382e; color: #ff6e30; }
+body.dark .status-bar.offline { background: #3e0e12; color: #ff6e30; }
 
 .version-box { font-size: 0.7em; margin-bottom:12px; }
 
@@ -132,8 +138,10 @@ input[type="range"] {
 
 .btn-danger { background: var(--danger); }
 
-#btn-save-settings { width: 66%; }
-#btn-factory-reset { width: 33%; }
+#btn-save-settings { width: 100%; }
+
+#btn-restart { margin-top: 4px; }
+#btn-factory-reset { margin-top: 4px; width: 100%; }
 
 .hidden { display: none !important; }
 
