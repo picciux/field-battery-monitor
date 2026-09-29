@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -363,7 +363,7 @@ function handleIncomingData(data) {
         if (data.payload.fw_ver)
           document.getElementById('version-fw').innerText = data.payload.fw_ver;
 
-        sendWsMessage('get_settings');
+        sendWsMessage({ action: 'get_settings'});
 
     } else if (data.type == 'result') {
         if (data.payload == false) {
@@ -378,6 +378,7 @@ function handleIncomingData(data) {
 
             if (k == 'display_name') {
               systemName.innerText = v;
+              document.title = v;
             }
         }
     }
@@ -512,7 +513,7 @@ window.handleIncomingData = handleIncomingData;
 function sendWsMessage(obj) {
   if (isLocalTest) { 
     console.log("➡️ [WS SIMULATO] Invio:", obj);
-    if (obj === 'get_settings') {
+    if (obj.action && obj.action === 'get_settings') {
       // Settings simulation
       handleIncomingData({
         type: 'settings',
