@@ -163,6 +163,7 @@ body.dark .status-bar.offline { background: #3e0e12; color: #ff6e30; }
 /* --- DETAILS COLLASSABILE --- */
 details.fold { border-top: 1px solid var(--border); margin-top: 5px; }
 details.fold > summary {
+  font-size: 0.85em; opacity: 0.75;
   display: flex; align-items: center; gap: 8px;
   padding: 10px 0; font-weight: bold; cursor: pointer;
   user-select: none; list-style: none;
@@ -259,7 +260,7 @@ body.dark input[type="range"] {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-    align-items: stretch;
+    align-items: start;
   }
 
   /* Forza la sezione di Upload a occupare l'intera larghezza se necessario */
