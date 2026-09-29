@@ -107,7 +107,7 @@ function setControlAlarm(controls, al=true) {
   });
 }
 
-// --- 3. LOGICA WEBSOCKET & SIMULATORE AGGIORNATO ---
+// --- 3. LOGICA WEBSOCKET & SIMULATORE ---
 const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const wsStatus = document.getElementById('ws-status');
 let ws;
@@ -179,7 +179,6 @@ function initWebSocket() {
     }, 500);
 
     // MESSAGGI SUCCESSIVI: Aggiornamento ciclico dei sensori fissi
-    
     setInterval(() => {
       handleIncomingData({
         event: 'battery_update',
@@ -203,7 +202,7 @@ function initWebSocket() {
     return;
   }
 
-  // AMBIENTE REALE (ESP32)
+  // AMBIENTE REALE
   ws = new WebSocket(`ws://${window.location.hostname}:81`);
   ws.onopen = () => { wsStatus.innerText = "Connesso"; wsStatus.className = "status-bar online"; };
   ws.onclose = () => { wsStatus.innerText = "Disconnesso..."; wsStatus.className = "status-bar offline"; setTimeout(initWebSocket, 2000); };
@@ -211,6 +210,19 @@ function initWebSocket() {
 }
 
 // --- 4. GESTIONE SETTINGS VIA WEBSOCKET ---
+
+/** Utility function that schedules a page refresh after
+   waiting for device reboot. */
+function scheduleRefreshAfterRestart() {
+  setTimeout(() => { window.location.href = '/'; }, 15000);
+}
+
+/** Asks the device to restart and schedules a page refresh */
+function restartDevice() {
+  sendWsMessage({ action: 'restart' });
+  scheduleRefreshAfterRestart();
+  showAlert("Device is restarting...", () => {}, { danger: false });
+}
 
 const formSettings = document.getElementById('form-settings');
 
@@ -234,7 +246,10 @@ if (formSettings) {
 
     // Invia i dati tramite l'unica connessione WebSocket attiva
     sendWsMessage(settingsData);
-    alert("Settings saved!"); 
+    showConfirm("Settings saved. New settings will be active on next restart. Do you want to restart the device now?",
+      () => { restartDevice(); },
+      { confirmLabel: "Restart", danger: true }
+    );
   });
 }
 
@@ -457,10 +472,35 @@ btnTheme.addEventListener('click', () => {
   }
 });
 
-// --- 6. CONFIRM MODAL (sostituisce i confirm() nativi del browser) ---
-// Un solo modal condiviso: ogni chiamata a showConfirm() sovrascrive i
-// listener di ok/cancel invece di accumularli (niente doppie conferme se
-// showConfirm viene richiamata più volte prima che l'utente risponda).
+// --- 6. ALERT & CONFIRM MODAL (sostituisce alert() e confirm() nativi del browser) ---
+// Un solo modal condiviso (uno per alert e uno per confirm): ogni chiamata a 
+// showAlert/Confirm() sovrascrive i // listener di ok/cancel invece di accumularli 
+// (niente doppie conferme se showConfirm viene richiamata più volte prima che 
+// l'utente risponda).
+const alertModal = document.getElementById('alert-modal');
+const alertMessage = document.getElementById('alert-message');
+const alertCloseBtn = document.getElementById('alert-close');
+
+function hideAlert() {
+  alertModal.classList.remove('hidden');
+}
+
+function showAlert(message, onClose, options = {}) {
+  alertMessage.innerText = message;
+  if (options.closeHide)
+    alertCloseBtn.className = 'hidden';
+  else {
+    alertCloseBtn.innerText = options.closeLabel || 'Close';
+    alertCloseBtn.className = (options.danger === false) ? 'btn-submit' : 'btn-submit btn-danger';
+    alertCloseBtn.onclick = () => {
+      alertModal.classList.add('hidden');
+      onClose();
+    }
+  }
+
+  hideAlert();
+}
+
 const confirmModal = document.getElementById('confirm-modal');
 const confirmMessage = document.getElementById('confirm-message');
 const confirmOkBtn = document.getElementById('confirm-ok');
@@ -536,6 +576,7 @@ function uploadOtaFile(file, fieldName, title) {
         pct = 100;
         clearInterval(interval);
         setProgressDone('Upload done (simulation). Restart in progress...');
+        scheduleRefreshAfterRestart();
       } else {
         const p = Math.round(pct);
         setProgress(p, 'Upload in progress (simulation)...');
@@ -560,7 +601,7 @@ function uploadOtaFile(file, fieldName, title) {
       setProgressDone('Upload done. Device is restarting...');
       // Il device riavvia e riconnette WiFi/mDNS: attendiamo prima di
       // ricaricare la SPA, coerente col refresh lato server dopo un OTA.
-      setTimeout(() => { window.location.href = '/'; }, 15000);
+      scheduleRefreshAfterRestart();
     } else {
       setProgressError(`Error (${xhr.status}): ${xhr.responseText || 'update failed'}`);
     }
@@ -628,7 +669,7 @@ document.getElementById('btn-reset-soc').addEventListener('click', e => {
 
 document.getElementById('btn-restart').addEventListener('click', e => {
   showConfirm("Are you sure you want to restart the unit?", () => {
-    sendWsMessage({ action: 'restart' });
+    restartDevice();
   });
 });
 
