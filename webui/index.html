@@ -291,33 +291,37 @@
         </form>
       </div>
 
-      <!-- Form Aggiornamento Firmware / Filesystem -->
-      <div class="card">
-        <h3><svg class="icon"><use href="#i-upload"/></svg> System update</h3>
-        <div class="version-box">Current versions: ui v<span id="version-ui"></span> - Firmware v<span id="version-fw">--</span></div>
-        <form id="form-ota-firmware" action="/update" method="POST" enctype="multipart/form-data">
-          <div class="form-group">
-            <label class="lbl">Firmware (.bin):</label>
-            <input id="input-ota-firmware" type="file" name="firmware" accept=".bin">
-            <button type="submit" class="btn-update btn-danger"><svg class="icon"><use href="#i-up-long"/></svg> Update firmware</button>
-          </div>
-        </form>
-        <form id="form-ota-filesystem" action="/update" method="POST" enctype="multipart/form-data">
-          <div class="form-group">
-            <label class="lbl">Filesystem (.bin):</label>
-            <input id="input-ota-filesystem" type="file" name="filesystem" accept=".bin">
-            <button type="submit" class="btn-update btn-danger"><svg class="icon"><use href="#i-up-long"/></svg> Update filesystem</button>
-          </div>
-        </form>
-      </div>
-      <div class="card">
-        <h3><svg class="icon"><use href="#i-wrench"/></svg> Tools</h3>
-        <div class="grid-2">
-          <div>
-            <button id="btn-reset-soc" class="btn-submit"><svg class="icon"><use href="#i-battery-full"/></svg> Reset battery to 100%</button>
-          </div>
-          <div>
-            <button id="btn-restart" class="btn-submit btn-danger"><svg class="icon"><use href="#i-rotate-right"/></svg> Restart the unit</button>
+      <div class="col">
+        <!-- Form Aggiornamento Firmware / Filesystem -->
+        <div class="card">
+          <h3><svg class="icon"><use href="#i-upload"/></svg> System update</h3>
+          <div class="version-box">Current versions: ui v<span id="version-ui"></span> - Firmware v<span id="version-fw">--</span></div>
+          <form id="form-ota-firmware" action="/update" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+              <label class="lbl">Firmware (.bin):</label>
+              <input id="input-ota-firmware" type="file" name="firmware" accept=".bin">
+              <button type="submit" class="btn-update btn-danger"><svg class="icon"><use href="#i-up-long"/></svg> Update firmware</button>
+            </div>
+          </form>
+          <form id="form-ota-filesystem" action="/update" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+              <label class="lbl">Filesystem (.bin):</label>
+              <input id="input-ota-filesystem" type="file" name="filesystem" accept=".bin">
+              <button type="submit" class="btn-update btn-danger"><svg class="icon"><use href="#i-up-long"/></svg> Update filesystem</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Tools-->
+        <div class="card">
+          <h3><svg class="icon"><use href="#i-wrench"/></svg> Tools</h3>
+          <div class="grid-2">
+            <div>
+              <button id="btn-reset-soc" class="btn-submit"><svg class="icon"><use href="#i-battery-full"/></svg> Reset battery to 100%</button>
+            </div>
+            <div>
+              <button id="btn-restart" class="btn-submit btn-danger"><svg class="icon"><use href="#i-rotate-right"/></svg> Restart the unit</button>
+            </div>
           </div>
         </div>
       </div>

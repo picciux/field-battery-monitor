@@ -288,6 +288,13 @@ body.dark input[type="range"] {
     grid-column: 1 / -1;
   }
 
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .col > .card { margin-bottom: 0; }
 }
 
 /* --- STILE SWITCH ON/OFF --- */
