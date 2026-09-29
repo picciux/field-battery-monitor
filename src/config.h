@@ -41,6 +41,7 @@
 //#define CHANNELS_4
 
 //#define LIGHT_DEFAULT_TRANSITION_MS 1500 // default light transition in ms
+//#define LIGHT_FADE_GAMMA 2.0f // gamma correction for light transition
 
 /************************** WiFi network configs *****************************
  * All values REQUIRED. 

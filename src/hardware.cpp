@@ -22,6 +22,10 @@ static inline T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v)
 OneWire oneWire(PIN_ONE_WIRE);
 DallasTemperature sensors(&oneWire);
 
+/* Gamma correction */
+static inline float toPerceptual(float v)   { return powf(v, 1.0f / LIGHT_FADE_GAMMA); }
+static inline float fromPerceptual(float p) { return powf(p, LIGHT_FADE_GAMMA); }
+
 void PwmPin::setup(int pinNumber)
 {
   this->pin = pinNumber;
@@ -140,7 +144,9 @@ void BaseLight::run(unsigned long now)
     return;
   }
 
-  _setBrightness(startBrightness + progress * (targetBrightness - startBrightness));
+  float ps = toPerceptual(startBrightness);
+  float pt = toPerceptual(targetBrightness);
+  _setBrightness(fromPerceptual(ps + progress * (pt - ps))); 
 }
 
 void Light::setBrightness(float brightness)

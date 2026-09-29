@@ -1,7 +1,7 @@
 
 #pragma once
 
-#define VERSION "0.9.2"
+#define VERSION "0.9.3"
 
 // Defaults, can be overriden by config.h
 #define INA226_ADDR           0x40
@@ -33,6 +33,10 @@
 #define CP_LOW_THRESHOLD_MAX_C        10.0f
 
 #include "config.h"
+
+#ifndef LIGHT_FADE_GAMMA
+#define LIGHT_FADE_GAMMA 2.0f
+#endif
 
 // Scegli UNA sola destinazione per il log di debug (o nessuna, il default).
 // DBG/DBGLN sono stile Print (un solo argomento, come Serial.print),
