@@ -57,21 +57,22 @@ function linkSwitchLabel(switchKey) {
   }
 }
 
-function createDynamicSlider(container, type, idNumber, labelName, initialValue, minValue=0, maxValue=100) {
+function createDynamicSlider(container, type, idNumber, labelName, iconId, initialValue, minValue=0, maxValue=100) {
   const key = `${type}${idNumber}`;
   if (generatedControls.has(key)) return;
-
   generatedControls.add(key);
 
-  const controlGroup = document.createElement('div');
-  controlGroup.className = 'control-group';
-  controlGroup.innerHTML = `
-    <label>${labelName}: <span id="val-${key}">${initialValue}</span>%</label>
-    <input type="range" id="slider-${key}" min="${minValue}" max="${maxValue}" value="${initialValue}">
+  const ctl = document.createElement('div');
+  ctl.className = 'ctl';
+  ctl.innerHTML = `
+    <div class="ctl-head">
+      <span class="lbl"><svg class="icon"><use href="#${iconId}"/></svg> ${labelName}</span>
+      <span class="ctl-value"><span id="val-${key}">${initialValue}</span>%</span>
+    </div>
+    <input type="range" id="slider-${key}" min="${minValue}" max="${maxValue}" value="${initialValue}" aria-label="${labelName}">
   `;
-  container.appendChild(controlGroup);
-
-  return controlGroup.querySelector('input[type="range"]');
+  container.appendChild(ctl);
+  return ctl.querySelector('input[type="range"]');
 }
 
 function setSlider(field, value) {
@@ -88,15 +89,14 @@ function setSwitch(field, value) {
 }
 
 function createOutletSliders(n) {
-  for (var i = 0; i < n; i++) {
-    const label = `<svg class="icon"><use href="#i-plug"/></svg> Outlet ${i+1}`
-    const slider = createDynamicSlider(containerOutlets, 'outlet', i, label, 0);
+  for (let i = 0; i < n; i++) {
+    const slider = createDynamicSlider(containerOutlets, 'outlet', i, `Outlet ${i + 1}`, 'i-plug', 0);
     linkSliderLabel(`outlet${i}`);
     const index = i;
     slider.addEventListener('change', (e) => {
       sendWsMessage({ action: 'outlet_power', index: index, power: (parseFloat(e.target.value) / 100.0) });
     });
-  }  
+  }
 }
 
 function setControlAlarm(controls, al=true) {
@@ -111,7 +111,6 @@ function setControlAlarm(controls, al=true) {
 }
 
 function dimAutoSettings(on) {
-  console.log(`dimAutoSettings: ${on}`);
   document.getElementById('light-auto-details').classList.toggle('off', !on);
 }
 

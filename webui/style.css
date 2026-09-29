@@ -43,6 +43,10 @@ body {
   vertical-align: -0.250em;
 }
 
+h3 {
+  opacity: 0.9;
+}
+
 h3 .icon {
   width: 2em;
   height: 2em;
@@ -106,42 +110,71 @@ body.dark .status-bar.offline { background: #3e0e12; color: #ff6e30; }
   gap: 10px;
 }
 
-/* --- DETAILS COLLASSABILE --- */
-details.fold {
-  border-top: 1px solid var(--border);
-  margin-top: 5px;
+/* --- DISPLAY DI SOLA LETTURA: [icona] ....... valore --- */
+.readouts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 24px;
+  margin: 10px 0;
 }
 
-details.fold > summary {
+.ro {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* --- CONTROLLI: [icona] Label ....... valore --- */
+.ctl { margin: 15px 0; }
+
+.ctl-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.lbl {
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.lbl .icon { 
+  font-size: 1.0em; opacity: 0.85; 
+  fill: currentColor;
+  vertical-align: -0.250em;  
+}
+
+.ctl-value {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;   /* niente "ballo" durante il trascinamento */
+  white-space: nowrap;
+}
+
+/* switch: label a sinistra, ON/OFF + toggle a destra */
+.switch-container .switch-right {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 0;
-  font-weight: bold;
-  cursor: pointer;
-  user-select: none;
-  list-style: none;                 /* Firefox */
+  gap: 10px;
 }
-details.fold > summary::-webkit-details-marker { display: none; }  /* Chrome/Safari */
 
+/* --- DETAILS COLLASSABILE --- */
+details.fold { border-top: 1px solid var(--border); margin-top: 5px; }
+details.fold > summary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0; font-weight: bold; cursor: pointer;
+  user-select: none; list-style: none;
+}
+details.fold > summary::-webkit-details-marker { display: none; }
 details.fold > summary::after {
-  content: "";
-  margin-left: auto;
-  width: 0.45em;
-  height: 0.45em;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg);         /* chevron verso il basso */
-  transition: transform 0.2s;
+  content: ""; margin-left: auto; width: 0.45em; height: 0.45em;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform 0.2s;
 }
-details.fold[open] > summary::after { transform: rotate(-135deg); }  /* verso l'alto */
-
-/* Automazione disattivata: regolazioni visibili ma "spente" otticamente */
-details.fold.off .control-group { opacity: 0.5; }
-
-.control-group {
-  margin: 15px 0;
-}
+details.fold[open] > summary::after { transform: rotate(-135deg); }
+details.fold.off .ctl { opacity: 0.5; }
 
 input[type="range"] {
   width: 100%;
