@@ -78,19 +78,40 @@ h3 .icon {
 body.dark .theme-toggle .i-sun { display: inline; }
 body.dark .theme-toggle .i-moon { display: none; }
 
-.status-bar {
-  text-align: center;
-  padding: 5px;
-  font-size: 0.9em;
-  border-radius: 4px;
-  margin-top: 4px;
-  margin-bottom: 16px;
-}
-.status-bar.online { background: #d4edda; color: #155724; }
-.status-bar.offline { background: #f8d7da; color: #721c24; }
+/* WS connection status display */
+:root      { --conn-ok: #2e7d32; --conn-off: #d9534f; }
+body.dark  { --conn-ok: #ff6e30; --conn-off: #c0392b; }  /* niente verde di notte */
 
-body.dark .status-bar.online { background: #2a382e; color: #ff6e30; }
-body.dark .status-bar.offline { background: #3e0e12; color: #ff6e30; }
+/* se nav non è già flex */
+ nav { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; } 
+
+.conn {
+  position: relative;
+  flex: none;
+  width: 44px; height: 44px;              /* area touch decente */
+  display: inline-flex;
+  align-items: center; justify-content: center;
+}
+.conn .icon { width: 1.6em; height: 1.6em; }
+
+.conn.online  { color: var(--conn-ok); }
+.conn.offline { color: var(--conn-off); animation: conn-blink 1.4s ease-in-out infinite; }
+
+/* barra diagonale sull'icona */
+.conn.offline::after {
+  content: "";
+  position: absolute; left: 50%; top: 50%;
+  width: 2px; height: 65%;
+  background: currentColor; border-radius: 1px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+@keyframes conn-blink { 50% { opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) { .conn.offline { animation: none; } }
+
+/* dati non aggiornati: attenuati */
+body.is-offline main { opacity: 0.45; transition: opacity 0.3s; }
+
 
 .alarm { color: #9e1422;; }
 

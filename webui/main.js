@@ -170,11 +170,18 @@ const isLocalTest = window.location.hostname === 'localhost' || window.location.
 const wsStatus = document.getElementById('ws-status');
 let ws;
 
+function setConnected(on, label) {
+  const text = label || (on ? 'Connected' : 'Disconnected');
+  wsStatus.className = 'conn ' + (on ? 'online' : 'offline');
+  wsStatus.title = text;
+  wsStatus.setAttribute('aria-label', text);
+  document.body.classList.toggle('is-offline', !on);
+}
+
 function initWebSocket() {
   if (isLocalTest) {
     console.log("🛠️ Esecuzione in locale: Simulazione WebSocket attiva.");
-    wsStatus.innerText = "Connesso (Simulazione Locale)";
-    wsStatus.className = "status-bar online";
+    setConnected(true, 'Connected (local simulation)');
     
     var autonomy = 12.0;
 
@@ -262,8 +269,8 @@ function initWebSocket() {
 
   // AMBIENTE REALE
   ws = new WebSocket(`ws://${window.location.hostname}:81`);
-  ws.onopen = () => { wsStatus.innerText = "Connesso"; wsStatus.className = "status-bar online"; };
-  ws.onclose = () => { wsStatus.innerText = "Disconnesso..."; wsStatus.className = "status-bar offline"; setTimeout(initWebSocket, 2000); };
+  ws.onopen = () => { setConnected(true); };
+  ws.onclose = () => { setConnected(false); setTimeout(initWebSocket, 2000); };
   ws.onmessage = (event) => { handleIncomingData(JSON.parse(event.data)); };
 }
 
