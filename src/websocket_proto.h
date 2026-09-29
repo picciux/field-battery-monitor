@@ -75,7 +75,7 @@
 
 /* update light state event.
    Pars: 
-    - float brightness
+    - float brightness (target: light could reach that with a transition)
     - bool auto enabled/disabled
     - float auto_br brightness
     - int auto_dr duration 

@@ -215,7 +215,7 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::BatteryMinTemperature:     return hw->heater->getLowThreshold();
     case SwitchType::BatteryAutonomy:           return hw->battery->getAutonomyHours();
     case SwitchType::BatterySensorsOK:          return (hw->battery->isSensorValid() && hw->heater->isTemperatureValid());
-    case SwitchType::LightBrightness:           return hw->light->getBrightness() * 100.0;
+    case SwitchType::LightBrightness:           return hw->light->getTargetBrightness() * 100.0;
     case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
     case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
     case SwitchType::LightAutoDuration:         return hw->light->getAutoDuration();

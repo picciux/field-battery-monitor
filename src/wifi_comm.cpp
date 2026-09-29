@@ -277,7 +277,7 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
       len = snprintf(buf, size,
         "{\"event\":\"" EVENT_LIGHT "\",\"brightness\":%.2f,\"auto\":%s,"
         "\"auto_br\":%.2f,\"auto_dr\":%d}",
-        h->light->getBrightness(),
+        h->light->getTargetBrightness(),
         h->light->isAutoEnabled() ? "true" : "false",
         h->light->getAutoBrightness(),
         h->light->getAutoDuration());
