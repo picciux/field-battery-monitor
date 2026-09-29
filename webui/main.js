@@ -29,6 +29,8 @@ btnSettings.addEventListener('click', () => switchPage('settings'));
 // --- 2. GESTIONE DEI CONTROLLI (Luci, Prese, Switch) ---
 document.getElementById('version-ui').innerText = VERSION;
 
+const pageHeader = document.getElementById('page-header');
+const systemName = document.getElementById('txt-system-name');
 const containerLights = document.getElementById('light-container');
 const containerOutlets = document.getElementById('outlets-container');
 const generatedControls = new Set();
@@ -190,6 +192,7 @@ function initWebSocket() {
       handleIncomingData({
         type: 'capabilities',
         payload: {
+            display_name: 'Simulation',
             channels: 4,
             light: true,
             outlets: 2,
@@ -334,30 +337,33 @@ function handleIncomingData(data) {
     */
     if (data.type == 'capabilities') {
         //const channels = data.payload.channels;
+
         if (data.payload.light) {
           containerLights.classList.remove('hidden');
         }
 
         if (data.payload.outlets > 0) {
-            createOutletSliders(data.payload.outlets);
-            containerOutlets.classList.remove('hidden');
+          createOutletSliders(data.payload.outlets);
+          containerOutlets.classList.remove('hidden');
         }
 
         if (data.payload.cp_lt_max) {
-            document.getElementById('slider-batt-lt').min = data.payload.cp_lt_min;
-            document.getElementById('slider-batt-lt').max = data.payload.cp_lt_max;
+          document.getElementById('slider-batt-lt').min = data.payload.cp_lt_min;
+          document.getElementById('slider-batt-lt').max = data.payload.cp_lt_max;
         }
 
         if (data.payload.light_auto_br_min_pct)
-            document.getElementById('slider-light-auto_br').min = data.payload.light_auto_br_min_pct;
+          document.getElementById('slider-light-auto_br').min = data.payload.light_auto_br_min_pct;
 
         if (data.payload.light_auto_dr_max) {
-            document.getElementById('slider-light-auto_dr').min = data.payload.light_auto_dr_min;
-            document.getElementById('slider-light-auto_dr').max = data.payload.light_auto_dr_max;
+          document.getElementById('slider-light-auto_dr').min = data.payload.light_auto_dr_min;
+          document.getElementById('slider-light-auto_dr').max = data.payload.light_auto_dr_max;
         }
 
         if (data.payload.fw_ver)
           document.getElementById('version-fw').innerText = data.payload.fw_ver;
+
+        sendWsMessage('get_settings');
 
     } else if (data.type == 'result') {
         if (data.payload == false) {
@@ -369,6 +375,10 @@ function handleIncomingData(data) {
                 document.getElementById('stg-ap_no_def_gw').checked = v;
             else
                 document.getElementById('stg-' + k).value = v;
+
+            if (k == 'display_name') {
+              systemName.innerText = v;
+            }
         }
     }
   }
@@ -500,7 +510,21 @@ function handleIncomingData(data) {
 window.handleIncomingData = handleIncomingData;
 
 function sendWsMessage(obj) {
-  if (isLocalTest) { console.log("➡️ [WS SIMULATO] Invio:", obj); }
+  if (isLocalTest) { 
+    console.log("➡️ [WS SIMULATO] Invio:", obj);
+    if (obj === 'get_settings') {
+      // Settings simulation
+      handleIncomingData({
+        type: 'settings',
+        payload: {
+          display_name: 'Simulator',
+          hostname: 'simulator',
+          main_ssid: 'Sim Main SSID',
+          alt_ssid: 'Sim Alt SSID',
+        }
+      });
+    }
+  }
   else if (ws && ws.readyState === WebSocket.OPEN) { 
     //console.log("➡️ ", obj);
     ws.send(JSON.stringify(obj)); 

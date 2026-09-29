@@ -112,10 +112,9 @@ body.dark  { --conn-ok: #ff6e30; --conn-off: #c0392b; }  /* niente verde di nott
 /* dati non aggiornati: attenuati */
 body.is-offline main { opacity: 0.45; transition: opacity 0.3s; }
 
-
 .alarm { color: #9e1422;; }
 
-.version-box { font-size: 0.7em; margin-bottom:12px; }
+.version-box { font-size: 0.7em; margin-top: -12px; margin-bottom:24px; opacity: .5; }
 
 .card {
   background: var(--card-bg);
