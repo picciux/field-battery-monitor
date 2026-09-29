@@ -226,8 +226,9 @@ void Light::run(unsigned long now)
 
     if (isMoving) {
       if (!autoActive) {
-        // non tocco la luce se e' gia' accesa (es. da comando manuale)
-        if (!on) {
+        // non tocco la luce se è accesa o sta andando verso un valore acceso
+        // (comando manuale); se è spenta o in fade-out verso lo spento, la riaccendo
+        if (getTargetBrightness() <= 0.0f) {
           BaseLight::setBrightness(autoBrightness);
           autoActive = true;
           autoTime = now;
