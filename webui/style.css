@@ -249,7 +249,7 @@ body.dark input[type="range"] {
 
 
 /* --- LAYOUT PER SCHERMI GRANDI (DESKTOP) --- */
-@media (min-width: 768px) {
+@media (min-width: 810px) {
   main {
     max-width: 1200px;
     margin: 0 auto;
@@ -259,14 +259,35 @@ body.dark input[type="range"] {
   .page-section {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    align-items: start;
+    gap: 15px 20px;
+    align-items: stretch;
   }
 
-  /* Forza la sezione di Upload a occupare l'intera larghezza se necessario */
-  #page-settings {
-    grid-template-columns: 1fr 1fr;
+  .page-section > .card { margin-bottom: 0; }
+
+  #page-home > .hero { grid-column: 1 / -1; }
+
+  /* standard hero */
+  .hero .readouts { 
+    grid-template-columns: repeat(4, minmax(0, 180px));
+    justify-content: space-between;
   }
+
+  /* stat-like hero
+  .hero .ro {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .hero .ro .ctl-value { font-size: 1.3em; }
+  */
+
+  /* se una delle due card sotto manca (varianti hardware), l'altra occupa tutta la riga */
+  #light-container.hidden + #outlets-container,
+  #light-container:has(+ #outlets-container.hidden) {
+    grid-column: 1 / -1;
+  }
+
 }
 
 /* --- STILE SWITCH ON/OFF --- */
