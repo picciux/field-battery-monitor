@@ -26,7 +26,7 @@ function switchPage(page) {
 btnHome.addEventListener('click', () => switchPage('home'));
 btnSettings.addEventListener('click', () => switchPage('settings'));
 
-// --- 2. GESTIONE DINAMICA DEI CONTROLLI (Luci, Prese, Switch) ---
+// --- 2. GESTIONE DEI CONTROLLI (Luci, Prese, Switch) ---
 document.getElementById('version-ui').innerText = VERSION;
 
 const containerLights = document.getElementById('light-container');
@@ -82,11 +82,14 @@ function setSlider(field, value) {
 function setSwitch(field, value) {
     document.getElementById('txt-' + field).innerText = ( value ? 'ON' : 'OFF' );
     document.getElementById('switch-' + field).checked = value;
+
+    // automation details reaction to enable/disable signalled by device
+    if (field === 'light-auto') dimAutoSettings(value); 
 }
 
 function createOutletSliders(n) {
   for (var i = 0; i < n; i++) {
-    const label = `<svg class="icon"><use href="#i-bolt"/></svg> ${i+1}`
+    const label = `<svg class="icon"><use href="#i-plug"/></svg> Outlet ${i+1}`
     const slider = createDynamicSlider(containerOutlets, 'outlet', i, label, 0);
     linkSliderLabel(`outlet${i}`);
     const index = i;
@@ -106,6 +109,62 @@ function setControlAlarm(controls, al=true) {
       c.classList.remove('alarm');
   });
 }
+
+function dimAutoSettings(on) {
+  console.log(`dimAutoSettings: ${on}`);
+  document.getElementById('light-auto-details').classList.toggle('off', !on);
+}
+
+linkSliderLabel('batt-lt').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'cp_low_threshold', temperature: parseInt(e.target.value) });
+});
+
+linkSliderLabel('light-brightness').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'light_brightness', brightness: (parseFloat(e.target.value) / 100.0)});
+});
+
+linkSwitchLabel('light-auto').addEventListener('change', e => {
+  dimAutoSettings(e.target.checked);
+  sendWsMessage({ action: 'light_auto_enabled', enabled: e.target.checked });            
+});
+
+linkSliderLabel('light-auto_br').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'light_auto_brightness', brightness: (parseFloat(e.target.value) / 100.0) });
+});
+
+linkSliderLabel('light-auto_dr').addEventListener('change', (e) => {
+  sendWsMessage({ action: 'light_auto_duration', seconds: parseInt(e.target.value) });
+});
+
+document.getElementById('btn-reset-soc').addEventListener('click', e => {
+  showConfirm("Are you sure you want to reset battery charge to 100%?", () => {
+    sendWsMessage({ action: 'battery_soc_reset' });
+  });
+});
+
+document.getElementById('btn-restart').addEventListener('click', e => {
+  showConfirm("Are you sure you want to restart the unit?", () => {
+    restartDevice();
+  });
+});
+
+document.getElementById('btn-factory-reset').addEventListener('click', e => {
+  // Invia i dati tramite l'unica connessione WebSocket attiva
+  showConfirm(
+    "Are you sure you want to factory reset the unit?",
+    () => { 
+      showConfirm("Are you REALLY shure you want to factory reset the unit? You'll loose all Wi-Fi settings.",
+        () => {
+          const data = {
+            action: "update_settings",
+            payload: { factory_reset: true, factory_reset_confirm: "CONFIRM FACTORY RESET" }
+          };
+          sendWsMessage(data);
+        }
+      );
+     }
+  );
+});
 
 // --- 3. LOGICA WEBSOCKET & SIMULATORE ---
 const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -640,53 +699,4 @@ function wireOtaForm(formId, inputId, fieldName, title) {
 wireOtaForm('form-ota-firmware', 'input-ota-firmware', 'firmware', 'Firmware update');
 wireOtaForm('form-ota-filesystem', 'input-ota-filesystem', 'filesystem', 'Filesystem update');
 
-// --- 8. Controls listeners
-linkSliderLabel('batt-lt').addEventListener('change', (e) => {
-  sendWsMessage({ action: 'cp_low_threshold', temperature: parseInt(e.target.value) });
-});
 
-linkSliderLabel('light-brightness').addEventListener('change', (e) => {
-  sendWsMessage({ action: 'light_brightness', brightness: (parseFloat(e.target.value) / 100.0)});
-});
-
-linkSwitchLabel('light-auto').addEventListener('change', e => {
-  sendWsMessage({ action: 'light_auto_enabled', enabled: e.target.checked });            
-});
-
-linkSliderLabel('light-auto_br').addEventListener('change', (e) => {
-  sendWsMessage({ action: 'light_auto_brightness', brightness: (parseFloat(e.target.value) / 100.0) });
-});
-
-linkSliderLabel('light-auto_dr').addEventListener('change', (e) => {
-  sendWsMessage({ action: 'light_auto_duration', seconds: parseInt(e.target.value) });
-});
-
-document.getElementById('btn-reset-soc').addEventListener('click', e => {
-  showConfirm("Are you sure you want to reset battery charge to 100%?", () => {
-    sendWsMessage({ action: 'battery_soc_reset' });
-  });
-});
-
-document.getElementById('btn-restart').addEventListener('click', e => {
-  showConfirm("Are you sure you want to restart the unit?", () => {
-    restartDevice();
-  });
-});
-
-document.getElementById('btn-factory-reset').addEventListener('click', e => {
-  // Invia i dati tramite l'unica connessione WebSocket attiva
-  showConfirm(
-    "Are you sure you want to factory reset the unit?",
-    () => { 
-      showConfirm("Are you REALLY shure you want to factory reset the unit? You'll loose all Wi-Fi settings.",
-        () => {
-          const data = {
-            action: "update_settings",
-            payload: { factory_reset: true, factory_reset_confirm: "CONFIRM FACTORY RESET" }
-          };
-          sendWsMessage(data);
-        }
-      );
-     }
-  );
-});

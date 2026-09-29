@@ -106,6 +106,39 @@ body.dark .status-bar.offline { background: #3e0e12; color: #ff6e30; }
   gap: 10px;
 }
 
+/* --- DETAILS COLLASSABILE --- */
+details.fold {
+  border-top: 1px solid var(--border);
+  margin-top: 5px;
+}
+
+details.fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;                 /* Firefox */
+}
+details.fold > summary::-webkit-details-marker { display: none; }  /* Chrome/Safari */
+
+details.fold > summary::after {
+  content: "";
+  margin-left: auto;
+  width: 0.45em;
+  height: 0.45em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);         /* chevron verso il basso */
+  transition: transform 0.2s;
+}
+details.fold[open] > summary::after { transform: rotate(-135deg); }  /* verso l'alto */
+
+/* Automazione disattivata: regolazioni visibili ma "spente" otticamente */
+details.fold.off .control-group { opacity: 0.5; }
+
 .control-group {
   margin: 15px 0;
 }
@@ -193,7 +226,7 @@ body.dark input[type="range"] {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-    align-items: start;
+    align-items: stretch;
   }
 
   /* Forza la sezione di Upload a occupare l'intera larghezza se necessario */
