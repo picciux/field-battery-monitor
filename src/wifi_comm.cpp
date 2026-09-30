@@ -583,6 +583,8 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
   www.begin();
   alpacaDiscoverySetup(WWW_PORT);
   webSocket.begin();
+  // ping every 15s, pong in max 3s, close after 2 misses.
+  webSocket.enableHeartbeat(15000, 3000, 2);
 #ifdef DEBUG_ON_WS
   wsDebugSetup(&webSocket);
 #endif
