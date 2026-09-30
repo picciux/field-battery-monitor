@@ -90,6 +90,7 @@ function setSwitch(field, value) {
 }
 
 function createOutletSliders(n) {
+  if (containerOutlets.children.length > 1) return; // do nothing if we already have sliders
   for (let i = 0; i < n; i++) {
     const slider = createDynamicSlider(containerOutlets, 'outlet', i, `Outlet ${i + 1}`, 'i-plug', 0);
     linkSliderLabel(`outlet${i}`);
@@ -188,12 +189,31 @@ document.getElementById('btn-factory-reset').addEventListener('click', e => {
 });
 
 // --- 3. LOGICA WEBSOCKET & SIMULATORE ---
-const isLocalTest = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const wsStatus = document.getElementById('ws-status');
-let ws;
+// websocket globals
+let ws = null, lastMsg = null, reconnectTimer = null;
 
+// globals to manage page reload on device restart
+let restarting = false, bootCount = null, waitingRestartTimeout = null;
+
+// simulation module
+let sim = null; 
+
+// request -> result globals
 let nextReqId = 1;
 const pending = new Map();
+
+const wsStatus = document.getElementById('ws-status');
+
+function waitForRestart() {
+  if (waitingRestartTimeout)
+    clearTimeout(waitingRestartTimeout);
+  restarting = true;
+  waitingRestartTimeout = setTimeout(() => {
+    restarting = false;
+    waitingRestartTimeout = null;
+    showAlert("Timeout waiting for device to restart.");
+  }, 60000);
+}
 
 function setConnected(on, label) {
   const text = label || (on ? 'Connected' : 'Disconnected');
@@ -203,122 +223,97 @@ function setConnected(on, label) {
   document.body.classList.toggle('is-offline', !on);
 }
 
-function initLocalTest() {
-    console.log("🛠️ Esecuzione in locale: Simulazione WebSocket attiva.");
-    setConnected(true, 'Connected (local simulation)');
-    
-    var autonomy = 12.0;
-
-    // PRIMO MESSAGGIO SIMULATO: capabilities e situazione iniziale.
-    setTimeout(() => {
-      handleIncomingData({
-        type: 'capabilities',
-        payload: {
-            display_name: 'Simulation',
-            channels: 4,
-            light: true,
-            outlets: 2,
-            fw_ver: "1.0-sim"
-        }
-      });
-
-      //battery
-      handleIncomingData({
-        event: 'battery_update',
-        temperature: (25 + Math.random() * 5).toFixed(1),
-        voltage: (13.1 + Math.random() * 0.4).toFixed(2),
-        current: (-0.8 + Math.random() * 0.3).toFixed(2),
-        soc: (100 - Math.random() * 3.5).toFixed(0),
-        battery_sensor_ok: true,
-      });
-
-      //autonomy 
-      handleIncomingData({
-        event: 'battery_autonomy_update',
-        hours: autonomy.toFixed(2)
-      });
-
-      // cold protection
-      handleIncomingData({
-        event: 'cold_protection_update',
-        lt: 5.0
-      });
-
-      //light
-      handleIncomingData({
-        event: 'light_update',
-        brightness: Math.random(),
-        auto: true,
-        auto_br: Math.random(),
-        auto_dr: (40 + Math.random() * 5).toFixed(0),
-      });
-
-      //outlets
-      handleIncomingData({
-        event: 'outlet_update',
-        index: 0,
-        power: Math.random(),
-      });
-
-      handleIncomingData({
-        event: 'outlet_update',
-        index: 1,
-        power: Math.random(),
-      });
-
-    }, 500);
-
-    // MESSAGGI SUCCESSIVI: Aggiornamento ciclico dei sensori fissi
-    setInterval(() => {
-      handleIncomingData({
-        event: 'battery_update',
-        temperature: (25 + Math.random() * 5).toFixed(1),
-        voltage: (13.1 + Math.random() * 0.4).toFixed(2),
-        current: (-0.8 + Math.random() * 0.3).toFixed(2),
-        soc: (100 - Math.random() * 72).toFixed(0),
-        battery_sensor_ok: true,
-      });
-    }, 2000);
-
-    // Autonomia
-    setInterval(() => {
-      autonomy -= (10.0 / 3600.0);
-      handleIncomingData({
-        event: 'battery_autonomy_update',
-        hours: autonomy.toFixed(2)
-      });
-    }, 10000);
+function connect() {
+  clearTimeout(reconnectTimer);
+  lastMsg = Date.now();                      // vale anche per lo stato CONNECTING
+  const sock = new WebSocket(`ws://${location.hostname}:81`);
+  ws = sock;
+  sock.onopen = () => { lastMsg = Date.now(); setConnected(true); };
+  sock.onmessage = (e) => {
+    lastMsg = Date.now();
+    try { handleIncomingData(JSON.parse(e.data)); } catch (err) { console.warn('bad message', err); }
+  };
+  sock.onclose = () => { if (sock === ws) dropConnection(); };   // ignora socket già abbandonati
 }
 
+function dropConnection() {
+  if (ws) {
+    const old = ws; ws = null;
+    old.onopen = old.onmessage = old.onclose = null;   // niente callback tardive
+    try { old.close(); } catch (_) {}
+  }
+  setConnected(false);
+  failPending();                                       // le richieste in volo (punto request())
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(connect, 2000);
+}
+
+// watchdog
+setInterval(() => {
+  if (ws && ws.readyState <= WebSocket.OPEN && Date.now() - lastMsg > 6000) dropConnection();
+}, 2000);
+
+// disconnect on pagehide and reconnect on visibilitychange if we're on stage
+window.addEventListener('pagehide', () => { if (ws) ws.close(); });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && ws && Date.now() - lastMsg > 3000) dropConnection();
+});
+
 function initWebSocket() {
-  if (isLocalTest) {
-    // SIMULATION
-    initLocalTest();
+  if (import.meta.env.DEV && !location.search.includes('real')) {
+    import('./sim.js').then(
+      m => {
+        sim = m; m.start(handleIncomingData, setConnected);
+      });
     return;
   }
 
   // PRODUCTION
-  ws = new WebSocket(`ws://${window.location.hostname}:81`);
-  ws.onopen = () => { setConnected(true); };
-  ws.onclose = () => { 
-    // resolve waiting requests
-    for (const [id, p] of pending) { 
-      clearTimeout(p.timer); 
-      p.resolve({ payload: false, detail: 'disconnected' }); 
-    }
-    pending.clear();
-
-    setConnected(false); setTimeout(initWebSocket, 2000); 
-  };
-  ws.onmessage = (event) => { handleIncomingData(JSON.parse(event.data)); };
+  connect();
 }
 
-// --- 4. GESTIONE SETTINGS VIA WEBSOCKET ---
+function sendWsMessage(obj) {
+  if (import.meta.env.DEV && sim) {
+    console.log("➡️ [WS SIMULATO] Invio:", obj); 
+    sim.send(obj, handleIncomingData); 
+    return; 
+  }
 
-/** Utility function that schedules a page refresh after
-   waiting for device reboot. */
-function scheduleRefreshAfterRestart() {
-  setTimeout(() => { window.location.href = '/'; }, 15000);
+  if (ws && ws.readyState === WebSocket.OPEN) { 
+    //console.log("➡️ ", obj);
+    ws.send(JSON.stringify(obj)); 
+  }
+}
+
+/** sends a request adding it to the response-waiting queue */
+function request(obj, timeoutMs = 5000) {
+  if (import.meta.env.DEV && sim) {
+    console.log("➡️ [WS SIMULATO] Request:", obj);
+    return Promise.resolve(sim.send(obj, handleIncomingData));
+  }
+
+  return new Promise((resolve, reject) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) { 
+      reject(new Error('offline'));
+      return; 
+    }
+    const id = nextReqId++;
+    const timer = setTimeout(() => { 
+      pending.delete(id); 
+      reject(new Error('timeout')); 
+    }, timeoutMs);
+    pending.set(id, { resolve, timer });
+    ws.send(JSON.stringify({ ...obj, id }));
+  });
+}
+
+// chiamata da dropConnection(): risolve in errore tutte le richieste in volo
+function failPending() {
+  for (const [, p] of pending) {
+    clearTimeout(p.timer);
+    p.resolve({ type: 'result', payload: false, detail: 'disconnected' });
+  }
+  pending.clear();
 }
 
 /** Asks the device to restart and schedules a page refresh */
@@ -326,43 +321,11 @@ async function restartDevice() {
   try {
     const r = await request({ action: 'restart' });
     if (! r.payload) { showAlert(`Restart failed: ${r.detail || 'unknown'}`); return; }
-    scheduleRefreshAfterRestart();
+    waitForRestart();
     showAlert("Device is restarting...", () => {}, { danger: false });
   } catch(err) {
     showAlert('No response from the device. Device may not have restarted.');
   }
-}
-
-const formSettings = document.getElementById('form-settings');
-
-// A. Intercetta il click sul pulsante Salva
-if (formSettings) {
-  formSettings.addEventListener('submit', async (e) => {
-    e.preventDefault(); // Blocca l'invio HTTP classico della form
-
-    // Sfrutta FormData per raccogliere automaticamente i dati della form
-    const settingsData = {
-      action: "update_settings",
-    };
-    const payload = {};
-
-    for (const [k, v] of new FormData(formSettings)) 
-      if (k !== 'ap_no_def_gw') payload[k] = v;
-
-    payload.ap_no_def_gw = document.getElementById('stg-ap_no_def_gw').checked;
-    settingsData.payload = payload;
-
-    try {
-      const r = await request(settingsData);
-      if (! r.payload) { showAlert(`Not saved. Rejected: ${r.detail || 'unknown'}`); return; }
-      showConfirm("Settings saved. Restart now to apply them?",
-        () => { restartDevice(); },
-        { confirmLabel: "Restart", danger: true }
-      );
-    } catch(err) {
-      showAlert('No response from the device. Settings may not have been saved.');
-    }
-  });
 }
 
 // Funzione centrale per applicare i dati o discriminare il tipo di controllo
@@ -380,32 +343,40 @@ function handleIncomingData(data) {
         - cp_lt_max
     */
     if (data.type == 'capabilities') {
-        //const channels = data.payload.channels;
+        const p = data.payload;
 
-        if (data.payload.light) {
+        //const channels = p.channels;
+
+        if (restarting && bootCount !== null && p.boot_count > bootCount) {
+          location.reload();
+          return;
+        }
+        bootCount = p.boot_count;
+
+        if (p.light) {
           containerLights.classList.remove('hidden');
         }
 
-        if (data.payload.outlets > 0) {
-          createOutletSliders(data.payload.outlets);
+        if (p.outlets > 0) {
+          createOutletSliders(p.outlets);
           containerOutlets.classList.remove('hidden');
         }
 
-        if (data.payload.cp_lt_max !== undefined) {
-          document.getElementById('slider-batt-lt').min = data.payload.cp_lt_min;
-          document.getElementById('slider-batt-lt').max = data.payload.cp_lt_max;
+        if (p.cp_lt_max !== undefined) {
+          document.getElementById('slider-batt-lt').min = p.cp_lt_min;
+          document.getElementById('slider-batt-lt').max = p.cp_lt_max;
         }
 
-        if (data.payload.light_auto_br_min_pct)
-          document.getElementById('slider-light-auto_br').min = data.payload.light_auto_br_min_pct;
+        if (p.light_auto_br_min_pct)
+          document.getElementById('slider-light-auto_br').min = p.light_auto_br_min_pct;
 
-        if (data.payload.light_auto_dr_max) {
-          document.getElementById('slider-light-auto_dr').min = data.payload.light_auto_dr_min;
-          document.getElementById('slider-light-auto_dr').max = data.payload.light_auto_dr_max;
+        if (p.light_auto_dr_max) {
+          document.getElementById('slider-light-auto_dr').min = p.light_auto_dr_min;
+          document.getElementById('slider-light-auto_dr').max = p.light_auto_dr_max;
         }
 
-        if (data.payload.fw_ver)
-          document.getElementById('version-fw').innerText = data.payload.fw_ver;
+        if (p.fw_ver)
+          document.getElementById('version-fw').innerText = p.fw_ver;
 
         sendWsMessage({ action: 'get_settings'});
 
@@ -420,8 +391,10 @@ function handleIncomingData(data) {
         for (const [k,v] of Object.entries(data.payload)) {
             if (k == 'ap_no_def_gw')
                 document.getElementById('stg-ap_no_def_gw').checked = v;
-            else
-                document.getElementById('stg-' + k).value = v;
+            else {
+              const el = document.getElementById('stg-' + k)
+              if (el) el.value = v;
+            }
 
             if (k == 'display_name') {
               systemName.innerText = v;
@@ -498,10 +471,14 @@ function handleIncomingData(data) {
         Pars:
             - float hours
         */
-       case 'battery_autonomy_update':
-            const h = Math.trunc(data.hours);
-            const m = Math.trunc((data.hours - h) * 60.0);
-            document.getElementById('batt-autonomy').innerText = `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+       case 'battery_autonomy_update': 
+            if (data.hours >= 24.0) {
+              document.getElementById('batt-autonomy').innerText = '> 24h';
+            } else {
+              const h = Math.trunc(data.hours);
+              const m = Math.trunc((data.hours - h) * 60.0);
+              document.getElementById('batt-autonomy').innerText = `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+            }
             break;
 
         /* update safety state event.
@@ -555,47 +532,45 @@ function handleIncomingData(data) {
   }
 }
 
-window.handleIncomingData = handleIncomingData;
-
-function sendWsMessage(obj) {
-  if (isLocalTest) { 
-    console.log("➡️ [WS SIMULATO] Invio:", obj);
-    if (obj.action && obj.action === 'get_settings') {
-      // Settings simulation
-      handleIncomingData({
-        type: 'settings',
-        payload: {
-          display_name: 'Simulator',
-          hostname: 'simulator',
-          main_ssid: 'Sim Main SSID',
-          alt_ssid: 'Sim Alt SSID',
-        }
-      });
-    }
-  }
-  else if (ws && ws.readyState === WebSocket.OPEN) { 
-    //console.log("➡️ ", obj);
-    ws.send(JSON.stringify(obj)); 
-  }
-}
-
-/** sends a request adding it to the response-waiting queue */
-function request(obj, timeoutMs = 5000) {
-  return new Promise((resolve, reject) => {
-    if (isLocalTest) { 
-      console.log("➡️ [WS SIMULATO] Request:", obj);
-      resolve({ payload: true }); 
-      return; 
-    }
-    if (!ws || ws.readyState !== WebSocket.OPEN) { reject(new Error('offline')); return; }
-    const id = nextReqId++;
-    const timer = setTimeout(() => { pending.delete(id); reject(new Error('timeout')); }, timeoutMs);
-    pending.set(id, { resolve, timer });
-    ws.send(JSON.stringify({ ...obj, id }));
-  });
+if (import.meta.env.DEV) {
+  // for debugging purposes
+  window.handleIncomingData = handleIncomingData;
 }
 
 initWebSocket();
+
+// --- 4. GESTIONE SETTINGS VIA WEBSOCKET ---
+const formSettings = document.getElementById('form-settings');
+
+// A. Intercetta il click sul pulsante Salva
+if (formSettings) {
+  formSettings.addEventListener('submit', async (e) => {
+    e.preventDefault(); // Blocca l'invio HTTP classico della form
+
+    // Sfrutta FormData per raccogliere automaticamente i dati della form
+    const settingsData = {
+      action: "update_settings",
+    };
+    const payload = {};
+
+    for (const [k, v] of new FormData(formSettings)) 
+      if (k !== 'ap_no_def_gw') payload[k] = v;
+
+    payload.ap_no_def_gw = document.getElementById('stg-ap_no_def_gw').checked;
+    settingsData.payload = payload;
+
+    try {
+      const r = await request(settingsData);
+      if (! r.payload) { showAlert(`Not saved. Rejected: ${r.detail || 'unknown'}`); return; }
+      showConfirm("Settings saved. Restart now to apply them?",
+        () => { restartDevice(); },
+        { confirmLabel: "Restart", danger: true }
+      );
+    } catch(err) {
+      showAlert('No response from the device. Settings may not have been saved.');
+    }
+  });
+}
 
 // --- 5. GESTIONE CAMBIO TEMA (CHIARO / SCURO) ---
 const btnTheme = document.getElementById('btn-theme');
@@ -603,26 +578,26 @@ const btnTheme = document.getElementById('btn-theme');
 // Controlla se l'utente aveva già salvato una preferenza, altrimenti usa il tema chiaro
 const currentTheme = localStorage.getItem('theme') || 'light';
 
-if (currentTheme === 'dark') {
-  document.body.classList.add('dark');
-  btnTheme.title = "Switch to light theme"
-} else {
-  btnTheme.title = "Switch to light theme"
+function applyTheme(name) {
+  if (name == 'dark') {
+    document.body.classList.add('dark');
+    btnTheme.title = "Switch to light theme";
+    localStorage.setItem('theme', 'dark');
+  } else {
+    document.body.classList.remove('dark');
+    btnTheme.title = "Switch to dark theme";
+    localStorage.setItem('theme', 'light');
+  }
 }
 
-btnTheme.addEventListener('click', () => {
-  // Cambia la classe sul body
-  document.body.classList.toggle('dark');
-  
-  // Determina il tema corrente e aggiorna localStorage e icona
-  if (document.body.classList.contains('dark')) {
-    localStorage.setItem('theme', 'dark');
-    btnTheme.title = "Switch to light theme"
+applyTheme(currentTheme);
 
-  } else {
-    localStorage.setItem('theme', 'light');
-    btnTheme.title = "Switch to dark theme"
-  }
+btnTheme.addEventListener('click', () => {
+  // Determina il tema corrente e aggiorna localStorage e icona
+  if (document.body.classList.contains('dark')) 
+    applyTheme('light');
+  else
+    applyTheme('dark');
 });
 
 // --- 6. ALERT & CONFIRM MODAL (sostituisce alert() e confirm() nativi del browser) ---
@@ -728,21 +703,11 @@ progressCloseBtn.addEventListener('click', () => {
 function uploadOtaFile(file, fieldName, title) {
   showProgressModal(title);
 
-  if (isLocalTest) {
-    // Simulazione locale, cosi' il modal si puo' provare senza hardware.
-    let pct = 0;
-    const interval = setInterval(() => {
-      pct += 8 + Math.random() * 12;
-      if (pct >= 100) {
-        pct = 100;
-        clearInterval(interval);
-        setProgressDone('Upload done (simulation). Restart in progress...');
-        scheduleRefreshAfterRestart();
-      } else {
-        const p = Math.round(pct);
-        setProgress(p, 'Upload in progress (simulation)...');
-      }
-    }, 250);
+  if (import.meta.env.DEV && sim) { 
+    sim.upload({
+      progress: p => setProgress(p, 'Upload in progress (simulation)...'),
+      done: () => setProgressDone('Upload done (simulation). Restart in progress...')
+    });
     return;
   }
 
@@ -762,7 +727,7 @@ function uploadOtaFile(file, fieldName, title) {
       setProgressDone('Upload done. Device is restarting...');
       // Il device riavvia e riconnette WiFi/mDNS: attendiamo prima di
       // ricaricare la SPA, coerente col refresh lato server dopo un OTA.
-      scheduleRefreshAfterRestart();
+      waitForRestart();
     } else {
       setProgressError(`Error (${xhr.status}): ${xhr.responseText || 'update failed'}`);
     }
@@ -771,7 +736,8 @@ function uploadOtaFile(file, fieldName, title) {
   xhr.onerror = () => {
     // Puo' capitare anche a upload riuscito, se il device si riavvia prima
     // di chiudere la risposta HTTP: non e' necessariamente un fallimento.
-    setProgressError('Network error during upload (device could be already rebooting...)');
+    waitForRestart();
+    setProgressError('Connection lost. Waiting for the device to come back...');
   };
 
   xhr.open('POST', '/update');
