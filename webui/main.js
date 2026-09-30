@@ -300,17 +300,16 @@ if (formSettings) {
     e.preventDefault(); // Blocca l'invio HTTP classico della form
 
     // Sfrutta FormData per raccogliere automaticamente i dati della form
-    const formData = new FormData(formSettings);
     const settingsData = {
       action: "update_settings",
-      payload: {}
     };
+    const payload = {};
 
-    // Converte i campi della form in un oggetto chiave-valore JSON
-    formData.forEach((value, key) => {
-      // Se il valore è un numero, convertilo (opzionale ma consigliato per C++)
-      settingsData.payload[key] = isNaN(value) || value === '' ? value : Number(value);
-    });
+    for (const [k, v] of new FormData(formSettings)) 
+      if (k !== 'ap_no_def_gw') payload[k] = v;
+
+    payload.ap_no_def_gw = document.getElementById('stg-ap_no_def_gw').checked;
+    settingsData.payload = payload;
 
     // Invia i dati tramite l'unica connessione WebSocket attiva
     sendWsMessage(settingsData);
