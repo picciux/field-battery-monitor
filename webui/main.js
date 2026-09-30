@@ -29,7 +29,6 @@ btnSettings.addEventListener('click', () => switchPage('settings'));
 // --- 2. GESTIONE DEI CONTROLLI (Luci, Prese, Switch) ---
 document.getElementById('version-ui').innerText = VERSION;
 
-const pageHeader = document.getElementById('page-header');
 const systemName = document.getElementById('txt-system-name');
 const containerLights = document.getElementById('light-container');
 const containerOutlets = document.getElementById('outlets-container');
@@ -44,7 +43,7 @@ function linkSliderLabel(sliderKey) {
       slider.addEventListener('input', (e) => {
         txtSpan.innerText = e.target.value;
       });
-      return slider;
+    return slider;
   }
 }
 
@@ -138,8 +137,14 @@ linkSliderLabel('light-auto_dr').addEventListener('change', (e) => {
 });
 
 document.getElementById('btn-reset-soc').addEventListener('click', e => {
-  showConfirm("Are you sure you want to reset battery charge to 100%?", () => {
-    sendWsMessage({ action: 'battery_soc_reset' });
+  showConfirm("Are you sure you want to reset battery charge to 100%?", async () => {
+    try {
+      const r = await request({ action: 'battery_soc_reset' });
+      if (! r.payload) { showAlert(`SoC reset failed: ${r.detail || 'unknown'}`); return; }
+      // no need to confirm success: SoC is now synced to 100%.
+    } catch(err) {
+      showAlert('No response from the device. Settings may not have been saved.');
+    }
   });
 });
 
@@ -154,13 +159,28 @@ document.getElementById('btn-factory-reset').addEventListener('click', e => {
   showConfirm(
     "Are you sure you want to factory reset the unit?",
     () => { 
-      showConfirm("Are you REALLY shure you want to factory reset the unit? You'll loose all Wi-Fi settings.",
-        () => {
+      showConfirm("Are you REALLY sure you want to factory reset the unit? You'll lose all Wi-Fi settings.",
+        async () => {
           const data = {
             action: "update_settings",
             payload: { factory_reset: true, factory_reset_confirm: "CONFIRM FACTORY RESET" }
           };
-          sendWsMessage(data);
+
+          try {
+            const r = await request(data);
+            if (! r.payload) { showAlert(`Factory reset failed: ${r.detail || 'unknown'}`); return; }
+            const hostname = document.getElementById('stg-hostname').value;
+            const main_ssid = document.getElementById('stg-main_ssid').value;
+            const alt_ssid = document.getElementById('stg-alt_ssid').value;
+            showAlert(`Device reset to factory-state and now restarting: it'll become reachable as '${hostname}' on 
+              default main or alt networks ('${main_ssid}' and '${alt_ssid}'), or connecting to self-hotspot '${hostname}' 
+              network with default secret.`
+            );
+            if (! isLocalTest) ws.close();
+          } catch(err) {
+            console.log(err);
+            showAlert('No response from the device. Factory reset may have failed.');
+          }
         }
       );
      }
@@ -172,6 +192,9 @@ const isLocalTest = window.location.hostname === 'localhost' || window.location.
 const wsStatus = document.getElementById('ws-status');
 let ws;
 
+let nextReqId = 1;
+const pending = new Map();
+
 function setConnected(on, label) {
   const text = label || (on ? 'Connected' : 'Disconnected');
   wsStatus.className = 'conn ' + (on ? 'online' : 'offline');
@@ -180,8 +203,7 @@ function setConnected(on, label) {
   document.body.classList.toggle('is-offline', !on);
 }
 
-function initWebSocket() {
-  if (isLocalTest) {
+function initLocalTest() {
     console.log("🛠️ Esecuzione in locale: Simulazione WebSocket attiva.");
     setConnected(true, 'Connected (local simulation)');
     
@@ -266,14 +288,28 @@ function initWebSocket() {
         hours: autonomy.toFixed(2)
       });
     }, 10000);
+}
 
+function initWebSocket() {
+  if (isLocalTest) {
+    // SIMULATION
+    initLocalTest();
     return;
   }
 
-  // AMBIENTE REALE
+  // PRODUCTION
   ws = new WebSocket(`ws://${window.location.hostname}:81`);
   ws.onopen = () => { setConnected(true); };
-  ws.onclose = () => { setConnected(false); setTimeout(initWebSocket, 2000); };
+  ws.onclose = () => { 
+    // resolve waiting requests
+    for (const [id, p] of pending) { 
+      clearTimeout(p.timer); 
+      p.resolve({ payload: false, detail: 'disconnected' }); 
+    }
+    pending.clear();
+
+    setConnected(false); setTimeout(initWebSocket, 2000); 
+  };
   ws.onmessage = (event) => { handleIncomingData(JSON.parse(event.data)); };
 }
 
@@ -286,17 +322,22 @@ function scheduleRefreshAfterRestart() {
 }
 
 /** Asks the device to restart and schedules a page refresh */
-function restartDevice() {
-  sendWsMessage({ action: 'restart' });
-  scheduleRefreshAfterRestart();
-  showAlert("Device is restarting...", () => {}, { danger: false });
+async function restartDevice() {
+  try {
+    const r = await request({ action: 'restart' });
+    if (! r.payload) { showAlert(`Restart failed: ${r.detail || 'unknown'}`); return; }
+    scheduleRefreshAfterRestart();
+    showAlert("Device is restarting...", () => {}, { danger: false });
+  } catch(err) {
+    showAlert('No response from the device. Device may not have restarted.');
+  }
 }
 
 const formSettings = document.getElementById('form-settings');
 
 // A. Intercetta il click sul pulsante Salva
 if (formSettings) {
-  formSettings.addEventListener('submit', (e) => {
+  formSettings.addEventListener('submit', async (e) => {
     e.preventDefault(); // Blocca l'invio HTTP classico della form
 
     // Sfrutta FormData per raccogliere automaticamente i dati della form
@@ -311,12 +352,16 @@ if (formSettings) {
     payload.ap_no_def_gw = document.getElementById('stg-ap_no_def_gw').checked;
     settingsData.payload = payload;
 
-    // Invia i dati tramite l'unica connessione WebSocket attiva
-    sendWsMessage(settingsData);
-    showConfirm("Settings saved. New settings will be active on next restart. Do you want to restart the device now?",
-      () => { restartDevice(); },
-      { confirmLabel: "Restart", danger: true }
-    );
+    try {
+      const r = await request(settingsData);
+      if (! r.payload) { showAlert(`Not saved. Rejected: ${r.detail || 'unknown'}`); return; }
+      showConfirm("Settings saved. Restart now to apply them?",
+        () => { restartDevice(); },
+        { confirmLabel: "Restart", danger: true }
+      );
+    } catch(err) {
+      showAlert('No response from the device. Settings may not have been saved.');
+    }
   });
 }
 
@@ -346,7 +391,7 @@ function handleIncomingData(data) {
           containerOutlets.classList.remove('hidden');
         }
 
-        if (data.payload.cp_lt_max) {
+        if (data.payload.cp_lt_max !== undefined) {
           document.getElementById('slider-batt-lt').min = data.payload.cp_lt_min;
           document.getElementById('slider-batt-lt').max = data.payload.cp_lt_max;
         }
@@ -365,9 +410,12 @@ function handleIncomingData(data) {
         sendWsMessage({ action: 'get_settings'});
 
     } else if (data.type == 'result') {
-        if (data.payload == false) {
-            //TODO error
-        }
+      const p = pending.get(data.id);
+      if (p) {
+        clearTimeout(p.timer);
+        pending.delete(data.id);
+        p.resolve(data);
+      }
     } else if (data.type == 'settings') {
         for (const [k,v] of Object.entries(data.payload)) {
             if (k == 'ap_no_def_gw')
@@ -531,6 +579,22 @@ function sendWsMessage(obj) {
   }
 }
 
+/** sends a request adding it to the response-waiting queue */
+function request(obj, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    if (isLocalTest) { 
+      console.log("➡️ [WS SIMULATO] Request:", obj);
+      resolve({ payload: true }); 
+      return; 
+    }
+    if (!ws || ws.readyState !== WebSocket.OPEN) { reject(new Error('offline')); return; }
+    const id = nextReqId++;
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error('timeout')); }, timeoutMs);
+    pending.set(id, { resolve, timer });
+    ws.send(JSON.stringify({ ...obj, id }));
+  });
+}
+
 initWebSocket();
 
 // --- 5. GESTIONE CAMBIO TEMA (CHIARO / SCURO) ---
@@ -570,11 +634,13 @@ const alertModal = document.getElementById('alert-modal');
 const alertMessage = document.getElementById('alert-message');
 const alertCloseBtn = document.getElementById('alert-close');
 
-function hideAlert() {
-  alertModal.classList.remove('hidden');
-}
-
-function showAlert(message, onClose, options = {}) {
+/**  
+ * Shows an alert box with a message, an optional onClose listener and options.
+ * Options object supports following variables:
+ *  - danger: bool, default: true. Renders close button in danger or normal color.
+ *  - closeLabel: string, default 'Close'. The text label for close button.
+*/
+function showAlert(message, onClose = undefined, options = {}) {
   alertMessage.innerText = message;
   if (options.closeHide)
     alertCloseBtn.className = 'hidden';
@@ -583,11 +649,11 @@ function showAlert(message, onClose, options = {}) {
     alertCloseBtn.className = (options.danger === false) ? 'btn-submit' : 'btn-submit btn-danger';
     alertCloseBtn.onclick = () => {
       alertModal.classList.add('hidden');
-      onClose();
+      if (onClose) onClose();
     }
   }
 
-  hideAlert();
+  alertModal.classList.remove('hidden');
 }
 
 const confirmModal = document.getElementById('confirm-modal');
@@ -595,6 +661,12 @@ const confirmMessage = document.getElementById('confirm-message');
 const confirmOkBtn = document.getElementById('confirm-ok');
 const confirmCancelBtn = document.getElementById('confirm-cancel');
 
+/**  
+ * Shows a confirm box with a message, an onConfirm listener and options.
+ * Options object supports following variables:
+ *  - danger: bool, default: true. Renders confirm button in danger or normal color.
+ *  - confirmLabel: string, default 'Confirm'. The text label for confirm button.
+*/
 function showConfirm(message, onConfirm, options = {}) {
   confirmMessage.innerText = message;
   confirmOkBtn.innerText = options.confirmLabel || 'Confirm';
@@ -715,7 +787,7 @@ function wireOtaForm(formId, inputId, fieldName, title) {
     e.preventDefault();
 
     if (!input.files || input.files.length === 0) {
-      alert('Select a file first');
+      showAlert('Select a file first', () => {}, { danger: false });
       return;
     }
 

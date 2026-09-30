@@ -51,11 +51,6 @@ WifiComm wifiComm; //WifiComm static instance
 static volatile bool g_mdnsRestartPending = false;
 static void _onStationGotIp(WiFiEvent_t, WiFiEventInfo_t) { g_mdnsRestartPending = true; }
 
-/* STA event handlers 
-void _onStationConnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-  wifiComm.restartMDNS();
-}*/
-
 void WifiComm::networkDisconnected() {}
 
 void WifiComm::apRetryStep(unsigned long now) {
@@ -208,6 +203,40 @@ void WifiComm::requestRestart() {
 }
 
 /************************* www & websocket *************************/
+
+// update_settings helper: Aggiunge un nome di campo alla lista "detail" separata da virgole.
+static void addRejected(char *detail, size_t detailSize, const char *name) {
+  if (*detail) strlcat(detail, ",", detailSize);
+  strlcat(detail, name, detailSize);
+}
+
+// update_settings helper: Legge un campo stringa dal payload.
+// Ritorna true SOLO se il campo c'e', e' una stringa ed e' valido: in quel
+// caso 'out' punta al valore e il chiamante puo' salvarlo.
+// Ritorna false se il campo manca (nessun errore: semplicemente non era
+// tra quelli da modificare) oppure se e' presente ma non valido (in questo
+// caso il nome finisce in 'detail').
+// emptyMeansUnchanged: per le PSK, stringa vuota = "non cambiare", non errore.
+static bool readStr(JsonVariantConst p, const char *key, size_t minLen,
+                    bool emptyMeansUnchanged,
+                    const char *&out, char *detail, size_t detailSize) {
+  if (p[key].isNull()) return false;               // campo assente
+  if (!p[key].is<const char *>()) {                // presente ma non e' una stringa
+    addRejected(detail, detailSize, key);
+    return false;
+  }
+  const char *v = p[key];
+  size_t len = v ? strlen(v) : 0;
+  if (len == 0 && emptyMeansUnchanged) return false;   // ignorato, non e' un errore
+  if (len < minLen) {                                  // troppo corta (o vuota)
+    addRejected(detail, detailSize, key);
+    return false;
+  }
+  out = v;
+  return true;
+}
+
+
 int WifiComm::sendCaps(char *buf, int bufsize) {
   return snprintf(buf, bufsize,
     "{\"type\":\"capabilities\",\"payload\":{\"channels\":%d,\"light\":%s,\"outlets\":%d,"
@@ -323,6 +352,17 @@ void WifiComm::sendInitialState(uint8_t num)
     send(HardwareEvent::Outlet, i);
 }
 
+void WifiComm::sendResult(uint8_t num, uint32_t id, bool ok, const char *detail) {
+  JsonDocument doc;
+  doc["type"] = "result";
+  if (id) doc["id"] = id;
+  doc["payload"] = ok;
+  if (detail && *detail) doc["detail"] = detail;
+  String out;
+  serializeJson(doc, out);
+  webSocket.sendTXT(num, out);
+}
+
 void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {  
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
@@ -339,10 +379,12 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
       JsonDocument doc;
       DeserializationError error = deserializeJson(doc, payload, lenght);
       if (error) {
-        webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":false}");
+        sendResult(num, 0, false, "bad_json");
         return;
       }
       const char *action = doc["action"] | "unknown";
+      uint32_t id = doc["id"] | 0u; //save action id if present
+
       if (!strcmp(action, ACTION_BATTERY_SOC_RESET)) {
         hardware->battery->reset();
         ret = true;
@@ -396,17 +438,16 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
         requestRestart();
       } else if (!strcmp(action, ACTION_GET_SETTINGS)) {
         sendSettings(s, num);
+        sendResult(num, id, true);
         return;
       } else if (!strcmp(action, ACTION_UPDATE_SETTINGS)) {
-        updateSettings(s, num, doc["payload"]);
+        char detail[96] = "";
+        bool ok = updateSettings(s, num, doc["payload"], detail, sizeof(detail));
+        sendResult(num, id, ok, detail);
         return;
       }
 
-      if (ret)
-        webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":true}");
-      else
-        webSocket.sendTXT(num, "{\"type\":\"result\",\"payload\":false}");
-            
+      sendResult(num, id, ret);                  
       break;
   }         
 }
@@ -428,75 +469,55 @@ void WifiComm::sendSettings(Settings &s, uint8_t num) {
   webSocket.sendTXT(num, out);
 }
 
-void WifiComm::updateSettings(Settings &s, uint8_t num, JsonVariantConst p) {
-  bool factoryReset = false;
-  bool factoryResetConfirm = false;
+bool WifiComm::updateSettings(Settings &s, uint8_t num, JsonVariantConst p,
+                              char *detail, size_t detailSize) {
+  detail[0] = '\0';
 
-  const char *val = nullptr;
-
-  // Campi senza vincolo di lunghezza minima
-
-  if (p["hostname"].is<const char *>()) {
-    val = p["hostname"];
-    if (strlen(val) > 0)
-      s.setHostname(val);
-  }
-  if (p["display_name"].is<const char *>()) {
-    val = p["display_name"];
-    if (strlen(val) > 0)
-      s.setDisplayName(val);
-  }
-  if (p["main_ssid"].is<const char *>()) {
-    val = p["main_ssid"];
-    if (val && strlen(val) > 0)
-      s.setMainSsid(val);
-  }
-  if (p["alt_ssid"].is<const char *>()) {
-    val = p["alt_ssid"];
-    if (val && strlen(val) > 0)
-      s.setAltSsid(val);
+  // Payload assente o "flat" (senza il nesting): errore esplicito.
+  if (!p.is<JsonObjectConst>()) {
+    strlcpy(detail, "no_payload", detailSize);
+    return false;
   }
 
-  // PSK: vincolo minimo 8 caratteri (requisito WPA2)
-  if (p["ap_psk"].is<const char *>()) {
-    val = p["ap_psk"];
-    if (val && strlen(val) >= 8)
-      s.setApPsk(val);
-  }
-  if (p["main_psk"].is<const char *>()) {
-    val = p["main_psk"];
-    if (val && strlen(val) >= 8)
-      s.setMainPsk(val);
-  }
-  if (p["alt_psk"].is<const char *>()) {
-    val = p["alt_psk"];
-    if (val && strlen(val) >= 8)
-      s.setAltPsk(val);
-  }
-
-  if (p["ap_no_def_gw"].is<bool>() || p["ap_no_def_gw"].is<int>()) {
-    s.setApDefaultGWDisabled(p["ap_no_def_gw"].as<bool>());
-  }
-
-  if (p["factory_reset"].is<bool>() && p["factory_reset"].as<bool>()) {
-    factoryReset = true;
-  }
-
-  if (p["factory_reset_confirm"].is<const char*>()) {
-    const char *confirm = p["factory_reset_confirm"];
-    if (!strcmp(confirm, "CONFIRM FACTORY RESET")) {
-      factoryResetConfirm = true;
+  // --- Factory reset: ha la precedenza, gli altri campi vengono ignorati ---
+  bool frRequested = p["factory_reset"].is<bool>() && p["factory_reset"].as<bool>();
+  if (frRequested) {
+    const char *confirm = p["factory_reset_confirm"] | "";
+    if (strcmp(confirm, "CONFIRM FACTORY RESET") != 0) {
+      strlcpy(detail, "factory_reset_confirm", detailSize);
+      return false;
     }
+    s.factoryReset();
+    sendSettings(s, num);
+    requestRestart();
+    return true;
   }
 
-  if (factoryReset && factoryResetConfirm)
-    s.factoryReset();
+  const char *v = nullptr;
 
-  // qui siamo ok, rimandiamo indietro le impostazioni modificate
+  // --- Nomi e SSID: almeno 1 carattere ---
+  if (readStr(p, "hostname",     1, false, v, detail, detailSize)) s.setHostname(v);
+  if (readStr(p, "display_name", 1, false, v, detail, detailSize)) s.setDisplayName(v);
+  if (readStr(p, "main_ssid",    1, false, v, detail, detailSize)) s.setMainSsid(v);
+  if (readStr(p, "alt_ssid",     1, false, v, detail, detailSize)) s.setAltSsid(v);
+
+  // --- PSK: minimo 8 caratteri (WPA2); vuota = invariata ---
+  if (readStr(p, "ap_psk",   8, true, v, detail, detailSize)) s.setApPsk(v);
+  if (readStr(p, "main_psk", 8, true, v, detail, detailSize)) s.setMainPsk(v);
+  if (readStr(p, "alt_psk",  8, true, v, detail, detailSize)) s.setAltPsk(v);
+
+  // --- Checkbox ---
+  if (!p["ap_no_def_gw"].isNull()) {
+    if (p["ap_no_def_gw"].is<bool>() || p["ap_no_def_gw"].is<int>())
+      s.setApDefaultGWDisabled(p["ap_no_def_gw"].as<bool>());
+    else
+      addRejected(detail, detailSize, "ap_no_def_gw");
+  }
+
+  // Risincronizza sempre la UI con lo stato reale.
   sendSettings(s, num);
 
-  if (factoryReset && factoryResetConfirm)
-    requestRestart();
+  return detail[0] == '\0';
 }
 
 bool WifiComm::sendFile(String path) {

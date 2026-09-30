@@ -25,14 +25,6 @@ body {
   color: var(--text-color);
   margin: 0;
   padding: 10px;
-}
-
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background: var(--bg-color);
-  color: var(--text-color);
-  margin: 0;
-  padding: 10px;
   transition: background 0.3s, color 0.3s; /* Transizione fluida al cambio tema */
 }
 
@@ -112,7 +104,7 @@ body.dark  { --conn-ok: #ff6e30; --conn-off: #c0392b; }  /* niente verde di nott
 /* dati non aggiornati: attenuati */
 body.is-offline main { opacity: 0.45; transition: opacity 0.3s; }
 
-.alarm { color: #9e1422;; }
+.alarm { color: #9e1422; }
 
 .version-box { font-size: 0.7em; margin-top: -12px; margin-bottom:24px; opacity: .5; }
 
@@ -162,9 +154,8 @@ body.is-offline main { opacity: 0.45; transition: opacity 0.3s; }
 }
 
 .lbl .icon { 
-  font-size: 1.0em; opacity: 0.85; 
-  fill: currentColor;
-  vertical-align: -0.250em;  
+  width: 1.2em; 
+  height: 1.2em; 
 }
 
 .ctl-value {
@@ -383,8 +374,6 @@ body.dark .slider-toggle {
   padding: 20px;
   box-sizing: border-box;
 }
-
-.modal-overlay.hidden { display: none !important; }
 
 .modal-box {
   background: var(--card-bg);

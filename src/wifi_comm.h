@@ -17,6 +17,7 @@ class WifiComm : public IHardwareChangeListener {
     void networkDisconnected();
     //void getSettings(Settings &settings);
     bool sendFile(String path);
+    void sendResult(uint8_t num, uint32_t id, bool ok, const char *detail = nullptr);
     void websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t * payload, size_t lenght);
     void run();
     void setup(Settings &settings, Hardware *hardware);
@@ -31,7 +32,7 @@ class WifiComm : public IHardwareChangeListener {
     bool searchAndConnectNet(char *ssid, char *pass, const char *hostname);
     boolean wifiStart(Settings &s);
     void sendSettings(Settings &s, uint8_t num);
-    void updateSettings(Settings &s, uint8_t num, JsonVariantConst payload);
+    bool updateSettings(Settings &s, uint8_t num, JsonVariantConst payload, char *detail, size_t detailSize);
     int formatEvent(HardwareEvent event, int index, char *buf, size_t size);
     void sendInitialState(uint8_t num);
     int sendCaps(char *buf, int bufsize);

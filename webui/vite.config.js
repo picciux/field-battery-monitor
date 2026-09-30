@@ -6,7 +6,7 @@ export default defineConfig({
     viteCompression({
       algorithm: 'gzip',
       ext: '.gz',
-      deleteOriginFile: true // Mantiene anche i file .html/.js normali per debug
+      deleteOriginFile: true // Elimina i file .html/.js normali. Cambia in false se utile per debug.
     })
   ],
   build: {
