@@ -33,6 +33,7 @@ const systemName = document.getElementById('txt-system-name');
 const containerLights = document.getElementById('light-container');
 const containerOutlets = document.getElementById('outlets-container');
 const generatedControls = new Set();
+const alarmSections = new Map()
 
 // Solo aggiornamento visivo, ad ogni tick del trascinamento: leggero, nessun invio.
 function linkSliderLabel(sliderKey) {
@@ -110,6 +111,31 @@ function setControlAlarm(controls, al=true) {
     else
       c.classList.remove('alarm');
   });
+}
+
+function updateAlarm(which, alarm, text='') {
+  if (alarm) {
+    if (! alarmSections.has(which)) {
+      alarmSections.set(which, text);
+    }
+  } else {
+    if (alarmSections.has(which)) {
+      alarmSections.delete(which);
+    }
+  }
+    
+  const alarm_box = document.getElementById('batt-alarm');
+  if (alarmSections.size > 0) {
+    let at = '';
+
+    alarmSections.forEach( (value, key) => {
+      at += value + '. ';
+    });
+    
+    alarm_box.title = at;
+    alarm_box.classList.remove('hidden');
+  } else 
+    alarm_box.classList.add('hidden');
 }
 
 function dimAutoSettings(on) {
@@ -418,6 +444,8 @@ function handleIncomingData(data) {
             for (const el of ['voltage', 'current', 'soc', 'temperature']) {
                 if (data[el] !== null)
                   document.getElementById('batt-' + el).innerText = data[el];
+                else
+                  document.getElementById('batt-' + el).innerText = '--';
             }
             var battery_icon = 'empty';
             if (data.soc > 95)
@@ -433,38 +461,14 @@ function handleIncomingData(data) {
             document.querySelector("#icon-battery use").setAttribute("href", `#i-battery-${battery_icon}`);
             document.querySelector("link[rel*='icon']").href = `battery-${battery_icon}.svg`;
 
-            // alarms
-            let alarm = false;
-            let alarmText = '';
-
-            setControlAlarm(['icon-battery', 'batt-soc'], (data.soc <= 15));
-            if (data.soc <= 15) {
-              alarm = true;
-              alarmText = 'Battery is low! ';
-            }
-
             const temperature_valid = (data.temperature !== null);
             const battery_valid = (data.battery_sensor_ok && (data.voltage !== null));
             
             setControlAlarm(['batt-voltage', 'batt-current'], ! battery_valid);
             setControlAlarm('batt-temperature', ! temperature_valid);
 
-            if (! battery_valid) {
-              alarm = true;
-              alarmText += "Battery voltage/current sensor is not working. ";
-            }
-
-            if (! temperature_valid) {
-              alarm = true;
-              alarmText += "Battery temperature sensor is not working. ";
-            }
-
-            const alarm_box = document.getElementById('batt-alarm');
-            alarm_box.title = alarmText;
-            if (alarm) 
-              alarm_box.classList.remove('hidden'); 
-            else 
-              alarm_box.classList.add('hidden');
+            updateAlarm('battery', ! battery_valid, "Battery voltage/current sensor is not working");
+            updateAlarm('temperature', ! temperature_valid, "Battery temperature sensor is not working");
             break;
 
         /* update battery state event.
@@ -486,7 +490,8 @@ function handleIncomingData(data) {
             - bool is_safe
         */
         case 'safety_update':
-            //TODO
+            setControlAlarm(['icon-battery', 'batt-soc'], !data.is_safe);
+            updateAlarm('safety', !data.is_safe, "Battery is low");
             break;
 
         /* update cold protection state event.
