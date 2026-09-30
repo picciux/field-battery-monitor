@@ -1,7 +1,7 @@
 
 export function start(handle, setConnected) {
   setConnected(true, 'Connected (local simulation)');
-  let autonomy = 12.0;
+  let autonomy = 24.0;
 
   // initial events
   setTimeout(() => {
@@ -16,13 +16,14 @@ export function start(handle, setConnected) {
 
   }, 500);
 
+
   // battery regular update
   setInterval(() => { handle({
         event: 'battery_update',
         temperature: (25 + Math.random() * 5).toFixed(1),
         voltage: (13.1 + Math.random() * 0.4).toFixed(2),
         current: (-0.8 + Math.random() * 0.3).toFixed(2),
-        soc: (100 - Math.random() * 72).toFixed(0),
+        soc: (100 - Math.random() * 81).toFixed(0),
         battery_sensor_ok: true,
     }); 
   }, 2000);

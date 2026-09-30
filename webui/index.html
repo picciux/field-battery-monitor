@@ -263,35 +263,35 @@
         <h3><svg class="icon"><use href="#i-tower-broadcast"/></svg> Network</h3>
         <form id="form-settings" onsubmit="return false;">
           <div class="form-group">
-            <label class="lbl">System name:</label>
-            <input id="stg-display_name" type="text" name="display_name" required minlength="1">
+            <label for="stg-display_name" class="lbl">System name:</label>
+            <input id="stg-display_name" type="text" name="display_name" required minlength="1" maxlength="30" title="Length 1-30 chars.">
           </div>
           <div class="form-group">
-            <label class="lbl">Hostname:</label>
-            <input id="stg-hostname" type="text" name="hostname" required minlength="1">
+            <label for="stg-hostname" class="lbl">Hostname:</label>
+            <input id="stg-hostname" type="text" name="hostname" required minlength="1" maxlength="30" pattern="[a-z0-9\-]+" title="Allowed chars: a-z, 0-9, -. Length 1-30 chars.">
           </div>
           <div class="form-group">
-            <label class="lbl">Main Wi-Fi SSID:</label>
-            <input id="stg-main_ssid" type="text" name="main_ssid" required minlength="2">
+            <label for="stg-main_ssid" class="lbl">Main Wi-Fi SSID:</label>
+            <input id="stg-main_ssid" type="text" name="main_ssid" required minlength="2" maxlength="32" title="Length 1-32 chars.">
           </div>
           <div class="form-group">
-            <label class="lbl">Main Wi-Fi Password:</label>
-            <input id="stg-main_psk" type="password" name="main_psk" minlength="8" placeholder="unchanged">
+            <label for="stg-main_psk" class="lbl">Main Wi-Fi Password:</label>
+            <input id="stg-main_psk" type="password" name="main_psk" minlength="8" placeholder="unchanged" maxlength="63" title="Length 8-63 chars.">
           </div>
           <div class="form-group">
-            <label class="lbl">Alt. Wi-Fi SSID:</label>
-            <input id="stg-alt_ssid" type="text" name="alt_ssid" minlength="2">
+            <label for="stg-alt_ssid" class="lbl">Alt. Wi-Fi SSID:</label>
+            <input id="stg-alt_ssid" type="text" name="alt_ssid" minlength="2" maxlength="32" title="Length 1-32 chars.">
           </div>
           <div class="form-group">
-            <label class="lbl">Alt. Wi-Fi Password:</label>
-            <input id="stg-alt_psk" type="password" name="alt_psk" minlength="8" placeholder="unchanged">
+            <label for="stg-alt_psk" class="lbl">Alt. Wi-Fi Password:</label>
+            <input id="stg-alt_psk" type="password" name="alt_psk" minlength="8" placeholder="unchanged" maxlength="63" title="Length 8-63 chars.">
           </div>
           <div class="form-group">
-            <label class="lbl">Access-Point mode Password:</label>
-            <input id="stg-ap_psk" type="password" name="ap_psk" minlength="8" placeholder="unchanged">
+            <label for="stg-ap_psk" class="lbl">Access-Point mode Password:</label>
+            <input id="stg-ap_psk" type="password" name="ap_psk" minlength="8" placeholder="unchanged"maxlength="63" title="Length 8-63 chars.">
           </div>
           <div class="form-group">
-            <label class="lbl">Don't be default gateway (when in AP mode):</label>
+            <label for="stg-ap_no_def_gw" class="lbl">Don't be default gateway (when in AP mode):</label>
             <input id="stg-ap_no_def_gw" type="checkbox" name="ap_no_def_gw" >
           </div>
           <button id="btn-save-settings" type="submit" class="btn-submit"><svg class="icon"><use href="#i-floppy-disk"/></svg> Save</button>

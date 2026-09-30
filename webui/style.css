@@ -202,6 +202,10 @@ input[type="range"] {
   font-weight: bold;
 }
 
+input[type="text"], input[type="password"] {
+  width:100%; box-sizing:border-box; padding: 4px;
+}
+
 .form-group input, input[type="text"], input[type="password"], input[type="number"] {
   background-color: var(--input-bg);
   color: var(--text-color);
