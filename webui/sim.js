@@ -1,11 +1,21 @@
 
+
+const capabilities = { type: 'capabilities', payload: { channels: 4, light: true, outlets: 2, fw_ver: '1.0-sim', boot_count: 1 } };
+
+let updates = true;
+let temperatureValid = true;
+let batteryValid = true;
+let isSafe = true;
+let actionResult = true;
+
 export function start(handle, setConnected) {
   setConnected(true, 'Connected (local simulation)');
   let autonomy = 24.0;
 
+
   // initial events
   setTimeout(() => {
-    handle({ type: 'capabilities', payload: { channels: 4, light: true, outlets: 2, fw_ver: '1.0-sim' } });
+    handle(capabilities);
     handle({ event: 'battery_update', temperature: (25 + Math.random() * 5).toFixed(1), voltage: (13.1 + Math.random() * 0.4).toFixed(2), 
         current: (-0.8 + Math.random() * 0.3).toFixed(2), soc: (100 - Math.random() * 3.5).toFixed(0), battery_sensor_ok: true });
     handle({ event: 'battery_autonomy_update', hours: autonomy.toFixed(2) });
@@ -16,22 +26,22 @@ export function start(handle, setConnected) {
 
   }, 500);
 
-
   // battery regular update
-  setInterval(() => { handle({
+  setInterval(() => { if (updates) handle({
         event: 'battery_update',
-        temperature: (25 + Math.random() * 5).toFixed(1),
-        voltage: (13.1 + Math.random() * 0.4).toFixed(2),
-        current: (-0.8 + Math.random() * 0.3).toFixed(2),
+        temperature: temperatureValid ? (25 + Math.random() * 5).toFixed(1) : null,
+        voltage: batteryValid ? (13.1 + Math.random() * 0.4).toFixed(2) : null,
+        current: batteryValid ? (-0.8 + Math.random() * 0.3).toFixed(2) : null,
         soc: (100 - Math.random() * 81).toFixed(0),
-        battery_sensor_ok: true,
+        battery_sensor_ok: batteryValid,
     }); 
   }, 2000);
 
   // autonomy regular update
   setInterval(() => { 
     autonomy -= (10.0 / 3600.0);
-    handle({
+
+    if (updates) handle({
         event: 'battery_autonomy_update',
         hours: autonomy.toFixed(2)
     }); 
@@ -43,8 +53,19 @@ export function send(obj, handle) {
   if (obj.action === 'get_settings') {
     handle({ type: 'settings', payload: { display_name: 'Simulator', hostname: 'simulator',
                                           main_ssid: 'Sim Main', alt_ssid: 'Sim Alt' } });
-  }
-  return { type: 'result', id: obj.id, payload: true };
+  } else if (obj.action == 'update_settings') {
+    delete obj.action;
+    obj.main_psk = '';
+    obj.alt_psk = '';
+    obj.ap_psk = '';
+    obj.type='settings';
+    handle(obj);
+  } else if (obj.action == 'restart') {
+    setTimeout(() => {
+        reboot(handle);
+    }, 5000);
+  } else 
+    handle( { type: 'result', id: obj.id, payload: actionResult });
 }
 
 // upload finto: chiama i callback che gli passi
@@ -55,4 +76,40 @@ export function upload(cb) {
     if (pct >= 100) { clearInterval(t); cb.done(); }
     else cb.progress(Math.round(pct));
   }, 250);
+}
+
+export function reboot(handle) {
+    capabilities.payload.boot_count++;
+    handle(capabilities);
+}
+
+export function enableUpdates() {
+    updates = true;
+}
+
+export function disableUpdates() {
+    updates = false;
+}
+
+export function setTemperatureValid(v) {
+    temperatureValid = v;
+}
+
+export function setBatteryValid(v) {
+    batteryValid = v;
+}
+
+export function setIsSafe(v, handle) {
+    if (! handle) {
+        console.log("ERROR: Missing handling function argument.");
+        return;
+    }
+    if (v != isSafe) {
+        isSafe = v;
+        handle({ event: 'safety_update', is_safe: v });
+    }
+}
+
+export function setActionResult(v) {
+    actionResult = v;
 }

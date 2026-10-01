@@ -234,14 +234,24 @@ input[type="text"], input[type="password"] {
   font-size: 1em;
 }
 
-
 .btn-danger { background: var(--danger); }
+
+.btn-submit[disabled] {
+  opacity: .5;
+  pointer-events: none;
+}
+
+.form-buttons { display: flex; gap: 10px; margin-top: 16px; }
+.form-buttons .btn-submit { width: auto; min-width: 0; }
+
+#btn-save-settings { flex: 2; }
+#btn-restore-settings { flex: 1; }
 
 .tools-buttons { display: flex; gap: 10px; margin-top: 16px; }
 .tools-buttons .btn-submit { width: auto; min-width: 0; }
 
 #btn-reset-soc { flex: 2; }
-#btn-reset { flex: 1; }
+#btn-restart { flex: 1; }
 #btn-factory-reset { flex: 1; }
 
 .hidden { display: none !important; }
@@ -445,4 +455,42 @@ body.dark .slider-toggle {
 
 #progress-close {
   margin-top: 12px;
+}
+
+/* --- TOAST --- */
+#toast-container {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1100;               /* sopra i modal (1000) */
+  width: calc(100% - 20px);
+  max-width: 420px;
+  pointer-events: none;        /* non blocca i click sotto */
+}
+
+.toast {
+  pointer-events: auto;
+  background: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: 0.9em;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.25s, transform 0.25s;
+  cursor: pointer;             /* click = chiudi subito */
+}
+
+.toast.show  { opacity: 1; transform: translateY(0); }
+.toast.error { border-left-color: var(--danger); }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: none; }
 }

@@ -163,6 +163,15 @@ linkSliderLabel('light-auto_dr').addEventListener('change', (e) => {
   sendWsMessage({ action: 'light_auto_duration', seconds: parseInt(e.target.value) });
 });
 
+document.getElementById('batt-alarm').addEventListener('click', (e) => {
+  showAlert(document.getElementById('batt-alarm').title);
+});
+
+document.getElementById('btn-restore-settings').addEventListener('click', e => {
+  settingsChanged = false;
+  sendWsMessage({ action: 'get_settings' });
+});
+
 document.getElementById('btn-reset-soc').addEventListener('click', e => {
   showConfirm("Are you sure you want to reset battery charge to 100%?", async () => {
     try {
@@ -170,7 +179,7 @@ document.getElementById('btn-reset-soc').addEventListener('click', e => {
       if (! r.payload) { showAlert(`SoC reset failed: ${r.detail || 'unknown'}`); return; }
       // no need to confirm success: SoC is now synced to 100%.
     } catch(err) {
-      showAlert('No response from the device. Settings may not have been saved.');
+      showToast('No response from the device. ', {error:true});
     }
   });
 });
@@ -203,7 +212,6 @@ document.getElementById('btn-factory-reset').addEventListener('click', e => {
               default main or alt networks ('${main_ssid}' and '${alt_ssid}'), or connecting to self-hotspot '${hostname}' 
               network with default secret.`
             );
-            if (! isLocalTest) ws.close();
           } catch(err) {
             console.log(err);
             showAlert('No response from the device. Factory reset may have failed.');
@@ -214,12 +222,47 @@ document.getElementById('btn-factory-reset').addEventListener('click', e => {
   );
 });
 
+/* Dynamic Battery icon */
+// Soglie icona batteria: la prima con soc >= min vince; sotto l'ultima, 'empty'.
+const BATTERY_ICON_LEVELS = [
+  { min: 95, icon: 'full' },
+  { min: 60, icon: 'three-quarters' },
+  { min: 50, icon: 'half' },
+  { min: 15, icon: 'quarter' },
+];
+
+const batteryIconUse = document.querySelector('#icon-battery use');
+const faviconLink = document.querySelector("link[rel*='icon']");
+let currentBatteryIcon = null;
+
+function batteryIconFor(soc) {
+  for (const l of BATTERY_ICON_LEVELS)
+    if (soc >= l.min) return l.icon;
+  return 'empty';
+}
+
+// Tocca il DOM (e la favicon, che costringe il browser a rifare la richiesta)
+// solo quando l'icona cambia davvero.
+function updateBatteryIcon(soc) {
+  const icon = batteryIconFor(soc);
+  if (icon === currentBatteryIcon) return;
+  currentBatteryIcon = icon;
+  batteryIconUse.setAttribute('href', `#i-battery-${icon}`);
+  faviconLink.href = `battery-${icon}.svg`;
+}
+
 // --- 3. LOGICA WEBSOCKET & SIMULATORE ---
 // websocket globals
 let ws = null, lastMsg = null, reconnectTimer = null;
 
+// DEV only: ?host=192.168.x.x punta la UI a un device reale (implica niente simulatore).
+// La condizione resta scritta con import.meta.env.DEV direttamente, così in build
+// viene foldata a `location.hostname`.
+const urlParams = new URLSearchParams(location.search);
+const WS_HOST = (import.meta.env.DEV && urlParams.get('host')) || location.hostname;
+
 // globals to manage page reload on device restart
-let restarting = false, bootCount = null, waitingRestartTimeout = null;
+let restarting = false, bootCount = null, waitingRestartTimeout = null, oldHostname = null, restartHostname = null;
 
 // simulation module
 let sim = null; 
@@ -252,7 +295,7 @@ function setConnected(on, label) {
 function connect() {
   clearTimeout(reconnectTimer);
   lastMsg = Date.now();                      // vale anche per lo stato CONNECTING
-  const sock = new WebSocket(`ws://${location.hostname}:81`);
+  const sock = new WebSocket(`ws://${WS_HOST}:81`);
   ws = sock;
   sock.onopen = () => { lastMsg = Date.now(); setConnected(true); };
   sock.onmessage = (e) => {
@@ -286,10 +329,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function initWebSocket() {
-  if (import.meta.env.DEV && !location.search.includes('real')) {
+  if (import.meta.env.DEV && !urlParams.has('real') && !urlParams.has('host')) {
     import('./sim.js').then(
       m => {
-        sim = m; m.start(handleIncomingData, setConnected);
+        sim = m; window.sim = sim; m.start(handleIncomingData, setConnected);
       });
     return;
   }
@@ -308,6 +351,8 @@ function sendWsMessage(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) { 
     //console.log("➡️ ", obj);
     ws.send(JSON.stringify(obj)); 
+  } else {
+    showToast('Not connected', {error:true});
   }
 }
 
@@ -372,9 +417,20 @@ function handleIncomingData(data) {
         const p = data.payload;
 
         //const channels = p.channels;
-
         if (restarting && bootCount !== null && p.boot_count > bootCount) {
-          location.reload();
+          if (restartHostname) {
+            const newHref = location.href.replace(oldHostname, restartHostname);
+            if (import.meta.env.DEV) {
+              console.log(`Hostname '${oldHostname}' => '${restartHostname}'. Switching to '${newHref}' in 5s.`);
+              setTimeout(() => {
+                location.replace(newHref);
+              }, 5000);
+            } else {
+              location.replace(newHref);
+            }
+          } else {
+            location.reload();
+          }
           return;
         }
         bootCount = p.boot_count;
@@ -407,26 +463,40 @@ function handleIncomingData(data) {
         sendWsMessage({ action: 'get_settings'});
 
     } else if (data.type == 'result') {
+      console.log(data);
       const p = pending.get(data.id);
       if (p) {
         clearTimeout(p.timer);
         pending.delete(data.id);
         p.resolve(data);
+      } else if (! data.payload) {
+        console.log('showtoast');
+        showToast(`Command rejected${data.detail ? ': ' + data.detail : ''}`, { error: true });
       }
     } else if (data.type == 'settings') {
-        for (const [k,v] of Object.entries(data.payload)) {
-            if (k == 'ap_no_def_gw')
-                document.getElementById('stg-ap_no_def_gw').checked = v;
-            else {
-              const el = document.getElementById('stg-' + k)
-              if (el) el.value = v;
-            }
+      // don't reset currently edited form fields        
+      if (settingsChanged) { return; }
 
-            if (k == 'display_name') {
-              systemName.innerText = v;
-              document.title = v;
-            }
+      for (const [k,v] of Object.entries(data.payload)) {
+        if (k == 'ap_no_def_gw')
+            document.getElementById('stg-ap_no_def_gw').checked = v;
+        else {
+          const el = document.getElementById('stg-' + k)
+          if (el) el.value = v;
         }
+
+        if (k == 'hostname') {
+          currentHostname = v;
+        }
+
+        if (k == 'display_name') {
+          systemName.innerText = v;
+          document.title = v;
+        }
+      }  
+      
+      document.getElementById('btn-save-settings').disabled = true;
+      document.getElementById('btn-restore-settings').disabled = true;
     }
   }
 
@@ -440,27 +510,16 @@ function handleIncomingData(data) {
             - float temperature (can be null if sensor desnt't work)
             - bool battery_sensor_ok (false when INA226 not responding)
         */
-        case 'battery_update':
+        case 'battery_update': {
             for (const el of ['voltage', 'current', 'soc', 'temperature']) {
                 if (data[el] !== null)
                   document.getElementById('batt-' + el).innerText = data[el];
                 else
                   document.getElementById('batt-' + el).innerText = '--';
             }
-            var battery_icon = 'empty';
-            if (data.soc > 95)
-              battery_icon = 'full';
-            else if (data.soc > 60) 
-              battery_icon = 'three-quarters';
-            else if (data.soc > 49)
-              battery_icon = 'half';
-            else if (data.soc > 25)
-              battery_icon = 'quarter';
-            
-            // dynamic icon and favicon
-            document.querySelector("#icon-battery use").setAttribute("href", `#i-battery-${battery_icon}`);
-            document.querySelector("link[rel*='icon']").href = `battery-${battery_icon}.svg`;
 
+            updateBatteryIcon(Number(data.soc));
+            
             const temperature_valid = (data.temperature !== null);
             const battery_valid = (data.battery_sensor_ok && (data.voltage !== null));
             
@@ -469,7 +528,7 @@ function handleIncomingData(data) {
 
             updateAlarm('battery', ! battery_valid, "Battery voltage/current sensor is not working");
             updateAlarm('temperature', ! temperature_valid, "Battery temperature sensor is not working");
-            break;
+            break; }
 
         /* update battery state event.
         Pars:
@@ -500,7 +559,7 @@ function handleIncomingData(data) {
         */
         case 'cold_protection_update':
             setSlider('batt-lt', data.lt);
-            break
+            break;
 
         /* update light state event.
         Pars: 
@@ -522,17 +581,18 @@ function handleIncomingData(data) {
 
             //set switch
             setSwitch('light-auto', data.auto);
-            break
+            break;
 
         /* update power outlets state event.
         Pars:
             - int index
             - float power 
         */
-        case 'outlet_update':
-            var v = parseFloat(data.power) * 100.0;
+        case 'outlet_update': {
+            let v = parseFloat(data.power) * 100.0;
             setSlider('outlet' + data.index, v.toFixed(0));
-            break            
+            break;
+        }          
     }
   }
 }
@@ -545,10 +605,28 @@ if (import.meta.env.DEV) {
 initWebSocket();
 
 // --- 4. GESTIONE SETTINGS VIA WEBSOCKET ---
+let settingsChanged = false; // if something is changed in settings form.
+let currentHostname = null;
+
 const formSettings = document.getElementById('form-settings');
 
-// A. Intercetta il click sul pulsante Salva
+function formToSettings() {
+  const result = {};
+  for (const [k, v] of new FormData(formSettings)) 
+    if (k !== 'ap_no_def_gw') result[k] = v;
+
+  result.ap_no_def_gw = document.getElementById('stg-ap_no_def_gw').checked;
+  return result;
+}
+
 if (formSettings) {
+  formSettings.addEventListener('input', (e) => {
+    settingsChanged = true;
+    document.getElementById('btn-save-settings').disabled = false;
+    document.getElementById('btn-restore-settings').disabled = false;
+  });
+
+  // A. Intercetta il click sul pulsante Salva
   formSettings.addEventListener('submit', async (e) => {
     e.preventDefault(); // Blocca l'invio HTTP classico della form
 
@@ -556,18 +634,31 @@ if (formSettings) {
     const settingsData = {
       action: "update_settings",
     };
-    const payload = {};
+   
+    settingsData.payload = formToSettings();
 
-    for (const [k, v] of new FormData(formSettings)) 
-      if (k !== 'ap_no_def_gw') payload[k] = v;
-
-    payload.ap_no_def_gw = document.getElementById('stg-ap_no_def_gw').checked;
-    settingsData.payload = payload;
+    let newHostname = '';
+    oldHostname = currentHostname;
+    if (settingsData.payload.hostname != currentHostname) {
+      newHostname = settingsData.payload.hostname;
+    }
 
     try {
+      settingsChanged = false;
       const r = await request(settingsData);
-      if (! r.payload) { showAlert(`Not saved. Rejected: ${r.detail || 'unknown'}`); return; }
-      showConfirm("Settings saved. Restart now to apply them?",
+      if (! r.payload) { 
+        settingsChanged = true;
+        showAlert(`Not saved. Rejected: ${r.detail || 'unknown'}`); 
+        return; 
+      }
+
+      let hnMessage = '';
+      if (newHostname) {
+        hnMessage = ` After restart the device will be reachable at '${newHostname}'`;
+        restartHostname = newHostname;
+      }
+
+      showConfirm(`Settings saved. Restart now to apply them?${ hnMessage }`,
         () => { restartDevice(); },
         { confirmLabel: "Restart", danger: true }
       );
@@ -605,7 +696,7 @@ btnTheme.addEventListener('click', () => {
     applyTheme('dark');
 });
 
-// --- 6. ALERT & CONFIRM MODAL (sostituisce alert() e confirm() nativi del browser) ---
+// --- 6. ALERT & CONFIRM MODAL (sostituisce alert() e confirm() nativi del browser) + TOAST ---
 // Un solo modal condiviso (uno per alert e uno per confirm): ogni chiamata a 
 // showAlert/Confirm() sovrascrive i // listener di ok/cancel invece di accumularli 
 // (niente doppie conferme se showConfirm viene richiamata più volte prima che 
@@ -661,6 +752,38 @@ function showConfirm(message, onConfirm, options = {}) {
   };
 
   confirmModal.classList.remove('hidden');
+}
+
+// --- TOAST ---
+const toastContainer = document.getElementById('toast-container');
+
+/**
+ * Shows a non-blocking toast.
+ *  - message: text (inserted with textContent, safe against injection)
+ *  - options.error: bool, default false. Uses the danger accent color.
+ *  - options.duration: ms, default 4000 (6000 for errors).
+ */
+function showToast(message, options = {}) {
+  const duration = options.duration || (options.error ? 6000 : 4000);
+
+  const t = document.createElement('div');
+  t.className = 'toast' + (options.error ? ' error' : '');
+  t.textContent = message;
+  toastContainer.appendChild(t);
+
+  // doppio rAF: il browser deve registrare lo stato iniziale prima della classe .show
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+
+  const remove = () => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 300);
+  };
+  const timer = setTimeout(remove, duration);
+  t.addEventListener('click', () => { clearTimeout(timer); remove(); });
+
+  // evita pile infinite: massimo 3 toast contemporanei
+  while (toastContainer.children.length > 3)
+    toastContainer.firstElementChild.remove();
 }
 
 // --- 7. PROGRESS MODAL + UPLOAD OTA (firmware/filesystem) ---
