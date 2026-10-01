@@ -499,7 +499,7 @@ bool WifiComm::updateSettings(Settings &s, uint8_t num, JsonVariantConst p,
   if (readStr(p, "hostname",     1, false, v, detail, detailSize)) s.setHostname(v);
   if (readStr(p, "display_name", 1, false, v, detail, detailSize)) s.setDisplayName(v);
   if (readStr(p, "main_ssid",    1, false, v, detail, detailSize)) s.setMainSsid(v);
-  if (readStr(p, "alt_ssid",     1, false, v, detail, detailSize)) s.setAltSsid(v);
+  if (readStr(p, "alt_ssid",     0, false, v, detail, detailSize)) s.setAltSsid(v);
 
   // --- PSK: minimo 8 caratteri (WPA2); vuota = invariata ---
   if (readStr(p, "ap_psk",   8, true, v, detail, detailSize)) s.setApPsk(v);
