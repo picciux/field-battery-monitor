@@ -16,7 +16,7 @@
 #define BTH_VOLTAGE_MV       0x0C   // uint16, 0.001 V
 #define BTH_PROBLEM          0x26   // uint8,  bool
 #define BTH_SAFETY           0x28   // uint8,  bool
-#define BTH_COUNT_U16        0x3D   // uint16, hours
+#define BTH_COUNT_U16        0x3D   // uint16, minutes
 #define BTH_TEMPERATURE      0x57   // sint8,  1 C
 #define BTH_CURRENT_SIGNED   0x5D   // sint16, 0.001 A
 
@@ -69,7 +69,7 @@ void BTHomeBeacon_run(Hardware &hw, unsigned long now) {
 
   if (hw.heater->isTemperatureValid()) {
     addU8(sd, BTH_TEMPERATURE);
-    addU16(sd, (int8_t) roundf(hw.heater->getTemperature()));
+    addU8(sd, (uint8_t)(int8_t) roundf(hw.heater->getTemperature()));
   }
 
   if (sensorOk) {
