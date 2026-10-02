@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <esp_task_wdt.h>
+#include "include_config.h"
 #include "settings.h"
 #include "wifi_comm.h"
 #include "hardware.h"
