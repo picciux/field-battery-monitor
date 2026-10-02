@@ -644,14 +644,15 @@ if (formSettings) {
     }
 
     try {
-      settingsChanged = false;
       const r = await request(settingsData);
       if (! r.payload) { 
         settingsChanged = true;
         showAlert(`Not saved. Rejected: ${r.detail || 'unknown'}`); 
         return; 
       }
-
+      settingsChanged = false;
+      sendWsMessage({ action: 'get_settings' });
+      
       let hnMessage = '';
       if (newHostname) {
         hnMessage = ` After restart the device will be reachable at '${newHostname}'`;
