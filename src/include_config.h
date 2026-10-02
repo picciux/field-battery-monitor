@@ -1,9 +1,13 @@
 
 #pragma once
 
-#define VERSION "0.9.4"
+#if __has_include("config.h")
+  #include "config.h"
+#else
+  #error "Missing src/config.h: copy src/config.example.h to src/config.h and edit it."
+#endif
 
-#include "config.h"
+#define VERSION "0.9.4"
 
 #ifndef BATTERY_CAPACITY
 #error "BATTERY_CAPACITY must be defined in config.h"
