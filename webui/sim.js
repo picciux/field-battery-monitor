@@ -75,6 +75,7 @@ export function send(obj, handle) {
   }
 
   if (obj.action === 'restart') {
+    console.log('Scheduling reboot in 5 seconds.');
     setTimeout(() => reboot(handle), 5000);
     return ok;
   }
@@ -89,7 +90,7 @@ export function upload(cb) {
   let pct = 0;
   const t = setInterval(() => {
     pct += 8 + Math.random() * 12;
-    if (pct >= 100) { clearInterval(t); cb.done(); }
+    if (pct >= 100) { clearInterval(t); cb.done(); setTimeout(() => reboot(cb.handleData), 5000); }
     else cb.progress(Math.round(pct));
   }, 250);
 }

@@ -281,6 +281,8 @@ function waitForRestart() {
   waitingRestartTimeout = setTimeout(() => {
     restarting = false;
     waitingRestartTimeout = null;
+    if (!progressModal.classList.contains('hidden'))
+      progressModal.classList.add('hidden');
     showAlert("Timeout waiting for device to restart.");
   }, 60000);
 }
@@ -841,7 +843,8 @@ function uploadOtaFile(file, fieldName, title) {
   if (import.meta.env.DEV && sim) { 
     sim.upload({
       progress: p => setProgress(p, 'Upload in progress (simulation)...'),
-      done: () => setProgressDone('Upload done (simulation). Restart in progress...')
+      done: () => { setProgressDone('Upload done (simulation). Restart in progress...');  waitForRestart(); },
+      handleData: handleIncomingData
     });
     return;
   }
