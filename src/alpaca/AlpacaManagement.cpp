@@ -25,11 +25,11 @@ void alpacaManagementSetup(WebServer &server) {
   server.on("/management/v1/description", HTTP_GET, [&server]() {
     JsonDocument doc;
     JsonObject value = doc["Value"].to<JsonObject>();
-    // TODO: personalizza questi campi
+    
     value["ServerName"] = "Battery Monitor Alpaca Server";
     value["Manufacturer"] = "Matteo Piscitelli";
     value["ManufacturerVersion"] = VERSION;
-    value["Location"] = "Osservatorio";
+    value["Location"] = ALPACA_LOCATION;
     doc["ClientTransactionID"] = AlpacaHelper::getClientTransactionID(server);
     doc["ServerTransactionID"] = AlpacaHelper::nextServerTransactionID();
     doc["ErrorNumber"] = AlpacaError::OK;
@@ -60,7 +60,10 @@ void alpacaManagementSetup(WebServer &server) {
     sm["DeviceNumber"] = 0;
     AlpacaHelper::makeUniqueId(uid, sizeof(uid), AlpacaDeviceType::SafetyMonitor, 0);
     sm["UniqueID"] = String(uid);
-    
+    doc["ClientTransactionID"] = AlpacaHelper::getClientTransactionID(server);
+    doc["ServerTransactionID"] = AlpacaHelper::nextServerTransactionID();
+    doc["ErrorNumber"] = AlpacaError::OK;
+    doc["ErrorMessage"] = ""; 
     String out;
     serializeJson(doc, out);
     server.send(200, "application/json", out);
