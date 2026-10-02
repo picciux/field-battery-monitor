@@ -1,6 +1,5 @@
 
-#ifndef WIFI_COMM_H
-#define WIFI_COMM_H
+#pragma once
 
 #include <WiFi.h>
 #include <WebSocketsServer.h>
@@ -47,5 +46,3 @@ class WifiComm : public IHardwareChangeListener {
 };
 
 extern WifiComm wifiComm;
-
-#endif //WIFI_COMM_H

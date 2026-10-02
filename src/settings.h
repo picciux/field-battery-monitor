@@ -1,5 +1,4 @@
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
 
 //#define HOSTNAME_LEN          31  //30 chars + null-term
 //#define SSID_LEN              33  //32 chars + null-term
@@ -83,4 +82,4 @@ class Settings {
     void load();
 };
 
-#endif //SETTINGS_H
+

@@ -1,6 +1,4 @@
-
-#ifndef SOC_PERSISTANCE_H
-#define SOC_PERSISTANCE_H
+#pragma once
 
 #include <Preferences.h>
 
@@ -45,5 +43,3 @@ class SoCPersistance {
 };
 
 SoCPersistance socPersistance;
-
-#endif

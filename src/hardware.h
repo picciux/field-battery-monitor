@@ -1,6 +1,5 @@
 
-#ifndef _HARDWARE_H
-#define _HARDWARE_H
+#pragma once
 
 #include "battery.h"
 #include "settings.h"
@@ -154,5 +153,3 @@ class Hardware {
         void setup(Settings *settings);
         void run(unsigned long now);
 };
-
-#endif // _HARDWARE_H

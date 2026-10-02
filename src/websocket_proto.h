@@ -1,3 +1,4 @@
+#pragma once
 
 /* resets SoC to 100% */
 #define ACTION_BATTERY_SOC_RESET        "battery_soc_reset"
