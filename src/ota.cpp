@@ -3,6 +3,7 @@
 #include <Update.h>
 #include <StreamString.h>
 #include <LittleFS.h>
+#include <esp_task_wdt.h>
 
 namespace {
 
@@ -31,6 +32,13 @@ OtaDoneCallback g_onDone;
 bool g_isFilesystem = false;
 bool g_error = false;
 String g_errorMsg;
+bool g_fsUnmounted = false;
+
+void remountFsIfNeeded() {
+  if (!g_fsUnmounted) return;
+  g_fsUnmounted = false;
+  LittleFS.begin(false);   // false: non formattare, tenta solo il mount
+}
 
 void reportError(const __FlashStringHelper *context) {
   g_error = true;
@@ -49,6 +57,7 @@ void handleUploadStart(HTTPUpload &upload) {
     // evita che LittleFS tenga file/handle aperti mentre la partizione
     // sottostante viene riscritta byte a byte.
     LittleFS.end();
+    g_fsUnmounted = true;
     if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS)) {
       reportError(F("begin filesystem"));
     }
@@ -61,6 +70,7 @@ void handleUploadStart(HTTPUpload &upload) {
 }
 
 void handleUploadWrite(HTTPUpload &upload) {
+  esp_task_wdt_reset();
   if (g_error) return;
   if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
     reportError(F("write"));
@@ -78,6 +88,7 @@ void handleUploadAborted() {
   Update.abort();
   g_error = true;
   g_errorMsg = "Upload interrotto dal client";
+  remountFsIfNeeded();
 }
 
 } // namespace
@@ -94,6 +105,7 @@ void otaSetup(WebServer &server, const char *path, OtaDoneCallback onDone) {
     // (con successo o errore), qui ci si limita a rispondere al client.
     server.sendHeader("Connection", "close");
     if (g_error) {
+      remountFsIfNeeded();
       server.send(500, "text/plain", "Update failed - " + g_errorMsg);
     } else {
      // Auto-refresh lato client verso "/": 10s coprono il riavvio del device
