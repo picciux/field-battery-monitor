@@ -213,7 +213,6 @@ document.getElementById('btn-factory-reset').addEventListener('click', e => {
               network with default secret.`
             );
           } catch(err) {
-            console.log(err);
             showAlert('No response from the device. Factory reset may have failed.');
           }
         }
@@ -263,6 +262,7 @@ const WS_HOST = (import.meta.env.DEV && urlParams.get('host')) || location.hostn
 
 // globals to manage page reload on device restart
 let restarting = false, bootCount = null, waitingRestartTimeout = null, oldHostname = null, restartHostname = null;
+let uploading = false;
 
 // simulation module
 let sim = null; 
@@ -312,9 +312,10 @@ function dropConnection() {
     try { old.close(); } catch (_) {}
   }
   setConnected(false);
-  failPending();                                       // le richieste in volo (punto request())
+  failPending();                                       
   clearTimeout(reconnectTimer);
-  reconnectTimer = setTimeout(connect, 2000);
+  if (!uploading) 
+    reconnectTimer = setTimeout(connect, 2000);
 }
 
 // watchdog
@@ -463,14 +464,12 @@ function handleIncomingData(data) {
         sendWsMessage({ action: 'get_settings'});
 
     } else if (data.type == 'result') {
-      console.log(data);
       const p = pending.get(data.id);
       if (p) {
         clearTimeout(p.timer);
         pending.delete(data.id);
         p.resolve(data);
       } else if (! data.payload) {
-        console.log('showtoast');
         showToast(`Command rejected${data.detail ? ': ' + data.detail : ''}`, { error: true });
       }
     } else if (data.type == 'settings') {
@@ -826,6 +825,12 @@ progressCloseBtn.addEventListener('click', () => {
   progressModal.classList.add('hidden');
 });
 
+function endUpload() {
+  uploading = false;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(connect, 3000);
+}
+
 // Upload reale via XMLHttpRequest: serve xhr.upload.onprogress per il
 // progress reale del caricamento, cosa che fetch() non offre in modo
 // altrettanto diretto.
@@ -840,6 +845,9 @@ function uploadOtaFile(file, fieldName, title) {
     return;
   }
 
+  uploading = true;
+  dropConnection();      // libera il socket sull'ESP durante la scrittura
+
   const xhr = new XMLHttpRequest();
   const formData = new FormData();
   formData.append(fieldName, file);
@@ -852,6 +860,7 @@ function uploadOtaFile(file, fieldName, title) {
   };
 
   xhr.onload = () => {
+    endUpload();
     if (xhr.status === 200) {
       setProgressDone('Upload done. Device is restarting...');
       // Il device riavvia e riconnette WiFi/mDNS: attendiamo prima di
@@ -863,11 +872,14 @@ function uploadOtaFile(file, fieldName, title) {
   };
 
   xhr.onerror = () => {
+    endUpload();
     // Puo' capitare anche a upload riuscito, se il device si riavvia prima
     // di chiudere la risposta HTTP: non e' necessariamente un fallimento.
     waitForRestart();
     setProgressError('Connection lost. Waiting for the device to come back...');
   };
+
+  xhr.onabort = () => { endUpload(); setProgressError('Upload aborted'); };
 
   xhr.open('POST', '/update');
   xhr.send(formData);

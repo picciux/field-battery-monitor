@@ -84,29 +84,6 @@ export function send(obj, handle) {
   return ok;
 }
 
-// risposta simulata a una action; ritorna l'oggetto result
-export function send(obj, handle) {
-  if (obj.action === 'get_settings') {
-    handle(factorySettings);
-  } else if (obj.action == 'update_settings') {
-    if (obj.payload.factory_reset == true) {
-      handle(factorySettings);
-    } else {
-      delete obj.action;
-      obj.payload.main_psk = '';
-      obj.payload.alt_psk = '';
-      obj.payload.ap_psk = '';
-      obj.type='settings';
-      handle(obj);
-    }
-  } else if (obj.action == 'restart') {
-    setTimeout(() => {
-        reboot(handle);
-    }, 5000);
-  } else 
-    handle( { type: 'result', id: obj.id, payload: actionResult });
-}
-
 // upload finto: chiama i callback che gli passi
 export function upload(cb) {
   let pct = 0;
