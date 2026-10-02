@@ -34,6 +34,36 @@ bool g_error = false;
 String g_errorMsg;
 bool g_fsUnmounted = false;
 
+bool g_firstChunk = true;
+
+bool failValidation(const char *msg) {
+  g_error = true;
+  g_errorMsg = msg;
+  Update.abort();
+  return false;
+}
+
+// Controlla solo i primi byte del file, prima di scrivere in flash.
+// Layout immagine ESP32: [0]=0xE9, [12..13]=chip id (0 = ESP32),
+// [32..35]=magic dell'app descriptor (0xABCD5432, little-endian).
+bool validateFirstChunk(const uint8_t *b, size_t n) {
+  const bool looksLikeApp = (n >= 1 && b[0] == 0xE9);
+
+  if (g_isFilesystem) {
+    if (looksLikeApp)
+      return failValidation("This is a firmware image, not a filesystem image");
+    return true;
+  }
+
+  if (n < 36 || !looksLikeApp)
+    return failValidation("Not a valid ESP32 firmware image (bad magic byte)");
+  if ((b[12] | (b[13] << 8)) != 0)
+    return failValidation("Firmware built for a different chip (not ESP32)");
+  if (b[32] != 0x32 || b[33] != 0x54 || b[34] != 0xCD || b[35] != 0xAB)
+    return failValidation("Firmware image has no valid app descriptor");
+  return true;
+}
+
 void remountFsIfNeeded() {
   if (!g_fsUnmounted) return;
   g_fsUnmounted = false;
@@ -51,6 +81,7 @@ void handleUploadStart(HTTPUpload &upload) {
   g_error = false;
   g_errorMsg = "";
   g_isFilesystem = (upload.name == "filesystem");
+  g_firstChunk = true;
 
   if (g_isFilesystem) {
     // Rilascia il filesystem prima di sovrascrivere la partizione dati:
@@ -72,6 +103,12 @@ void handleUploadStart(HTTPUpload &upload) {
 void handleUploadWrite(HTTPUpload &upload) {
   esp_task_wdt_reset();
   if (g_error) return;
+
+  if (g_firstChunk) {
+    g_firstChunk = false;
+    if (! validateFirstChunk(upload.buf, upload.currentSize)) return;
+  }
+
   if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
     reportError(F("write"));
   }
