@@ -65,6 +65,7 @@
 
 #define DEFAULT_AP_DONT_BE_DEF_GW      1
 
+
 /************************ Cold protection defaults ***************************
  * All values REQUIRED. 
  *****************************************************************************/
@@ -77,6 +78,10 @@
 #define DEFAULT_AUTO_LIGHT_BRIGHTNESS           0.25f // 0.0f - 1.0f
 #define DEFAULT_AUTO_LIGHT_DURATION             30 // seconds
 
+
+/********************** Alpaca server customization **************************
+ *****************************************************************************/
+//#define ALPACA_LOCATION    "Unknown"
 
 /************************** Debug output configs *****************************
  * For debugging purposes.

@@ -79,6 +79,8 @@ class Settings {
     /* battery cold protection */
     bool coldProtection;
     float cpLowThreshold;
+
+    void load();
 };
 
 #endif //SETTINGS_H

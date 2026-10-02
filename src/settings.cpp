@@ -19,6 +19,28 @@
 
 Preferences g_prefs;
 
+/* Loads settings from NVS preferences */
+void Settings::load() {
+  strlcpy(hostname, g_prefs.getString(HOSTNAME, DEFAULT_HOSTNAME).c_str(), Settings::HOSTNAME_MAX_LEN);
+  strlcpy(displayName, g_prefs.getString(DISPLAY_NAME, DEFAULT_DISPLAY_NAME).c_str(), Settings::HOSTNAME_MAX_LEN);
+  
+  strlcpy(mainSsid, g_prefs.getString(MAIN_SSID, DEFAULT_MAIN_SSID).c_str(), Settings::SSID_MAX_LEN);
+  strlcpy(mainPsk, g_prefs.getString(MAIN_PSK, DEFAULT_MAIN_PSK).c_str(), Settings::PSK_MAX_LEN);
+  
+  strlcpy(altSsid, g_prefs.getString(ALT_SSID, DEFAULT_ALT_SSID).c_str(), Settings::SSID_MAX_LEN);
+  strlcpy(altPsk, g_prefs.getString(ALT_PSK, DEFAULT_ALT_PSK).c_str(), Settings::PSK_MAX_LEN);
+  
+  strlcpy(apPsk, g_prefs.getString(AP_PSK, DEFAULT_AP_PSK).c_str(), Settings::PSK_MAX_LEN);
+  
+  apDontBeDefaultGW = g_prefs.getBool(AP_NO_DEF_GW, DEFAULT_AP_DONT_BE_DEF_GW);
+  
+  cpLowThreshold = g_prefs.getFloat(CP_LOW_THRESHOLD, DEFAULT_COLD_PROTECTION_LOW_THRESHOLD);
+
+  autoLightEnabled = g_prefs.getBool(AUTO_LIGHT, DEFAULT_AUTO_LIGHT_ENABLED);
+  autoLightBrightness = g_prefs.getFloat(AUTO_LIGHT_BRIGHT, DEFAULT_AUTO_LIGHT_BRIGHTNESS);
+  autoLightDuration = g_prefs.getUInt(AUTO_LIGHT_DURATION, DEFAULT_AUTO_LIGHT_DURATION);
+}
+
 char *Settings::getHostname() { return hostname; }
 void Settings::setHostname(const char *hostname_) {
   if (strcmp(hostname, hostname_) == 0) return; 
@@ -106,28 +128,10 @@ void Settings::setAutoLightDuration(const uint8_t &autoLightDuration_) {
 
 void Settings::setup() {
   g_prefs.begin("settings");
-  
-  strlcpy(hostname, g_prefs.getString(HOSTNAME, DEFAULT_HOSTNAME).c_str(), Settings::HOSTNAME_MAX_LEN);
-  strlcpy(displayName, g_prefs.getString(DISPLAY_NAME, DEFAULT_DISPLAY_NAME).c_str(), Settings::HOSTNAME_MAX_LEN);
-  
-  strlcpy(mainSsid, g_prefs.getString(MAIN_SSID, DEFAULT_MAIN_SSID).c_str(), Settings::SSID_MAX_LEN);
-  strlcpy(mainPsk, g_prefs.getString(MAIN_PSK, DEFAULT_MAIN_PSK).c_str(), Settings::PSK_MAX_LEN);
-  
-  strlcpy(altSsid, g_prefs.getString(ALT_SSID, DEFAULT_ALT_SSID).c_str(), Settings::SSID_MAX_LEN);
-  strlcpy(altPsk, g_prefs.getString(ALT_PSK, DEFAULT_ALT_PSK).c_str(), Settings::PSK_MAX_LEN);
-  
-  strlcpy(apPsk, g_prefs.getString(AP_PSK, DEFAULT_AP_PSK).c_str(), Settings::PSK_MAX_LEN);
-  
-  apDontBeDefaultGW = g_prefs.getBool(AP_NO_DEF_GW, DEFAULT_AP_DONT_BE_DEF_GW);
-  
-  cpLowThreshold = g_prefs.getFloat(CP_LOW_THRESHOLD, DEFAULT_COLD_PROTECTION_LOW_THRESHOLD);
-
-  autoLightEnabled = g_prefs.getBool(AUTO_LIGHT, DEFAULT_AUTO_LIGHT_ENABLED);
-  autoLightBrightness = g_prefs.getFloat(AUTO_LIGHT_BRIGHT, DEFAULT_AUTO_LIGHT_BRIGHTNESS);
-  autoLightDuration = g_prefs.getUInt(AUTO_LIGHT_DURATION, DEFAULT_AUTO_LIGHT_DURATION);
+  load();
 }
 
 void Settings::factoryReset() {
   g_prefs.clear();
+  load(); // re-init settings with factory defaults.
 }
-
