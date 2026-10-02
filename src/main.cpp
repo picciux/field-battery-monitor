@@ -4,6 +4,8 @@
 #include "settings.h"
 #include "wifi_comm.h"
 #include "hardware.h"
+#include "button.h"
+#include "pins.h"
 #include "ble.h"
 #include "diag.h"
 
@@ -11,6 +13,7 @@
 
 Hardware hardware;
 Settings settings;
+Button button;
 
 void setup() {
   diagSetup();
@@ -26,6 +29,8 @@ void setup() {
   hardware.setup(&settings);
   hardware.led->startBlink(.25, 50, 3950);
 
+  button.setup(PIN_BTN);
+
   // 2. Avviamo la tua infrastruttura Wi-Fi, il Server Web e l'aggiornamento via rete
   wifiComm.setup(settings, &hardware);
   BTHomeBeacon_setup(settings.getHostname());
@@ -39,5 +44,12 @@ void loop() {
   unsigned long now = millis();
   BTHomeBeacon_run(hardware, now);
   hardware.run(now);
+
+  if (button.longPress(now)) {
+    hardware.led->startBlink(1.0f, 80, 80); //visual feedback
+    settings.factoryReset();
+    wifiComm.requestRestart();
+  }
+
   esp_task_wdt_reset();
 }
