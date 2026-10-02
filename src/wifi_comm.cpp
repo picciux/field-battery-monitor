@@ -208,6 +208,18 @@ static void addRejected(char *detail, size_t detailSize, const char *name) {
   strlcat(detail, name, detailSize);
 }
 
+// Hostname DNS-safe: a-z, 0-9, '-', non può iniziare/finire con '-'.
+static bool isValidHostname(const char *h) {
+  size_t n = strlen(h);
+  if (n == 0 || n >= Settings::HOSTNAME_MAX_LEN) return false;
+  if (h[0] == '-' || h[n - 1] == '-') return false;
+  for (size_t i = 0; i < n; i++) {
+    char c = h[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) return false;
+  }
+  return true;
+}
+
 // update_settings helper: Legge un campo stringa dal payload.
 // Ritorna true SOLO se il campo c'e', e' una stringa ed e' valido: in quel
 // caso 'out' punta al valore e il chiamante puo' salvarlo.
@@ -215,7 +227,7 @@ static void addRejected(char *detail, size_t detailSize, const char *name) {
 // tra quelli da modificare) oppure se e' presente ma non valido (in questo
 // caso il nome finisce in 'detail').
 // emptyMeansUnchanged: per le PSK, stringa vuota = "non cambiare", non errore.
-static bool readStr(JsonVariantConst p, const char *key, size_t minLen,
+static bool readStr(JsonVariantConst p, const char *key, size_t minLen, size_t maxLen,
                     bool emptyMeansUnchanged,
                     const char *&out, char *detail, size_t detailSize) {
   if (p[key].isNull()) return false;               // campo assente
@@ -226,14 +238,13 @@ static bool readStr(JsonVariantConst p, const char *key, size_t minLen,
   const char *v = p[key];
   size_t len = v ? strlen(v) : 0;
   if (len == 0 && emptyMeansUnchanged) return false;   // ignorato, non e' un errore
-  if (len < minLen) {                                  // troppo corta (o vuota)
+  if (len < minLen || len > maxLen) {                                  // troppo corta (o vuota)
     addRejected(detail, detailSize, key);
     return false;
   }
   out = v;
   return true;
 }
-
 
 int WifiComm::sendCaps(char *buf, int bufsize) {
   return snprintf(buf, bufsize,
@@ -494,15 +505,19 @@ bool WifiComm::updateSettings(Settings &s, uint8_t num, JsonVariantConst p,
   const char *v = nullptr;
 
   // --- Nomi e SSID: almeno 1 carattere ---
-  if (readStr(p, "hostname",     1, false, v, detail, detailSize)) s.setHostname(v);
-  if (readStr(p, "display_name", 1, false, v, detail, detailSize)) s.setDisplayName(v);
-  if (readStr(p, "main_ssid",    1, false, v, detail, detailSize)) s.setMainSsid(v);
-  if (readStr(p, "alt_ssid",     0, false, v, detail, detailSize)) s.setAltSsid(v);
+  if (readStr(p, "hostname",     1, Settings::HOSTNAME_MAX_LEN - 1, false, v, detail, detailSize)) {
+    if (isValidHostname(v)) s.setHostname(v);
+    else addRejected(detail, detailSize, "hostname");
+  }
+  
+  if (readStr(p, "display_name", 1, Settings::HOSTNAME_MAX_LEN - 1, false, v, detail, detailSize)) s.setDisplayName(v);
+  if (readStr(p, "main_ssid",    1, Settings::SSID_MAX_LEN - 1, false, v, detail, detailSize)) s.setMainSsid(v);
+  if (readStr(p, "alt_ssid",     0, Settings::SSID_MAX_LEN - 1, false, v, detail, detailSize)) s.setAltSsid(v);
 
   // --- PSK: minimo 8 caratteri (WPA2); vuota = invariata ---
-  if (readStr(p, "ap_psk",   8, true, v, detail, detailSize)) s.setApPsk(v);
-  if (readStr(p, "main_psk", 8, true, v, detail, detailSize)) s.setMainPsk(v);
-  if (readStr(p, "alt_psk",  8, true, v, detail, detailSize)) s.setAltPsk(v);
+  if (readStr(p, "ap_psk",   8, Settings::PSK_MAX_LEN - 1, true, v, detail, detailSize)) s.setApPsk(v);
+  if (readStr(p, "main_psk", 8, Settings::PSK_MAX_LEN - 1, true, v, detail, detailSize)) s.setMainPsk(v);
+  if (readStr(p, "alt_psk",  8, Settings::PSK_MAX_LEN - 1, true, v, detail, detailSize)) s.setAltPsk(v);
 
   // --- Checkbox ---
   if (!p["ap_no_def_gw"].isNull()) {
