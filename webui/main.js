@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -886,12 +886,26 @@ function uploadOtaFile(file, fieldName, title) {
   xhr.send(formData);
 }
 
+// Legge i primi 36 byte e applica gli stessi controlli del firmware.
+async function checkOtaFile(file, fieldName) {
+  const b = new Uint8Array(await file.slice(0, 36).arrayBuffer());
+  const looksLikeApp = b.length > 0 && b[0] === 0xE9;
+
+  if (fieldName === 'filesystem')
+    return looksLikeApp ? 'This is a firmware image, not a filesystem image.' : null;
+
+  if (b.length < 36 || !looksLikeApp) return 'Not a valid ESP32 firmware image.';
+  if ((b[12] | (b[13] << 8)) !== 0)  return 'Firmware built for a different chip.';
+  if (file.size < 100 * 1024)        return 'File too small to be a firmware image.';
+  return null;
+}
+
 function wireOtaForm(formId, inputId, fieldName, title) {
   const form = document.getElementById(formId);
   const input = document.getElementById(inputId);
   if (!form || !input) return;
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     if (!input.files || input.files.length === 0) {
@@ -899,9 +913,13 @@ function wireOtaForm(formId, inputId, fieldName, title) {
       return;
     }
 
+    const file = input.files[0];
+    const problem = await checkOtaFile(file, fieldName);
+    if (problem) { showAlert(problem); return; }
+
     showConfirm(
       `Are you sure you want to update the ${title.toLowerCase()}? The device will reboot.`,
-      () => uploadOtaFile(input.files[0], fieldName, title)
+      () => uploadOtaFile(file, fieldName, title)
     );
   });
 }
