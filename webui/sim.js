@@ -8,6 +8,9 @@ let batteryValid = true;
 let isSafe = true;
 let actionResult = true;
 
+const factorySettings = { type: 'settings', payload: { display_name: 'Simulator', hostname: 'simulator',
+                                          main_ssid: 'Sim Main', alt_ssid: 'Sim Alt' } };
+
 export function start(handle, setConnected) {
   setConnected(true, 'Connected (local simulation)');
   let autonomy = 24.0;
@@ -48,18 +51,54 @@ export function start(handle, setConnected) {
   }, 10000);
 }
 
+export function send(obj, handle) {
+  const ok = { type: 'result', id: obj.id, payload: actionResult };
+
+  if (obj.action === 'get_settings') {
+    handle(factorySettings);
+    return { type: 'result', id: obj.id, payload: true };
+  }
+
+  if (obj.action === 'update_settings') {
+    if (actionResult) {
+      if (obj.payload.factory_reset == true) {
+        handle(factorySettings);
+      } else {
+        const p = { ...obj.payload };
+        delete p.main_psk; delete p.alt_psk; delete p.ap_psk;
+        handle({ type: 'settings', payload: p });
+      }
+    } else {
+      ok.detail = 'simulated_reject';
+    }
+    return ok;
+  }
+
+  if (obj.action === 'restart') {
+    setTimeout(() => reboot(handle), 5000);
+    return ok;
+  }
+
+  // fire-and-forget (senza id): notifica solo i rifiuti, come il firmware
+  if (!obj.id) handle(ok);
+  return ok;
+}
+
 // risposta simulata a una action; ritorna l'oggetto result
 export function send(obj, handle) {
   if (obj.action === 'get_settings') {
-    handle({ type: 'settings', payload: { display_name: 'Simulator', hostname: 'simulator',
-                                          main_ssid: 'Sim Main', alt_ssid: 'Sim Alt' } });
+    handle(factorySettings);
   } else if (obj.action == 'update_settings') {
-    delete obj.action;
-    obj.main_psk = '';
-    obj.alt_psk = '';
-    obj.ap_psk = '';
-    obj.type='settings';
-    handle(obj);
+    if (obj.payload.factory_reset == true) {
+      handle(factorySettings);
+    } else {
+      delete obj.action;
+      obj.payload.main_psk = '';
+      obj.payload.alt_psk = '';
+      obj.payload.ap_psk = '';
+      obj.type='settings';
+      handle(obj);
+    }
   } else if (obj.action == 'restart') {
     setTimeout(() => {
         reboot(handle);
