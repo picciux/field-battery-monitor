@@ -12,7 +12,6 @@
 //#include "alpaca.h"
 #include "alpaca/AlpacaManagement.h"
 #include "alpaca/AlpacaSwitch.h"
-#include "alpaca/AlpacaObservingConditions.h"
 #include "alpaca/AlpacaSafetyMonitor.h"
 #include "alpaca/AlpacaDiscovery.h"
 
