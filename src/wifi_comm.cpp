@@ -9,7 +9,6 @@
 
 #include "wifi_comm.h"
 #include "hardware.h"
-//#include "alpaca.h"
 #include "alpaca/AlpacaManagement.h"
 #include "alpaca/AlpacaSwitch.h"
 #include "alpaca/AlpacaSafetyMonitor.h"

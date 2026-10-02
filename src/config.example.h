@@ -1,7 +1,9 @@
 
-/* 
+/* Copy this file to config.h (git-ignored) and edit it for your setup.
+   Anything left commented out falls back to the defaults in include_config.h.
+   Required: BATTERY_CAPACITY and the DEFAULT_* values in Wifi Network 
+   sections below marked 'REQUIRED'. */
 
- */
 
 /***************************** Battery config ********************************/
  
@@ -47,36 +49,39 @@
  * All values REQUIRED. 
  *****************************************************************************/
 
-/* The hostname the board will present as on the network. */
+/* The hostname the board will present as on the network. REQUIRED. */
 #define DEFAULT_HOSTNAME               "battery-monitor"
 #define DEFAULT_DISPLAY_NAME           "Battery Monitor"
 
-/* The PSK to connect to the board when in stand-alone Access Point mode. */
+/* The PSK to connect to the board when in stand-alone Access Point mode. REQUIRED. */
 #define DEFAULT_AP_PSK                 "Battery-Monitor"
 
-/* SSID and PSK of preferential network to connect to. */
+/* SSID and PSK of preferential network to connect to. REQUIRED */
 #define DEFAULT_MAIN_SSID              "myMainWiFiSSID"
 #define DEFAULT_MAIN_PSK               "myMainWiFiPassword"
 
 /* SSID and PSK of alternate network to connect to. Will be used when main
    preferential network is not in range. */
-#define DEFAULT_ALT_SSID               "myAlternateWiFiSSID"
-#define DEFAULT_ALT_PSK                "myAlternateWiFiPassword"
+//#define DEFAULT_ALT_SSID               ""
+//#define DEFAULT_ALT_PSK                ""
 
-#define DEFAULT_AP_DONT_BE_DEF_GW      1
+/* Wheater the board should avoid to present itself as the default gateway 
+   to DHCP clients when in AP mode.
+   0           -> Present itself as default gateway. 
+   1 (default) -> Don't present itself as the default gateway.
+*/
+//#define DEFAULT_AP_DONT_BE_DEF_GW      1
 
 
 /************************ Cold protection defaults ***************************
- * All values REQUIRED. 
  *****************************************************************************/
-#define DEFAULT_COLD_PROTECTION_LOW_THRESHOLD   5.0f // °C
+//#define DEFAULT_COLD_PROTECTION_LOW_THRESHOLD   5.0f // °C
 
 /*************** Automatic motion detection light defaults *******************
- * All values REQUIRED. 
  *****************************************************************************/
-#define DEFAULT_AUTO_LIGHT_ENABLED              false
-#define DEFAULT_AUTO_LIGHT_BRIGHTNESS           0.25f // 0.0f - 1.0f
-#define DEFAULT_AUTO_LIGHT_DURATION             30 // seconds
+//#define DEFAULT_AUTO_LIGHT_ENABLED              false
+//#define DEFAULT_AUTO_LIGHT_BRIGHTNESS           0.25f // 0.0f - 1.0f
+//#define DEFAULT_AUTO_LIGHT_DURATION             30 // seconds
 
 
 /********************** Alpaca server customization **************************

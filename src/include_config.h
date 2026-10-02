@@ -1,4 +1,3 @@
-
 #pragma once
 
 #if __has_include("config.h")
@@ -9,9 +8,47 @@
 
 #define VERSION "0.9.4"
 
+/*********** REQUIRED DEFINES CHECK ************/
 #ifndef BATTERY_CAPACITY
 #error "BATTERY_CAPACITY must be defined in config.h"
 #endif
+
+#ifndef DEFAULT_HOSTNAME
+#error "DEFAULT_HOSTNAME must be defined in config.h"
+#endif
+
+#ifndef DEFAULT_DISPLAY_NAME
+#error "DEFAULT_DISPLAY_NAME must be defined in config.h"
+#endif
+
+/* The PSK to connect to the board when in stand-alone Access Point mode. */
+#ifndef DEFAULT_AP_PSK
+#error "DEFAULT_AP_PSK must be defined in config.h"
+#endif
+
+/* SSID and PSK of preferential network to connect to. */
+#ifndef DEFAULT_MAIN_SSID
+#error "DEFAULT_MAIN_SSID must be defined in config.h"
+#endif
+
+#ifndef DEFAULT_MAIN_PSK
+#error "DEFAULT_MAIN_PSK must be defined in config.h"
+#endif
+
+/* SSID and PSK of alternate network to connect to. Will be used when main
+   preferential network is not in range. */
+#ifndef DEFAULT_ALT_SSID
+#define DEFAULT_ALT_SSID               ""
+#endif
+
+#ifndef DEFAULT_ALT_PSK
+#define DEFAULT_ALT_PSK                ""
+#endif
+
+#ifndef DEFAULT_AP_DONT_BE_DEF_GW
+#define DEFAULT_AP_DONT_BE_DEF_GW         1
+#endif
+
 
 /*********** DEFAULTS (can be overriden in config.h) ************/
 
@@ -66,6 +103,10 @@
 #define CP_LOW_THRESHOLD_MAX_C        10.0f
 #endif
 
+#ifndef DEFAULT_COLD_PROTECTION_LOW_THRESHOLD
+#define DEFAULT_COLD_PROTECTION_LOW_THRESHOLD   5.0f // °C
+#endif
+
 /* ------- SAFETY MON ------*/
 #ifndef SAFETY_SOC_LOW
 #define SAFETY_SOC_LOW                  15    // %: sotto, IsSafe = false
@@ -84,6 +125,18 @@
 #endif
 
 /* ------- LIGHT ------*/
+#ifndef DEFAULT_AUTO_LIGHT_ENABLED
+#define DEFAULT_AUTO_LIGHT_ENABLED              false
+#endif
+
+#ifndef DEFAULT_AUTO_LIGHT_BRIGHTNESS
+#define DEFAULT_AUTO_LIGHT_BRIGHTNESS           0.25f // 0.0f - 1.0f
+#endif
+
+#ifndef DEFAULT_AUTO_LIGHT_DURATION
+#define DEFAULT_AUTO_LIGHT_DURATION             30 // seconds
+#endif
+
 #ifndef LIGHT_DEFAULT_TRANSITION_MS
 #define LIGHT_DEFAULT_TRANSITION_MS   1500    // default transition
 #endif
