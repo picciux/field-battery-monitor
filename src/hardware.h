@@ -53,9 +53,9 @@ class Light : public BaseLight {
         unsigned long autoTime = 0;
         float autoBrightness;
         int autoDuration;
-        int pirPin;
-        Settings *settings;
-        IHardwareChangeListener *_listener;
+        int pirPin = -1;
+        Settings *settings = nullptr;
+        IHardwareChangeListener *_listener = nullptr;
     public:
         void setBrightness(float brightness); 
         bool isAutoEnabled();
@@ -94,8 +94,8 @@ class Heater {
 class PowerOutlet {
     private:
         PwmPin _pin;
-        IHardwareChangeListener *_listener;
-        int _index;
+        IHardwareChangeListener *_listener = nullptr;
+        int _index = 0;
     public:
         void setPower(float power);
         float getPower() { return _pin.getValue(); }
@@ -111,13 +111,13 @@ class Led : public BaseLight {
 
         bool blinking = false;
         int blinkState = BLINK_ON;
-        unsigned long blinkLast;
+        unsigned long blinkLast = 0;
         int blinkRc = 1;
-        unsigned long onMs;
-        unsigned long offMs;
+        unsigned long onMs = 0;
+        unsigned long offMs = 0;
         int repeat = 1;
-        unsigned long pauseMs;
-        float blinkBrightness;
+        unsigned long pauseMs = 0;
+        float blinkBrightness = 0;
 
     public:
         bool isBlinking() const { return blinking; }

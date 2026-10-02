@@ -37,7 +37,7 @@ class Battery {
         unsigned long _start_soc_reset_condition = 0;
         bool _inaConfigured = false;
 
-        IHardwareChangeListener *_listener;
+        IHardwareChangeListener *_listener = nullptr;
 
         void updateSafety();
         bool configureIna();
