@@ -293,7 +293,10 @@ void Heater::run(unsigned long now)
   } else if ((now - lastRequest) >= TEMP_CONVERSION_MS) {
     conversionPending = false;
     float t = sensors.getTempCByIndex(0);
-    if (t != DEVICE_DISCONNECTED_C) {
+
+    // exact value 85.0 is startup DS18B20 value, is not 
+    // a real reading => discard.
+    if (t != DEVICE_DISCONNECTED_C && t != 85.0) { 
       temperature = t;
       tempValid = true;
       lastValidRead = now;
