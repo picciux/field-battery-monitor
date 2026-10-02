@@ -153,13 +153,6 @@ static SwitchType resolveSwitchId(int id) {
 
 DeviceDef getSwitchDevice()   { return g_device; }
 int getSwitchDevicesCount()     { return 1; }
-bool getSwitchConnected() { return g_switchConnected; }
-
-/*
-static bool isValidSwitchId(int id) {
-  return id >= 0 && id < g_numSwitches;
-}
-*/
 
 struct AlpacaSwitchRequest {
   int switchId;
