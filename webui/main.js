@@ -203,6 +203,7 @@ document.getElementById('btn-factory-reset').addEventListener('click', e => {
           };
 
           try {
+            settingsChanged = false;
             const r = await request(data);
             if (! r.payload) { showAlert(`Factory reset failed: ${r.detail || 'unknown'}`); return; }
             const hostname = document.getElementById('stg-hostname').value;
