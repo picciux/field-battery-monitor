@@ -79,6 +79,7 @@ void Battery::setup(float capacity)
 {
   // Start I2C bus
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  Wire.setTimeOut(50);
   
   _inaConfigured = configureIna();
   _sensorValid = _inaConfigured;
@@ -104,8 +105,7 @@ void Battery::run(unsigned long now)
     _last_update = now;
 
     Wire.beginTransmission(INA226_ADDR);
-    Wire.setTimeOut(50);
-    bool present = (Wire.endTransmission() == 0);
+        bool present = (Wire.endTransmission() == 0);
     if (!present) 
         _inaConfigured = false;
     else if (!_inaConfigured) 
