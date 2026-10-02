@@ -561,6 +561,20 @@ bool WifiComm::sendFile(String path) {
   }
 
   File file = filesystem->open(path, "r");
+  if (! file) return false;
+
+  char etag[32];
+  snprintf(etag, sizeof(etag), "\"%x-%lx\"", (unsigned) file.size(), (unsigned long) file.getLastWrite());
+
+  www.sendHeader("Cache-Control", "no-cache");
+  www.sendHeader("ETag", etag);
+
+  if (www.header("If-None-Match") == etag) {
+    file.close();
+    www.send(304);
+    return true;
+  }
+
   www.streamFile(file, contentType);
   file.close();
   return true;
@@ -592,6 +606,9 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
   otaSetup(www, UPDATE_PATH, [](bool success, bool isFilesystem) {
     if (success) wifiComm.requestRestart();
   });
+
+  static const char *hdrs[] = { "If-None-Match" };
+  www.collectHeaders(hdrs, 1);
 
   www.begin();
   alpacaDiscoverySetup(WWW_PORT);
