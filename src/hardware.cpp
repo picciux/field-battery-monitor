@@ -30,7 +30,8 @@ void PwmPin::setup(int pinNumber)
 {
   this->pin = pinNumber;
   pinMode(this->pin, OUTPUT);
-  this->setByteValue(0);
+  analogWrite(this->pin, 0); 
+  this->value = 0;
 }
 
 int PwmPin::getByteValue()

@@ -8,8 +8,8 @@
 
 class PwmPin {
     private:
-        int pin;
-        uint8_t value;
+        int pin = -1;
+        uint8_t value = 0;
     public:
         void setup(int pinNumber);
         int getByteValue();
