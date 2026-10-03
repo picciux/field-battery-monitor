@@ -4,6 +4,7 @@
 #include <FS.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <Update.h>
 
 #include "include_config.h"
 
@@ -38,6 +39,9 @@
 #define STA_RECONNECT_CHECK_MS     10000    // ogni 10s, se la STA e' caduta, richiama reconnect()
 #define AP_FALLBACK_RETRY_MS      300000    // ogni 5 min, se in AP fallback, ritenta la rete principale
 
+#define STA_AP_FALLBACK_AFTER_MS  120000   // giù da tanto: apri l'AP
+#define AP_FIRST_RETRY_MS          30000   // primo retry dopo l'apertura dell'AP
+
 FS* filesystem = &LittleFS;
 WebServer www(WWW_PORT);
 WebSocketsServer webSocket(81);
@@ -51,14 +55,19 @@ static void _onStationGotIp(WiFiEvent_t, WiFiEventInfo_t) { g_mdnsRestartPending
 
 void WifiComm::networkDisconnected() {}
 
-void WifiComm::apRetryStep(unsigned long now) {
+
+// Macchina a stati non bloccante, usata in AP (periodica) e per il rescan manuale.
+void WifiComm::rescanStep(unsigned long now) {
   Settings *s = hardware->settings;
   switch (_retryState) {
     case RetryState::Idle:
-      if (now - _lastFullRetry < AP_FALLBACK_RETRY_MS) return;
-      _lastFullRetry = now;
-      if (WiFi.softAPgetStationNum() > 0) return;   // qualcuno usa l'AP: non disturbare
-      WiFi.scanNetworks(true);                      // asincrona
+      if (!_forceScan) {
+        if (!_apMode) return;                        // in STA solo su richiesta
+        if (now - _lastFullRetry < AP_FALLBACK_RETRY_MS) return;
+        _lastFullRetry = now;
+        if (WiFi.softAPgetStationNum() > 0) return;  // qualcuno usa l'AP: non disturbare
+      }
+      WiFi.scanNetworks(true);
       _retryStart = now;
       _retryState = RetryState::Scanning;
       break;
@@ -66,22 +75,34 @@ void WifiComm::apRetryStep(unsigned long now) {
     case RetryState::Scanning: {
       int n = WiFi.scanComplete();
       if (n == WIFI_SCAN_RUNNING) {
-        if (now - _retryStart > 15000) { WiFi.scanDelete(); _retryState = RetryState::Idle; }
-        return;
+        if (now - _retryStart > 15000) { WiFi.scanDelete(); n = WIFI_SCAN_FAILED; }
+        else return;
       }
-      if (n < 0) { _retryState = RetryState::Idle; return; }
       bool mainSeen = false, altSeen = false;
       for (int i = 0; i < n; i++) {
         String f = WiFi.SSID(i);
-        if (f == s->getMainSsid()) mainSeen = true;
-        if (f == s->getAltSsid())  altSeen = true;
+        if (strlen(s->getMainSsid()) && f == s->getMainSsid()) mainSeen = true;
+        if (strlen(s->getAltSsid())  && f == s->getAltSsid())  altSeen = true;
       }
-      WiFi.scanDelete();
+      if (n >= 0) WiFi.scanDelete();
+
+      // Rete attuale (vuota se in AP o non connessi): non si ri-seleziona quella in uso.
+      String cur = (!_apMode && WiFi.status() == WL_CONNECTED) ? WiFi.SSID() : String();
       const char *ssid = nullptr, *psk = nullptr;
-      if (mainSeen && strlen(s->getMainSsid())) { ssid = s->getMainSsid(); psk = s->getMainPsk(); }
-      else if (altSeen && strlen(s->getAltSsid())) { ssid = s->getAltSsid(); psk = s->getAltPsk(); }
-      if (!ssid) { _retryState = RetryState::Idle; return; }
-      if (strlen(psk)) WiFi.begin(ssid, psk); else WiFi.begin(ssid);   // AP_STA: l'AP resta su
+      if (mainSeen && cur != s->getMainSsid()) {
+        ssid = s->getMainSsid(); psk = s->getMainPsk(); _pickedMain = true;
+      } else if (altSeen && cur.length() == 0) {
+        ssid = s->getAltSsid();  psk = s->getAltPsk();  _pickedMain = false;
+      }
+
+      if (!ssid) {
+        if (_forceScan) webSocket.broadcastTXT("{\"event\":\"" EVENT_WIFI_SCAN "\",\"found\":false}");
+        _forceScan = false;
+        _retryState = RetryState::Idle;
+        return;
+      }
+      if (!_apMode) WiFi.disconnect(false);          // in AP_STA l'AP resta su
+      if (strlen(psk)) WiFi.begin(ssid, psk); else WiFi.begin(ssid);
       _retryStart = now;
       _retryState = RetryState::Connecting;
       break;
@@ -89,18 +110,87 @@ void WifiComm::apRetryStep(unsigned long now) {
 
     case RetryState::Connecting:
       if (WiFi.status() == WL_CONNECTED) {
-        WiFi.softAPdisconnect(true);
-        WiFi.mode(WIFI_STA);
-        _apMode = false;
+        if (_apMode) {
+          WiFi.softAPdisconnect(true);
+          WiFi.mode(WIFI_STA);
+          _apMode = false;
+        }
         g_mdnsRestartPending = true;
+        _staDownSince = 0;
+        _forceScan = false;
         _retryState = RetryState::Idle;
       } else if (now - _retryStart >= (unsigned long) WIFI_CONNECT_TIMEOUT * 1000UL) {
-        WiFi.disconnect(false);                     // resta in AP_STA
+        if (_forceScan)
+          webSocket.broadcastTXT("{\"event\":\"" EVENT_WIFI_SCAN "\",\"found\":false}");
+        if (_apMode) {
+          WiFi.disconnect(false);                    // resta in AP_STA
+        } else {
+          // cambio STA->STA fallito: torna su ALT se era quella la rete di partenza
+          Settings *st = hardware->settings;
+          if (_pickedMain && strlen(st->getAltSsid())) {
+            if (strlen(st->getAltPsk())) WiFi.begin(st->getAltSsid(), st->getAltPsk());
+            else WiFi.begin(st->getAltSsid());
+          }
+          _staDownSince = 0;                         // riparte il conteggio dei 2 min
+        }
+        _forceScan = false;
         _retryState = RetryState::Idle;
       }
       break;
   }
 }
+
+bool WifiComm::requestRescan(const char *&detail) {
+  if (Update.isRunning())                    { detail = "ota_running"; return false; }
+  if (_retryState != RetryState::Idle)       { detail = "busy";        return false; }
+  if (!_apMode && WiFi.status() == WL_CONNECTED &&
+      WiFi.SSID() == hardware->settings->getMainSsid()) {
+    detail = "already_on_main";
+    return false;
+  }
+  _forceScan = true;                         // la scansione parte al prossimo run()
+  return true;
+}
+
+void WifiComm::startRuntimeAp(unsigned long now) {
+  Settings *s = hardware->settings;
+  WiFi.disconnect(false);                    // ferma l'auto-reconnect: niente canali che cambiano sotto l'AP
+  WiFi.mode(WIFI_AP_STA);
+  if (WiFi.softAP(s->getHostname(), s->getApPsk())) {
+    _apMode = true;
+    _retryState = RetryState::Idle;
+    _staDownSince = 0;
+    _lastFullRetry = now - (AP_FALLBACK_RETRY_MS - AP_FIRST_RETRY_MS);
+    restartMDNS();
+  } else {
+    _staDownSince = now ? now : 1;           // riprova il ciclo senza martellare softAP()
+  }
+}
+
+void WifiComm::reconnectCheck(unsigned long now) {
+  if (Update.isRunning()) return;            // niente scansioni né cambi rete durante l'OTA
+
+  if (_apMode || _forceScan || _retryState != RetryState::Idle) {
+    rescanStep(now);
+    return;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) { _staDownSince = 0; return; }
+
+  if (_staDownSince == 0) _staDownSince = now ? now : 1;
+
+  if (now - _staDownSince >= STA_AP_FALLBACK_AFTER_MS) {
+    startRuntimeAp(now);
+    return;
+  }
+
+  if (now - _lastReconnectCheck >= STA_RECONNECT_CHECK_MS) {
+    _lastReconnectCheck = now;
+    DBGLN(F("WiFi: connessione persa, tento reconnect"));
+    WiFi.reconnect();
+  }
+}
+
 
 boolean WifiComm::searchAndConnectNet(char *ssid, char *pass, const char *hostname) {
   byte w = 0;
@@ -177,22 +267,6 @@ void WifiComm::restartMDNS() {
   MDNS.end();
   if (!MDNS.begin(hardware->settings->getHostname()))
     DBGLN(F("ERROR (re)starting mDNS"));
-}
-
-void WifiComm::reconnectCheck(unsigned long now) {
-  if (!_apMode) {
-    // Modalita' STA: se la connessione e' caduta, richiama reconnect() (non
-    // bloccante, riusa le credenziali correnti) a intervalli regolari.
-    if (WiFi.status() != WL_CONNECTED) {
-      if (now - _lastReconnectCheck >= STA_RECONNECT_CHECK_MS) {
-        _lastReconnectCheck = now;
-        DBGLN(F("WiFi: connessione persa, tento reconnect"));
-        WiFi.reconnect();
-      }
-    }
-  } else {
-    apRetryStep(now);
-  }
 }
 
 void WifiComm::requestRestart() {
@@ -442,7 +516,12 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
         } else {
           ret = false;
         }
-      } else if (!strcmp(action, ACTION_RESTART)) {
+      } else if (!strcmp(action, ACTION_WIFI_RESCAN)) {
+        const char *why = "";
+        bool ok = requestRescan(why);
+        sendResult(num, id, ok, why);
+        return;
+      } else if (!strcmp(action, ACTION_RESTART)) {      } else if (!strcmp(action, ACTION_RESTART)) {
         ret = true;
         requestRestart();
       } else if (!strcmp(action, ACTION_GET_SETTINGS)) {

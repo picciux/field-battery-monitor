@@ -23,6 +23,7 @@ class WifiComm : public IHardwareChangeListener {
     void onHardwareChanged(HardwareEvent event, int index);
     void requestRestart();
     void restartMDNS();
+    bool requestRescan(const char *&detail);
   protected:
     int readByte();
     void sendByte(char b);
@@ -41,8 +42,11 @@ class WifiComm : public IHardwareChangeListener {
     bool _apMode = false;
     RetryState _retryState = RetryState::Idle;
     unsigned long _retryStart = 0;
-    void apRetryStep(unsigned long now);
-    void reconnectCheck(unsigned long now);
+    unsigned long _staDownSince = 0;
+    bool _forceScan = false;
+    bool _pickedMain = false;
+    void rescanStep(unsigned long now);
+    void startRuntimeAp(unsigned long now);    void reconnectCheck(unsigned long now);
 };
 
 extern WifiComm wifiComm;

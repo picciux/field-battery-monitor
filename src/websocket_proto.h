@@ -46,6 +46,17 @@
 #define ACTION_GET_SETTINGS             "get_settings"
 #define ACTION_UPDATE_SETTINGS          "update_settings"
 
+/* forces an immediate Wi-Fi scan and switches to MAIN (preferred) or ALT if
+   visible and not already in use. Works from AP, from STA on ALT, or while
+   disconnected. No pars. Result detail on refusal: already_on_main | busy | ota_running.
+   The connection to the device may drop if the switch happens. */
+#define ACTION_WIFI_RESCAN              "wifi_rescan"
+
+/* sent when a forced rescan found nothing to switch to, or the switch failed.
+   Pars:
+    - bool found (always false) */
+#define EVENT_WIFI_SCAN                 "wifi_scan_result"
+
 /* update battery state event.
    Pars:
     - float voltage (can be null if sensor desnt't work)
