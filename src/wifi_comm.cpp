@@ -340,6 +340,21 @@ static bool readStr(JsonVariantConst p, const char *key, size_t minLen, size_t m
   return true;
 }
 
+// Legge un numero obbligatorio dal messaggio. false se assente o non numerico.
+static bool readFloatField(JsonVariantConst d, const char *key, float &out) {
+  JsonVariantConst v = d[key];
+  if (!v.is<float>()) return false;    // true anche per interi JSON
+  out = v.as<float>();
+  return true;
+}
+
+static bool readIntField(JsonVariantConst d, const char *key, int &out) {
+  JsonVariantConst v = d[key];
+  if (!v.is<int>()) return false;
+  out = v.as<int>();
+  return true;
+}
+
 int WifiComm::sendCaps(char *buf, int bufsize) {
   return snprintf(buf, bufsize,
     "{\"type\":\"capabilities\",\"payload\":{\"channels\":%d,\"light\":%s,\"outlets\":%d,"
@@ -477,8 +492,7 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
       sendInitialState(num);
       break;
     }
-    case WStype_TEXT:                     // if new text data is received
-      bool ret = false;
+    case WStype_TEXT: {
       JsonDocument doc;
       DeserializationError error = deserializeJson(doc, payload, lenght);
       if (error) {
@@ -486,60 +500,59 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
         return;
       }
       const char *action = doc["action"] | "unknown";
-      uint32_t id = doc["id"] | 0u; //save action id if present
+      uint32_t id = doc["id"] | 0u;   // id dell'action, se presente
+
+      bool ret = false;
+      const char *why = "";
+      float fv = 0.0f;
+      int iv = 0;
 
       if (!strcmp(action, ACTION_BATTERY_SOC_RESET)) {
         hardware->battery->reset();
         ret = true;
       } else if (!strcmp(action, ACTION_CP_SET_LT)) {
-        float lt = doc["temperature"] | DEFAULT_COLD_PROTECTION_LOW_THRESHOLD;
-        hardware->heater->setLowThreshold(lt);
-        ret = true;
+        if (readFloatField(doc, "temperature", fv)) {
+          hardware->heater->setLowThreshold(fv);
+          ret = true;
+        } else why = "temperature";
       } else if (!strcmp(action, ACTION_LIGHT_BRIGHTNESS)) {
-        if (HAS_LIGHT) {
-          float b = doc["brightness"] | 0.0;
-          if (hardware->light) hardware->light->setBrightness(b);
+        if (!hardware->light) why = "no_light";
+        else if (readFloatField(doc, "brightness", fv)) {
+          hardware->light->setBrightness(fv);
           ret = true;
-        } else {
-          ret = false;
-        }
+        } else why = "brightness";
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_ENABLE)) {
-        if (HAS_LIGHT) {
-          bool e = doc["enabled"] | DEFAULT_AUTO_LIGHT_ENABLED;
-          if (hardware->light) hardware->light->autoEnable(e);
+        JsonVariantConst e = doc["enabled"];
+        if (!hardware->light) why = "no_light";
+        else if (e.is<bool>()) {
+          hardware->light->autoEnable(e.as<bool>());
           ret = true;
-        } else {
-          ret = false;
-        }
+        } else why = "enabled";
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_BRIGHTNESS)) {
-        if (HAS_LIGHT) {
-          float b = doc["brightness"] | DEFAULT_AUTO_LIGHT_BRIGHTNESS;
-          if (hardware->light) hardware->light->setAutoBrightness(b);
+        if (!hardware->light) why = "no_light";
+        else if (readFloatField(doc, "brightness", fv)) {
+          hardware->light->setAutoBrightness(fv);
           ret = true;
-        } else {
-          ret = false;
-        }
+        } else why = "brightness";
       } else if (!strcmp(action, ACTION_LIGHT_AUTO_DURATION)) {
-        if (HAS_LIGHT) {
-          int s = doc["seconds"] | DEFAULT_AUTO_LIGHT_DURATION;
-          if (hardware->light) hardware->light->setAutoDuration(s);
+        if (!hardware->light) why = "no_light";
+        else if (readIntField(doc, "seconds", iv)) {
+          hardware->light->setAutoDuration(iv);
           ret = true;
-        } else {
-          ret = false;
-        }
+        } else why = "seconds";
       } else if (!strcmp(action, ACTION_OUTLET_POWER)) {
-        int i = doc["index"] | 0;
-        float p = doc["power"] | 1.0f;
-        if (i >= 0 && i < hardware->getOutletsNum()) {
-          hardware->outlets[i]->setPower(p);
+        int idx = 0;
+        if (!readIntField(doc, "index", idx)) why = "index";
+        else if (idx < 0 || idx >= hardware->getOutletsNum()) why = "bad_index";
+        else if (!readFloatField(doc, "power", fv)) why = "power";
+        else {
+          hardware->outlets[idx]->setPower(fv);
           ret = true;
-        } else {
-          ret = false;
         }
       } else if (!strcmp(action, ACTION_WIFI_RESCAN)) {
-        const char *why = "";
-        bool ok = requestRescan(why);
-        sendResult(num, id, ok, why);
+        const char *rwhy = "";
+        bool ok = requestRescan(rwhy);
+        sendResult(num, id, ok, rwhy);
         return;
       } else if (!strcmp(action, ACTION_RESTART)) {
         ret = true;
@@ -553,11 +566,14 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
         bool ok = updateSettings(s, num, doc["payload"], detail, sizeof(detail));
         sendResult(num, id, ok, detail);
         return;
+      } else {
+        why = "unknown_action";
       }
 
-      sendResult(num, id, ret);                  
+      sendResult(num, id, ret, why);
       break;
-  }         
+    } 
+  }       
 }
 
 void WifiComm::sendSettings(Settings &s, uint8_t num) {
