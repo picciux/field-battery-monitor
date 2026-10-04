@@ -247,10 +247,11 @@ input[type="text"], input[type="password"] {
 #btn-save-settings { flex: 2; }
 #btn-restore-settings { flex: 1; }
 
-.tools-buttons { display: flex; gap: 10px; margin-top: 16px; }
+.tools-buttons { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 .tools-buttons .btn-submit { width: auto; min-width: 0; }
 
 #btn-reset-soc { flex: 2; }
+#btn-wifi-rescan { flex: 2; }
 #btn-restart { flex: 1; }
 #btn-factory-reset { flex: 1; }
 

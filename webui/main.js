@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.3';
+const VERSION = '1.0.4';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -219,6 +219,27 @@ document.getElementById('btn-factory-reset').addEventListener('click', e => {
         }
       );
      }
+  );
+});
+
+document.getElementById('btn-wifi-rescan').addEventListener('click', () => {
+  showConfirm(
+    "Scan now for the configured Wi-Fi networks and switch if one is available? The connection to the device may drop.",
+    async () => {
+      try {
+        const r = await request({ action: 'wifi_rescan' });
+        if (!r.payload) {
+          const msg = r.detail === 'already_on_main' ? 'Already connected to the main network.'
+                    : `Rescan not started: ${r.detail || 'unknown'}`;
+          showAlert(msg, () => {}, { danger: false });
+          return;
+        }
+        showToast('Scanning for networks...');
+      } catch (err) {
+        showToast('No response from the device.', { error: true });
+      }
+    },
+    { confirmLabel: 'Scan', danger: false }
   );
 });
 
@@ -595,6 +616,10 @@ function handleIncomingData(data) {
             setSlider('outlet' + data.index, v.toFixed(0));
             break;
         }          
+
+        case 'wifi_scan_result':
+          showToast('No usable network found (or connection failed).', { error: true });
+          break;
     }
   }
 }
