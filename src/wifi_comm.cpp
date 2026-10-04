@@ -5,6 +5,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <Update.h>
+#include <esp_netif.h>
 
 #include "include_config.h"
 
@@ -22,12 +23,6 @@
 
 #ifdef DEBUG_ON_WS
   #include "ws_debug.h"
-#endif
-
-#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
-  #include <esp_netif.h>
-#else
-  #include <tcpip_adapter.h>
 #endif
 
 #define UPDATE_PATH "/update"
@@ -59,27 +54,20 @@ WifiComm wifiComm; //WifiComm static instance
 static volatile bool g_mdnsRestartPending = false;
 static void _onStationGotIp(WiFiEvent_t, WiFiEventInfo_t) { g_mdnsRestartPending = true; }
 
-// Toglie l'opzione DHCP "router" (3) dal server DHCP dell'AP: i client ottengono
+// Toglie l'opzione DHCP "router" dal server DHCP dell'AP: i client ottengono
 // IP e netmask ma non ci usano come default gateway. Da chiamare DOPO softAP().
 static void applyApDhcpOptions(bool dontBeDefaultGw) {
   if (!dontBeDefaultGw) return;                  // comportamento di default del core
-  uint8_t offer = 0;                             // 0 = nessuna opzione router offerta
 
-#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
   esp_netif_t *ap = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
   if (!ap) { DBGLN(F("AP netif not found")); return; }
+
+  uint8_t offer = 0;                             // 0 = nessuna opzione router offerta
   esp_netif_dhcps_stop(ap);
   esp_err_t e = esp_netif_dhcps_option(ap, ESP_NETIF_OP_SET,
                                        ESP_NETIF_ROUTER_SOLICITATION_ADDRESS,
                                        &offer, sizeof(offer));
-  esp_netif_dhcps_start(ap);
-#else
-  tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
-  esp_err_t e = tcpip_adapter_dhcps_option(TCPIP_ADAPTER_OP_SET,
-                                           TCPIP_ADAPTER_ROUTER_SOLICITATION_ADDRESS,
-                                           &offer, sizeof(offer));
-  tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP);
-#endif
+  esp_netif_dhcps_start(ap);                     // sempre, anche se l'opzione fallisce
 
   if (e != ESP_OK) DBGF("AP DHCP option failed: %d\n", (int) e);
 }
