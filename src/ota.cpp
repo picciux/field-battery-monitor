@@ -7,6 +7,8 @@
 
 namespace {
 
+bool g_uploadSeen = false;   // true solo se è partito un UPLOAD_FILE_START
+
 const char OTA_PAGE[] PROGMEM = R"HTML(<!DOCTYPE html>
 <html lang='it'>
 <head>
@@ -78,6 +80,7 @@ void reportError(const __FlashStringHelper *context) {
 }
 
 void handleUploadStart(HTTPUpload &upload) {
+  g_uploadSeen = true;
   g_error = false;
   g_errorMsg = "";
   g_isFilesystem = (upload.name == "filesystem");
@@ -123,6 +126,7 @@ void handleUploadEnd() {
 
 void handleUploadAborted() {
   Update.abort();
+  g_uploadSeen = false;
   g_error = true;
   g_errorMsg = "Upload interrotto dal client";
   remountFsIfNeeded();
@@ -141,6 +145,14 @@ void otaSetup(WebServer &server, const char *path, OtaDoneCallback onDone) {
     // Chiamato dopo l'ultimo UPLOAD_FILE_END: la scrittura e' gia' conclusa
     // (con successo o errore), qui ci si limita a rispondere al client.
     server.sendHeader("Connection", "close");
+
+    // POST senza alcun file: niente risposta di successo e niente restart.
+    if (!g_uploadSeen) {
+      server.send(400, "text/plain", "No file uploaded");
+      return;                          // onDone NON viene chiamata
+    }
+    g_uploadSeen = false;              // consuma il flag: vale per UNA richiesta
+
     if (g_error) {
       remountFsIfNeeded();
       server.send(500, "text/plain", "Update failed - " + g_errorMsg);
