@@ -40,6 +40,8 @@ void setup() {
 }
 
 void loop() {
+  static bool factoryResetPending = false;
+
   wifiComm.run();
   unsigned long now = millis();
   BTHomeBeacon_run(hardware, now);
@@ -48,6 +50,13 @@ void loop() {
   if (button.longPress(now)) {
     hardware.led->startBlink(1.0f, 80, 80); //visual feedback
     settings.factoryReset();
+    factoryResetPending = true;
+  }
+
+  // GPIO0 basso durante il reset = download mode. Si riavvia solo a tasto rilasciato;
+  // i 500 ms di requestRestart() fanno anche da margine anti-rimbalzo.
+  if (factoryResetPending && digitalRead(PIN_BTN) == HIGH) {
+    factoryResetPending = false;
     wifiComm.requestRestart();
   }
 
