@@ -24,6 +24,12 @@
   #include "ws_debug.h"
 #endif
 
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+  #include <esp_netif.h>
+#else
+  #include <tcpip_adapter.h>
+#endif
+
 #define UPDATE_PATH "/update"
 
 #ifndef WWW_PORT
@@ -53,8 +59,32 @@ WifiComm wifiComm; //WifiComm static instance
 static volatile bool g_mdnsRestartPending = false;
 static void _onStationGotIp(WiFiEvent_t, WiFiEventInfo_t) { g_mdnsRestartPending = true; }
 
-void WifiComm::networkDisconnected() {}
+// Toglie l'opzione DHCP "router" (3) dal server DHCP dell'AP: i client ottengono
+// IP e netmask ma non ci usano come default gateway. Da chiamare DOPO softAP().
+static void applyApDhcpOptions(bool dontBeDefaultGw) {
+  if (!dontBeDefaultGw) return;                  // comportamento di default del core
+  uint8_t offer = 0;                             // 0 = nessuna opzione router offerta
 
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+  esp_netif_t *ap = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+  if (!ap) { DBGLN(F("AP netif not found")); return; }
+  esp_netif_dhcps_stop(ap);
+  esp_err_t e = esp_netif_dhcps_option(ap, ESP_NETIF_OP_SET,
+                                       ESP_NETIF_ROUTER_SOLICITATION_ADDRESS,
+                                       &offer, sizeof(offer));
+  esp_netif_dhcps_start(ap);
+#else
+  tcpip_adapter_dhcps_stop(TCPIP_ADAPTER_IF_AP);
+  esp_err_t e = tcpip_adapter_dhcps_option(TCPIP_ADAPTER_OP_SET,
+                                           TCPIP_ADAPTER_ROUTER_SOLICITATION_ADDRESS,
+                                           &offer, sizeof(offer));
+  tcpip_adapter_dhcps_start(TCPIP_ADAPTER_IF_AP);
+#endif
+
+  if (e != ESP_OK) DBGF("AP DHCP option failed: %d\n", (int) e);
+}
+
+void WifiComm::networkDisconnected() {}
 
 // Macchina a stati non bloccante, usata in AP (periodica) e per il rescan manuale.
 void WifiComm::rescanStep(unsigned long now) {
@@ -157,6 +187,7 @@ void WifiComm::startRuntimeAp(unsigned long now) {
   WiFi.disconnect(false);                    // ferma l'auto-reconnect: niente canali che cambiano sotto l'AP
   WiFi.mode(WIFI_AP_STA);
   if (WiFi.softAP(s->getHostname(), s->getApPsk())) {
+    applyApDhcpOptions(s->isApDefaultGWDisabled());
     _apMode = true;
     _retryState = RetryState::Idle;
     _staDownSince = 0;
@@ -253,6 +284,7 @@ boolean WifiComm::wifiStart(Settings &s) {
   WiFi.disconnect();
 
   if (WiFi.softAP(s.getHostname(), s.getApPsk())) {
+    applyApDhcpOptions(s.isApDefaultGWDisabled());
     _apMode = true;
     restartMDNS();
     return true;
