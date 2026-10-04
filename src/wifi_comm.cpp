@@ -541,7 +541,7 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
         bool ok = requestRescan(why);
         sendResult(num, id, ok, why);
         return;
-      } else if (!strcmp(action, ACTION_RESTART)) {      } else if (!strcmp(action, ACTION_RESTART)) {
+      } else if (!strcmp(action, ACTION_RESTART)) {
         ret = true;
         requestRestart();
       } else if (!strcmp(action, ACTION_GET_SETTINGS)) {
