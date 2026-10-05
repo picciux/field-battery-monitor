@@ -58,7 +58,7 @@ enum class SwitchType {
 
 static SwitchDef g_switches[MAX_SWITCHES] = {
   { "Voltage",     "Battery voltage (V)",        0.0,  20.0, 0.01, false },
-  { "Current", "Battery current (A): negative = discharge, positive = charge", - INA226_RANGE, INA226_RANGE, 0.01, false },  
+  { "Current", "Battery current (A): negative = discharge, positive = charge", - INA226_RANGE, INA226_RANGE, 0.001, false },  
   { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
   { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
   { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true},
@@ -98,6 +98,15 @@ static void buildDeviceTable() {
     }
   }
   g_device = { SWITCH_DEVICE_NUMBER, &g_SwitchInfo, g_switches, g_numSwitches };
+}
+
+// Arrotonda al passo dichiarato dallo switch (1, 0.1, 0.01, ...). Il risultato e'
+// il double piu' vicino al valore decimale (v*f e f sono esatti, la divisione e'
+// arrotondata correttamente): ArduinoJson lo serializza come "13.2", non "13.1999998".
+static double roundToStep(double v, double step) {
+  if (step <= 0.0) return v;
+  double f = round(1.0 / step);
+  return (round(v * f) / f) + 0.0;   // + 0.0 normalizza -0.0 in 0.0
 }
 
 static AlpacaDeviceRef swResolver(int number) {
@@ -313,7 +322,12 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
     AlpacaSwitchRequest r;
     if (! checkRequest(server, r)) return;
     if (!checkValueSet(server, hardware, r)) return;
-    AlpacaHelper::sendDouble(server, getSwitchValue(hardware, r.switchType), r.ctid);
+    const SwitchDef &s = g_device.switches[r.switchId];
+    AlpacaHelper::sendDouble(
+      server, 
+      roundToStep(getSwitchValue(hardware, r.switchType), s.step), 
+      r.ctid
+    );
   });
 
   // setswitch(Id, State) -> equivale a setswitchvalue(Max) / setswitchvalue(Min)
