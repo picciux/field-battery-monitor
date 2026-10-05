@@ -6,7 +6,7 @@
   #error "Missing src/config.h: copy src/config.example.h to src/config.h and edit it."
 #endif
 
-#define VERSION "0.9.7"
+#define VERSION "0.9.8"
 
 /*********** REQUIRED DEFINES CHECK ************/
 #ifndef BATTERY_CAPACITY

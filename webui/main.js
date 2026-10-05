@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.4';
+const VERSION = '1.0.5';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
