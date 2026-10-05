@@ -58,7 +58,7 @@ enum class SwitchType {
 
 static SwitchDef g_switches[MAX_SWITCHES] = {
   { "Voltage",     "Battery voltage (V)",        0.0,  20.0, 0.01, false },
-  { "Current", "Battery current (A): negative = discharge, positive = charge", -20.0, 20.0, 0.01, false },  
+  { "Current", "Battery current (A): negative = discharge, positive = charge", - INA226_RANGE, INA226_RANGE, 0.01, false },  
   { "SoC",         "Battery state of charge (%)",           0.0, 100.0, 1.0,  false },
   { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
   { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true},
@@ -212,9 +212,9 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
     case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
     case SwitchType::LightAutoDuration:         return hw->light->getAutoDuration();
-    case SwitchType::Outlet1:                   return hw->outlets[0]->getPower() * 100.0;
-    case SwitchType::Outlet2:                   return hw->outlets[1]->getPower() * 100.0;
-    case SwitchType::Outlet3:                   return hw->outlets[2]->getPower() * 100.0;
+    case SwitchType::Outlet1:                   return round(hw->outlets[0]->getPower() * 100.0);
+    case SwitchType::Outlet2:                   return round(hw->outlets[1]->getPower() * 100.0);
+    case SwitchType::Outlet3:                   return round(hw->outlets[2]->getPower() * 100.0);
   }
   return 0.0; //Unknown
 }
