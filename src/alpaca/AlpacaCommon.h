@@ -67,6 +67,9 @@ public:
   static double queryArgToDouble(WebServer &server, const char *name, double defaultValue = 0.0);
   static bool   queryArgToBool(WebServer &server, const char *name, bool defaultValue = false);
   static void   makeUniqueId(char *buf, size_t size, uint16_t deviceType, uint16_t deviceNumber);
+
+  static bool   hasArg(WebServer &server, const char *name);
+  static String getArg(WebServer &server, const char *name);
 };
 
 struct AlpacaDeviceRef {

@@ -3,6 +3,12 @@
 
 static uint32_t g_serverTransactionID = 0;
 
+static int findArgCI(WebServer &server, const char *name) {
+  for (int i = 0; i < server.args(); i++)
+    if (server.argName(i).equalsIgnoreCase(name)) return i;
+  return -1;
+}
+
 uint32_t AlpacaHelper::nextServerTransactionID() {
   return ++g_serverTransactionID;
 }
@@ -15,6 +21,16 @@ uint32_t AlpacaHelper::getClientID(WebServer &server) {
   return (uint32_t) queryArgToInt(server, "ClientID", 0);
 }
 
+bool AlpacaHelper::hasArg(WebServer &server, const char *name) {
+  return findArgCI(server, name) >= 0;
+}
+
+String AlpacaHelper::getArg(WebServer &server, const char *name) {
+  int i = findArgCI(server, name);
+  return (i >= 0) ? server.arg(i) : String();
+}
+
+
 int AlpacaHelper::pathArgToInt(WebServer &server, uint8_t index, int defaultValue) {
   String v = server.pathArg(index);
   if (v.length() == 0) return defaultValue;
@@ -22,18 +38,18 @@ int AlpacaHelper::pathArgToInt(WebServer &server, uint8_t index, int defaultValu
 }
 
 int AlpacaHelper::queryArgToInt(WebServer &server, const char *name, int defaultValue) {
-  if (!server.hasArg(name)) return defaultValue;
-  return server.arg(name).toInt();
+  if (!hasArg(server, name)) return defaultValue;
+  return getArg(server, name).toInt();
 }
 
 double AlpacaHelper::queryArgToDouble(WebServer &server, const char *name, double defaultValue) {
-  if (!server.hasArg(name)) return defaultValue;
-  return server.arg(name).toDouble();
+  if (!hasArg(server, name)) return defaultValue;
+  return getArg(server, name).toDouble();
 }
 
 bool AlpacaHelper::queryArgToBool(WebServer &server, const char *name, bool defaultValue) {
-  if (!server.hasArg(name)) return defaultValue;
-  String v = server.arg(name);
+  if (!hasArg(server, name)) return defaultValue;
+  String v = getArg(server, name);
   v.toLowerCase();
   return v == "true" || v == "1";
 }

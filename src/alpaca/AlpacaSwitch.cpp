@@ -326,7 +326,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
                               "Switch read-only (sensore)", r.ctid);
       return;
     }
-    if (!server.hasArg("State")) {
+    if (! AlpacaHelper::hasArg(server, "State")) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Parametro State mancante", r.ctid);
       return;
     }
@@ -345,7 +345,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
                                "Switch read-only (sensore)", r.ctid);
       return;
     }
-    if (!server.hasArg("Value")) {
+    if (!AlpacaHelper::hasArg(server, "Value")) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Parametro Value mancante", r.ctid);
       return;
     }
