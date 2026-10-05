@@ -11,6 +11,7 @@ export default defineConfig({
   ],
   build: {
     // Unifica tutto in file unici per ridurre le richieste HTTP sull'ESP32
+    modulePreload: false,
     outDir: '../data',
     emptyOutDir: true, 
     assetsInlineLimit: 100000, 

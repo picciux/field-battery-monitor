@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.5';
+const VERSION = '1.0.6';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -742,15 +742,11 @@ const alertCloseBtn = document.getElementById('alert-close');
 */
 function showAlert(message, onClose = undefined, options = {}) {
   alertMessage.innerText = message;
-  if (options.closeHide)
-    alertCloseBtn.className = 'hidden';
-  else {
-    alertCloseBtn.innerText = options.closeLabel || 'Close';
-    alertCloseBtn.className = (options.danger === false) ? 'btn-submit' : 'btn-submit btn-danger';
-    alertCloseBtn.onclick = () => {
-      alertModal.classList.add('hidden');
-      if (onClose) onClose();
-    }
+  alertCloseBtn.innerText = options.closeLabel || 'Close';
+  alertCloseBtn.className = (options.danger === false) ? 'btn-submit' : 'btn-submit btn-danger';
+  alertCloseBtn.onclick = () => {
+    alertModal.classList.add('hidden');
+    if (onClose) onClose();
   }
 
   alertModal.classList.remove('hidden');
