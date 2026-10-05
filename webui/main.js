@@ -524,6 +524,8 @@ function handleIncomingData(data) {
   }
 
   if (data.event) {
+    const BATT_DECIMALS = { voltage: 2, current: 3, soc: 0, temperature: 1 };
+
     switch(data.event) {
         /* update battery state event.
         Pars:
@@ -535,10 +537,9 @@ function handleIncomingData(data) {
         */
         case 'battery_update': {
             for (const el of ['voltage', 'current', 'soc', 'temperature']) {
-                if (data[el] !== null)
-                  document.getElementById('batt-' + el).innerText = data[el];
-                else
-                  document.getElementById('batt-' + el).innerText = '--';
+              const v = data[el];
+              document.getElementById('batt-' + el).innerText = 
+                (v !== null && v !== undefined) ? Number(v).toFixed(BATT_DECIMALS[el]) : '--';
             }
 
             updateBatteryIcon(Number(data.soc));
