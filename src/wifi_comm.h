@@ -24,9 +24,6 @@ class WifiComm : public IHardwareChangeListener {
     void requestRestart();
     void restartMDNS();
     bool requestRescan(const char *&detail);
-  protected:
-    int readByte();
-    void sendByte(char b);
   private:
     Hardware *hardware;
     bool searchAndConnectNet(char *ssid, char *pass, const char *hostname);
@@ -46,7 +43,8 @@ class WifiComm : public IHardwareChangeListener {
     bool _forceScan = false;
     bool _pickedMain = false;
     void rescanStep(unsigned long now);
-    void startRuntimeAp(unsigned long now);    void reconnectCheck(unsigned long now);
+    void startRuntimeAp(unsigned long now);    
+    void reconnectCheck(unsigned long now);
 };
 
 extern WifiComm wifiComm;

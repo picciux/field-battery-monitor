@@ -43,9 +43,9 @@
 #define STA_AP_FALLBACK_AFTER_MS  120000   // giù da tanto: apri l'AP
 #define AP_FIRST_RETRY_MS          30000   // primo retry dopo l'apertura dell'AP
 
-FS* filesystem = &LittleFS;
-WebServer www(WWW_PORT);
-WebSocketsServer webSocket(81);
+static FS* filesystem = &LittleFS;
+static WebServer www(WWW_PORT);
+static WebSocketsServer webSocket(81);
 
 WifiComm wifiComm; //WifiComm static instance
 

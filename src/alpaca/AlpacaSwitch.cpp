@@ -161,7 +161,6 @@ static SwitchType resolveSwitchId(int id) {
 }
 
 DeviceDef getSwitchDevice()   { return g_device; }
-int getSwitchDevicesCount()     { return 1; }
 
 struct AlpacaSwitchRequest {
   int switchId;
@@ -191,20 +190,8 @@ static bool checkRequest(WebServer &server, AlpacaSwitchRequest &request) {
     return true;
 }
 
-/// Disabled. No more exceptions for broken sensors. Signal in sensors_ok switch.
+// Returns always true: no more exceptions for broken sensors. Signal in sensors_ok switch.
 static bool checkValueSet(WebServer &server, Hardware *hw, const AlpacaSwitchRequest &r) {
-  /*
-  if (r.switchType == SwitchType::BatteryTemperature && !hw->heater->isTemperatureValid()) {
-    AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
-                              "Temperature sensor not available", r.ctid);
-    return false;
-  }
-  if ((r.switchType == SwitchType::BatteryVoltage || r.switchType == SwitchType::BatteryCurrent ) &&
-      !hw->battery->isSensorValid()) {
-    AlpacaHelper::sendError(server, AlpacaError::ValueNotSet,
-                              "Battery sensor (INA226) not available", r.ctid);
-    return false;
-  }*/
   return true;
 }
 

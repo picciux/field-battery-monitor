@@ -19,8 +19,8 @@ template <typename T>
 static inline T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
 /* temperature sensor */
-OneWire oneWire(PIN_ONE_WIRE);
-DallasTemperature sensors(&oneWire);
+static OneWire oneWire(PIN_ONE_WIRE);
+static DallasTemperature sensors(&oneWire);
 
 /* Gamma correction */
 static inline float toPerceptual(float v)   { return powf(v, 1.0f / LIGHT_FADE_GAMMA); }
@@ -371,12 +371,12 @@ void Led::run(unsigned long now) {
   }
 }
 
-Battery _battery;
-Heater _heater;
-Led _led;
-Light _light;
-PowerOutlet _outletObjs[MAX_OUTLETS];
-PowerOutlet *_outletPtrs[MAX_OUTLETS];
+static Battery _battery;
+static Heater _heater;
+static Led _led;
+static Light _light;
+static PowerOutlet _outletObjs[MAX_OUTLETS];
+static PowerOutlet *_outletPtrs[MAX_OUTLETS];
 
 void Hardware::setup(Settings *settings)
 {

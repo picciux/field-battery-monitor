@@ -1,6 +1,9 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <stddef.h>
+
 #include "ihardware_change_listener.h"
 
 namespace BatteryAutonomy {

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdint.h>
+#include <stddef.h>
+
 //#define HOSTNAME_LEN          31  //30 chars + null-term
 //#define SSID_LEN              33  //32 chars + null-term
 //#define PSK_LEN               64  //63 chars + null-term
@@ -76,7 +79,6 @@ class Settings {
     uint8_t autoLightDuration;
 
     /* battery cold protection */
-    bool coldProtection;
     float cpLowThreshold;
 
     void load();

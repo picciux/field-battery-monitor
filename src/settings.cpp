@@ -17,7 +17,7 @@
 #define AUTO_LIGHT_BRIGHT   "al_brightness"
 #define AUTO_LIGHT_DURATION "al_duration"
 
-Preferences g_prefs;
+static Preferences g_prefs;
 
 /* Loads settings from NVS preferences */
 void Settings::load() {

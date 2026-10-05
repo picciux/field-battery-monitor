@@ -13,7 +13,7 @@ namespace AlpacaError {
   constexpr int NotImplemented       = 0x400; // 1024
   constexpr int InvalidValue         = 0x401; // 1025
   constexpr int ValueNotSet          = 0x402; // 1026
-  constexpr int NotConnected         = 0x407; // 1031
+//  constexpr int NotConnected         = 0x407; // 1031
   constexpr int InvalidOperation     = 0x40B; // 1035
   constexpr int ActionNotImplemented = 0x40C; // 1036
 }
@@ -35,7 +35,6 @@ struct AlpacaDeviceInfo {
 namespace AlpacaDeviceType {
   constexpr uint16_t Switch              = 1;
   constexpr uint16_t SafetyMonitor       = 2;
-  constexpr uint16_t ObservingConditions = 3;
 }
 
 // ---------------------------------------------------------------------------

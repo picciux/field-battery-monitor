@@ -16,8 +16,9 @@
 #define AVERAGER_CAPACITY           (AVERAGER_WINDOW_MS / CURRENT_SAMPLE_DELAY_MS)
 
 // Busses and sensors
-INA226_WE ina = INA226_WE(INA226_ADDR); // Indirizzo I2C standard dell'INA226
-CurrentAverager ca(AVERAGER_CAPACITY, AVERAGER_WINDOW_MS);
+static INA226_WE ina = INA226_WE(INA226_ADDR); // Indirizzo I2C standard dell'INA226
+static CurrentAverager ca(AVERAGER_CAPACITY, AVERAGER_WINDOW_MS);
+static SoCPersistance socPersistance;
 
 float Battery::getSoC()
 {
