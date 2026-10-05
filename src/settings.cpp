@@ -38,7 +38,7 @@ void Settings::load() {
 
   autoLightEnabled = g_prefs.getBool(AUTO_LIGHT, DEFAULT_AUTO_LIGHT_ENABLED);
   autoLightBrightness = g_prefs.getFloat(AUTO_LIGHT_BRIGHT, DEFAULT_AUTO_LIGHT_BRIGHTNESS);
-  autoLightDuration = g_prefs.getUInt(AUTO_LIGHT_DURATION, DEFAULT_AUTO_LIGHT_DURATION);
+  autoLightDuration = (uint8_t) g_prefs.getUInt(AUTO_LIGHT_DURATION, DEFAULT_AUTO_LIGHT_DURATION);
 }
 
 char *Settings::getHostname() { return hostname; }
