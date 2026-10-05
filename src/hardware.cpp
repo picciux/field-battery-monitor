@@ -56,7 +56,7 @@ bool PwmPin::setValue(float value)
 {
   if (value < 0.0f) value = 0.0f;
   if (value > 1.0f) value = 1.0f;
-  return this->setByteValue((int) (value * 255.0f));
+  return this->setByteValue((uint8_t) lroundf(value * 255.0f));
 }
 
 bool PwmPin::turnOn(bool on)
