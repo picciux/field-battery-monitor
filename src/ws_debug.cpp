@@ -3,6 +3,8 @@
 #include <ArduinoJson.h>
 #include <stdarg.h>
 
+#include "websocket_proto.h"
+
 static WebSocketsServer *g_ws = nullptr;
 static String g_lineBuf;
 
@@ -13,7 +15,7 @@ void wsDebugSetup(WebSocketsServer *ws) {
 static void wsDebugSend(const String &line) {
   if (!g_ws) return;
   JsonDocument doc;
-  doc["event"] = "debug";
+  doc["event"] = EVENT_DEBUG;
   doc["msg"] = line;   // ArduinoJson gestisce l'escaping
   String out;
   serializeJson(doc, out);
