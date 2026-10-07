@@ -150,9 +150,11 @@
               Battery <span id="batt-soc">--</span> %
             </h3>
           </div>
-          <div id="batt-alarm" class="hidden" title="" style="text-align: right;"><h3>
-            <svg class="icon alarm"><use href="#i-triangle-exclamation"/></svg></h3>
-          </div>
+          <button type="button" id="batt-alarm" class="alarm-btn hidden" title=""
+                  aria-label="Show alarm details">
+            <svg class="icon alarm"><use href="#i-triangle-exclamation"/></svg>
+          </button>          
+          
         </div>
         <div class="readouts">
           <div class="ro" title="Voltage">

@@ -276,6 +276,24 @@ input[type="text"], input[type="password"] {
   background: transparent;
 }
 
+/* --- BATTERY ALARM --- */
+.alarm-btn {
+  justify-self: end;
+  align-self: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1.17em;           /* i button non ereditano il font-size: replica l'<h3> */
+}
+.alarm-btn .icon { width: 2em; height: 2em; vertical-align: middle; }
+
+/* focus visibile sullo switch (l'input è nascosto con opacity:0) */
+.switch input:focus-visible + .slider-toggle {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
 
 /* --- LAYOUT PER SCHERMI GRANDI (DESKTOP) --- */
 @media (min-width: 810px) {

@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.6';
+const VERSION = '1.0.7';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -134,6 +134,7 @@ function updateAlarm(which, alarm, text='') {
     });
     
     alarm_box.title = at;
+    alarm_box.setAttribute('aria-label', at);
     alarm_box.classList.remove('hidden');
   } else 
     alarm_box.classList.add('hidden');
