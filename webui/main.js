@@ -29,6 +29,7 @@ btnSettings.addEventListener('click', () => switchPage('settings'));
 // --- 2. GESTIONE DEI CONTROLLI (Luci, Prese, Switch) ---
 document.getElementById('version-ui').innerText = VERSION;
 
+const mainEl = document.querySelector('main');
 const systemName = document.getElementById('txt-system-name');
 const containerLights = document.getElementById('light-container');
 const containerOutlets = document.getElementById('outlets-container');
@@ -314,6 +315,7 @@ function setConnected(on, label) {
   wsStatus.title = text;
   wsStatus.setAttribute('aria-label', text);
   document.body.classList.toggle('is-offline', !on);
+  mainEl.inert = !on;
 }
 
 function connect() {
@@ -363,6 +365,7 @@ function initWebSocket() {
   }
 
   // PRODUCTION
+  setConnected(false);
   connect();
 }
 

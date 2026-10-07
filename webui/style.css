@@ -102,7 +102,7 @@ h3 .icon {
 @media (prefers-reduced-motion: reduce) { .conn.offline { animation: none; } }
 
 /* dati non aggiornati: attenuati */
-body.is-offline main { opacity: 0.45; transition: opacity 0.3s; }
+body.is-offline main { opacity: 0.45; transition: opacity 0.3s; pointer-events: none; }
 
 .alarm { color: #9e1422; }
 
