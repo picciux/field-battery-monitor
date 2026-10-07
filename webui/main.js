@@ -621,6 +621,10 @@ function handleIncomingData(data) {
         case 'wifi_scan_result':
           showToast('No usable network found (or connection failed).', { error: true });
           break;
+
+        case 'debug':
+          console.log('[device]', data.msg);
+          break;
     }
   }
 }
