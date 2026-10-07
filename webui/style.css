@@ -8,7 +8,7 @@
   --input-bg: #ffffff;
 }
 
-body.dark {
+:root.dark {
   --bg-color: #121212;
   --card-bg: #1e1e1e;
   --text-color: #ff6e30bc;
@@ -67,12 +67,12 @@ h3 .icon {
 
 /* Rendi il bottone del tema leggermente più stretto se vuoi */
 .theme-toggle .i-sun { display: none; }
-body.dark .theme-toggle .i-sun { display: inline; }
-body.dark .theme-toggle .i-moon { display: none; }
+:root.dark .theme-toggle .i-sun { display: inline; }
+:root.dark .theme-toggle .i-moon { display: none; }
 
 /* WS connection status display */
 :root      { --conn-ok: #2e7d32; --conn-off: #d9534f; }
-body.dark  { --conn-ok: #ff6e30; --conn-off: #c0392b; }  /* niente verde di notte */
+:root.dark  { --conn-ok: #ff6e30; --conn-off: #c0392b; }  /* niente verde di notte */
 
 /* se nav non è già flex */
  nav { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; } 
@@ -260,19 +260,19 @@ input[type="text"], input[type="password"] {
 /* --- PERSONALIZZAZIONE SLIDER (TRACK) PER IL TEMA SCURO --- */
 
 /* Per Chrome, Edge, Opera e browser basati su Chromium */
-body.dark input[type="range"]::-webkit-slider-runnable-track {
+:root.dark input[type="range"]::-webkit-slider-runnable-track {
   background: #333333; /* Sfondo scuro della barra */
   border-radius: 4px;
 }
 
 /* Per Firefox */
-body.dark input[type="range"]::-moz-range-track {
+:root.dark input[type="range"]::-moz-range-track {
   background: #333333; /* Sfondo scuro della barra */
   border-radius: 4px;
 }
 
 /* Rimuove l'effetto flash o i bordi nativi su alcuni sistemi */
-body.dark input[type="range"] {
+:root.dark input[type="range"] {
   background: transparent;
 }
 
@@ -367,7 +367,7 @@ input:checked + .slider-toggle:before {
 }
 
 /* Adattamento Tema Scuro */
-body.dark .slider-toggle {
+:root.dark .slider-toggle {
   background-color: #333;
 }
 

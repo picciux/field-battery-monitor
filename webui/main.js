@@ -704,29 +704,24 @@ if (formSettings) {
 // --- 5. GESTIONE CAMBIO TEMA (CHIARO / SCURO) ---
 const btnTheme = document.getElementById('btn-theme');
 
-// Controlla se l'utente aveva già salvato una preferenza, altrimenti usa il tema chiaro
-const currentTheme = localStorage.getItem('theme') || 'light';
-
-function applyTheme(name) {
-  if (name == 'dark') {
-    document.body.classList.add('dark');
-    btnTheme.title = "Switch to light theme";
-    localStorage.setItem('theme', 'dark');
-  } else {
-    document.body.classList.remove('dark');
-    btnTheme.title = "Switch to dark theme";
-    localStorage.setItem('theme', 'light');
-  }
+function saveTheme(name) {
+  try { localStorage.setItem('theme', name); } catch (_) {}
 }
 
-applyTheme(currentTheme);
+// Lo stato iniziale lo decide lo script inline nel <head>: qui ci si limita
+// ad allineare titolo del bottone e a gestire il toggle.
+function applyTheme(name, persist = false) {
+  const dark = (name === 'dark');
+  document.documentElement.classList.toggle('dark', dark);
+  btnTheme.title = dark ? "Switch to light theme" : "Switch to dark theme";
+  if (persist) saveTheme(name);
+}
+
+applyTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
 
 btnTheme.addEventListener('click', () => {
-  // Determina il tema corrente e aggiorna localStorage e icona
-  if (document.body.classList.contains('dark')) 
-    applyTheme('light');
-  else
-    applyTheme('dark');
+  const dark = document.documentElement.classList.contains('dark');
+  applyTheme(dark ? 'light' : 'dark', true);
 });
 
 // --- 6. ALERT & CONFIRM MODAL (sostituisce alert() e confirm() nativi del browser) + TOAST ---
