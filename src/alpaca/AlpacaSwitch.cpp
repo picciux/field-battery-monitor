@@ -63,7 +63,8 @@ static SwitchDef g_switches[MAX_SWITCHES] = {
   { "Temperature", "Battery temperature (\xC2\xB0" "C)", -40.0, 85.0, 0.1,  false },
   { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true},
   { "Autonomy", "Estimated remaining autonomy (h), capped at 24: 24 = charging or negligible load", 0.0, 24.0, 0.1, false }, 
-  { "Sensors state", "Working state of current/voltage and temperature sensors", 0.0, 1.0, 1.0, false }, 
+  { "Sensors state", "Working sensors bitmask: 0 = none, 1 = temperature only, "
+      "2 = voltage/current only, 3 = all working", 0.0, 3.0, 1.0, false }, 
 };
 
 static SwitchDef g_lightSwitches[4] = {
@@ -203,7 +204,8 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::BatteryTemperature:        return hw->heater->getTemperature();
     case SwitchType::BatteryMinTemperature:     return hw->heater->getLowThreshold();
     case SwitchType::BatteryAutonomy:           return hw->battery->getAutonomyHours();
-    case SwitchType::BatterySensorsOK:          return (hw->battery->isSensorValid() && hw->heater->isTemperatureValid());
+    case SwitchType::BatterySensorsOK:          return ( (hw->battery->isSensorValid() ? 2 : 0) 
+                                                    | (hw->heater->isTemperatureValid() ? 1 : 0) );
     case SwitchType::LightBrightness:           return hw->light->getTargetBrightness() * 100.0;
     case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
     case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
