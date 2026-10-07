@@ -85,8 +85,6 @@
      int    light_auto_dr_max      maximum motion-light duration, seconds.
      int    cp_lt_min              minimum heater turn-on temperature, °C.
      int    cp_lt_max              maximum heater turn-on temperature, °C.
-     uint   fs_size                NOTE: actually the flash chip size in bytes
-                                   (debug data), not the filesystem size.
      string fw_ver                 firmware version.
      string reset_reason           cause of the reset that preceded THIS boot:
                                    poweron, ext, sw, panic, int_wdt, task_wdt,
