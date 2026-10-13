@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.7';
+const VERSION = '1.0.8';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -146,6 +146,14 @@ function dimAutoSettings(on) {
 
 linkSliderLabel('batt-lt').addEventListener('change', (e) => {
   sendWsMessage({ action: 'cp_low_threshold', temperature: parseInt(e.target.value) });
+});
+
+const rvSlider = document.getElementById('slider-batt-rv');
+rvSlider.addEventListener('input', (e) => {
+  document.getElementById('val-batt-rv').innerText = parseFloat(e.target.value).toFixed(2);
+});
+rvSlider.addEventListener('change', (e) => {
+  sendWsMessage({ action: 'soc_reset_voltage', voltage: parseFloat(e.target.value) });
 });
 
 linkSliderLabel('light-brightness').addEventListener('change', (e) => {
@@ -464,6 +472,11 @@ function handleIncomingData(data) {
         }
         bootCount = p.boot_count;
 
+        if (p.soc_rv_min !== undefined) {
+          rvSlider.min = p.soc_rv_min;
+          rvSlider.max = p.soc_rv_max;
+        }
+
         if (p.light) {
           containerLights.classList.remove('hidden');
         }
@@ -572,63 +585,74 @@ function handleIncomingData(data) {
             }
             break;
 
-        /* update safety state event.
-        Pars:
-            - bool is_safe
-        */
-        case 'safety_update':
-            setControlAlarm(['icon-battery', 'batt-soc'], !data.is_safe);
-            updateAlarm('safety', !data.is_safe, "Battery is low");
-            break;
+      /* battery soc reset voltage update event.
+      Pars:
+          - float voltage
+      */
+      case 'soc_sync_update': {
+        const v = Number(data.voltage);
+        rvSlider.value = v;
+        document.getElementById('val-batt-rv').innerText = v.toFixed(2);
+        break;
+      }
 
-        /* update cold protection state event.
-        Pars:
-            - float lt low threshold temperature 
-        */
-        case 'cold_protection_update':
-            setSlider('batt-lt', data.lt);
-            break;
-
-        /* update light state event.
-        Pars: 
-            - float brightness
-            - bool auto enabled/disabled
-            - float auto_br brightness
-            - int auto_dr duration 
-        */
-        case 'light_update':
-            //set sliders
-            [ 'brightness', 'auto_br', 'auto_dr' ].forEach(function(k, i) {
-                var v = parseFloat(data[k]);
-                if (k == 'auto_dr')
-                    v = v.toFixed(0);
-                else
-                    v = (v * 100.0).toFixed(0);
-                setSlider('light-' + k, v);
-            });
-
-            //set switch
-            setSwitch('light-auto', data.auto);
-            break;
-
-        /* update power outlets state event.
-        Pars:
-            - int index
-            - float power 
-        */
-        case 'outlet_update': {
-            let v = parseFloat(data.power) * 100.0;
-            setSlider('outlet' + data.index, v.toFixed(0));
-            break;
-        }          
-
-        case 'wifi_scan_result':
-          showToast('No usable network found (or connection failed).', { error: true });
+      /* update safety state event.
+      Pars:
+          - bool is_safe
+      */
+      case 'safety_update':
+          setControlAlarm(['icon-battery', 'batt-soc'], !data.is_safe);
+          updateAlarm('safety', !data.is_safe, "Battery is low");
           break;
 
-        case 'debug':
-          console.log('[device]', data.msg);
+      /* update cold protection state event.
+      Pars:
+          - float lt low threshold temperature 
+      */
+      case 'cold_protection_update':
+          setSlider('batt-lt', data.lt);
           break;
+
+      /* update light state event.
+      Pars: 
+          - float brightness
+          - bool auto enabled/disabled
+          - float auto_br brightness
+          - int auto_dr duration 
+      */
+      case 'light_update':
+          //set sliders
+          [ 'brightness', 'auto_br', 'auto_dr' ].forEach(function(k, i) {
+              var v = parseFloat(data[k]);
+              if (k == 'auto_dr')
+                  v = v.toFixed(0);
+              else
+                  v = (v * 100.0).toFixed(0);
+              setSlider('light-' + k, v);
+          });
+
+          //set switch
+          setSwitch('light-auto', data.auto);
+          break;
+
+      /* update power outlets state event.
+      Pars:
+          - int index
+          - float power 
+      */
+      case 'outlet_update': {
+          let v = parseFloat(data.power) * 100.0;
+          setSlider('outlet' + data.index, v.toFixed(0));
+          break;
+      }          
+
+      case 'wifi_scan_result':
+        showToast('No usable network found (or connection failed).', { error: true });
+        break;
+
+      case 'debug':
+        console.log('[device]', data.msg);
+        break;
     }
   }
 }

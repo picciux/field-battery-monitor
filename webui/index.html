@@ -185,6 +185,17 @@
             <input type="range" id="slider-batt-lt" min="-10" max="10" value="5" aria-label="Heater on below">
           </div>
         </details>
+
+        <details class="fold">
+          <summary><svg class="icon"><use href="#i-battery-full"/></svg> Charge sync settings</summary>
+          <div class="ctl">
+            <div class="ctl-head" title="When voltage stays above this value with a low charge current, battery is considered full and charge level resets to 100%">
+              <span class="lbl">Reset to 100% above</span>
+              <span class="ctl-value"><span id="val-batt-rv">--</span> V</span>
+            </div>
+            <input type="range" id="slider-batt-rv" min="13.9" max="14.6" step="0.05" value="14.1" aria-label="Charge sync voltage">
+          </div>
+        </details>
       </div>
 
       <!-- Sezione Luci (Slider) -->

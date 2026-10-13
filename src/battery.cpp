@@ -9,6 +9,8 @@
 #include "battery.h"
 #include "soc_persistance.h"
 #include "current_averager.h"
+#include "settings.h"
+#include "clamp_t.h"
 
 #define CURRENT_SAMPLE_DELAY_MS     1000
 #define AUTONOMY_SAMPLE_DELAY_MS    30000
@@ -48,6 +50,18 @@ float Battery::getAutonomyHours() {
     return autonomyH;
 }
 
+void Battery::setSocResetVoltage(float v)
+{
+  if (isnan(v)) return;
+  v = clampT(v, SOC_RESET_VOLTAGE_MIN, SOC_RESET_VOLTAGE_MAX);
+  if (v == _socResetVoltage) return;
+  _socResetVoltage = v;
+  _start_soc_reset_condition = 0;   // il cronometro dei 3 minuti riparte con la nuova soglia
+  _settings->setSocResetVoltage(v);
+  if (_listener)
+    _listener->onHardwareChanged(HardwareEvent::BatterySocSync, 0);
+}
+
 void Battery::setChangeListener(IHardwareChangeListener* listener)
 { 
     _listener = listener; 
@@ -76,7 +90,7 @@ bool Battery::configureIna() {
   return true;
 }
 
-void Battery::setup(float capacity)
+void Battery::setup(float capacity, Settings *settings)
 {
   // Start I2C bus
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
@@ -96,6 +110,9 @@ void Battery::setup(float capacity)
   this->current = 0.0f;
   this->_last_update = millis();
   this->_last_autonomy = _last_update;
+  _settings = settings;
+  _socResetVoltage = clampT(settings->getSocResetVoltage(),
+                            SOC_RESET_VOLTAGE_MIN, SOC_RESET_VOLTAGE_MAX);
 }
 
 void Battery::run(unsigned long now)
@@ -143,7 +160,7 @@ void Battery::run(unsigned long now)
     // to 100% and immediately saved.
     const float tailA = capacity * SOC_RESET_TAIL_CURRENT;
     if (soc < 100.0f) {
-        if (fabs(current) <= tailA && voltage >= SOC_RESET_VOLTAGE) {
+        if (fabs(current) <= tailA && voltage >= _socResetVoltage) {
             if (_start_soc_reset_condition == 0)
                 _start_soc_reset_condition = now;
             else if (now - _start_soc_reset_condition >= SOC_RESET_TIME) {

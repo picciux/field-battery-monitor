@@ -6,7 +6,7 @@
   #error "Missing src/config.h: copy src/config.example.h to src/config.h and edit it."
 #endif
 
-#define VERSION "0.9.10"
+#define VERSION "0.9.11"
 
 /*********** REQUIRED DEFINES CHECK ************/
 #ifndef BATTERY_CAPACITY
@@ -75,7 +75,15 @@
 #endif
 
 #ifndef SOC_RESET_VOLTAGE
-#define SOC_RESET_VOLTAGE           14.1 // volt
+#define SOC_RESET_VOLTAGE           14.1f // volt
+#endif
+
+#ifndef SOC_RESET_VOLTAGE_MIN
+#define SOC_RESET_VOLTAGE_MIN       13.9f // V: over float/rest voltage
+#endif
+
+#ifndef SOC_RESET_VOLTAGE_MAX
+#define SOC_RESET_VOLTAGE_MAX       14.6f // V: 3,65 V/cella
 #endif
 
 #ifndef SOC_RESET_TAIL_CURRENT

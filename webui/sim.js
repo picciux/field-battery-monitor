@@ -21,7 +21,7 @@ const VARIANT = { channels: 4, light: true, outlets: 2 };
 
 const CAPACITY_AH = 50;
 const FW_VER = '1.0-sim';
-const LIMITS = { cpMin: -10, cpMax: 10, brMinPct: 1, drMin: 10, drMax: 60 };
+const LIMITS = { cpMin: -10, cpMax: 10, socRvMin: 13.9, socRvMax: 14.6, brMinPct: 1, drMin: 10, drMax: 60 };
 const SAFETY = { socLow: 15, socRecover: 20, vLow: 11.0, vHyst: 0.3 };
 const AUTONOMY_CAP_H = 24.0;
 const MIN_DISCHARGE_A = 0.05;
@@ -81,6 +81,8 @@ function caps() {
       light_auto_dr_max: LIMITS.drMax,
       cp_lt_min: LIMITS.cpMin,
       cp_lt_max: LIMITS.cpMax,
+      soc_rv_min: LIMITS.socRvMin, 
+      soc_rv_max: LIMITS.socRvMax,
       fw_ver: FW_VER,
       reset_reason: s.resetReason,
       boot_count: s.bootCount,
@@ -99,6 +101,7 @@ const batteryEvent = () => ({
 });
 
 const autonomyEvent = () => ({ event: 'battery_autonomy_update', hours: round(s.autonomy, 1) });
+const socSyncEvent = () => ({ event: 'soc_sync_update', voltage: 14.1 });
 const safetyEvent = () => ({ event: 'safety_update', is_safe: s.isSafe });
 const cpEvent = () => ({ event: 'cold_protection_update', lt: s.cpLt });
 const lightEvent = () => ({ event: 'light_update', ...s.light });
@@ -112,6 +115,7 @@ function settingsMsg() {
 function emitAll() {
   emit(batteryEvent());
   emit(autonomyEvent());
+  emit(socSyncEvent());
   emit(safetyEvent());
   emit(cpEvent());
   if (VARIANT.light) emit(lightEvent());
@@ -377,6 +381,11 @@ export function send(obj, handle) {
   const res = { type: 'result', payload: r.ok };
   if (obj.id) res.id = obj.id;
   if (r.detail) res.detail = r.detail;
+
+  if (obj.action === 'soc_reset_voltage' && actionResult) {
+    const v = Math.min(14.6, Math.max(13.9, obj.voltage));
+    handle({ event: 'soc_sync_update', voltage: v });
+  }
 
   // Come il firmware: ogni azione riceve un result. Senza id lo si notifica via
   // handle(); con id il chiamante usa il valore di ritorno (vedi request() in main.js).

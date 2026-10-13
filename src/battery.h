@@ -25,6 +25,8 @@ inline float computeHours(float capacityRemainingAh, float avgCurrentA) {
 
 } // namespace BatteryAutonomy
 
+class Settings;
+
 class Battery {
     private:
         float soc;
@@ -40,6 +42,9 @@ class Battery {
         unsigned long _start_soc_reset_condition = 0;
         bool _inaConfigured = false;
 
+        float _socResetVoltage;
+        Settings *_settings = nullptr;
+
         IHardwareChangeListener *_listener = nullptr;
 
         void updateSafety();
@@ -54,6 +59,8 @@ class Battery {
         float getRemainingAh();
         float getAutonomyHours();
         bool  isSensorValid() const { return _sensorValid; }
+        float getSocResetVoltage() const { return _socResetVoltage; }
+        void  setSocResetVoltage(float v);
 
         // Fonte unica di verita' per lo stato di sicurezza: SoC con isteresi
         // 15/20% (SAFETY_SOC_LOW/RECOVER) in OR con un backstop di tensione
@@ -65,7 +72,7 @@ class Battery {
         bool isSafe() const { return !(_socUnsafe || _voltageUnsafe); }
 
         void setChangeListener(IHardwareChangeListener* listener);
-        void setup(float capacity);
+        void setup(float capacity, Settings *settings);
         void run(unsigned long now);
         /* Reset SoC to full 100%. */
         void reset();

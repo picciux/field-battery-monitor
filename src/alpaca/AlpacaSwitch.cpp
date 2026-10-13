@@ -22,8 +22,9 @@ static AlpacaDeviceInfo g_SwitchInfo = {
 #define BATTERY_MIN_TEMP         4
 #define BATTERY_AUTONOMY         5
 #define BATTERY_SENSORS_OK       6
+#define BATTERY_SOC_RESET_V      7
 
-#define BATT_SWITCHES            7
+#define BATT_SWITCHES            8
 
 #define LIGHT_BRIGHTNESS         0
 #define LIGHT_AUTO_ENABLED       1
@@ -46,6 +47,7 @@ enum class SwitchType {
   BatteryMinTemperature,
   BatteryAutonomy,
   BatterySensorsOK,
+  BatterySocResetVoltage,
   LightBrightness,
   LightAutoEnabled,
   LightAutoBrightness,
@@ -64,7 +66,9 @@ static SwitchDef g_switches[MAX_SWITCHES] = {
   { "Min temperature", "Minimum battery temperature (\xC2\xB0" "C)", CP_LOW_THRESHOLD_MIN_C, CP_LOW_THRESHOLD_MAX_C, 1.0, true},
   { "Autonomy", "Estimated remaining autonomy (h), capped at 24: 24 = charging or negligible load", 0.0, 24.0, 0.1, false }, 
   { "Sensors state", "Working sensors bitmask: 0 = none, 1 = temperature only, "
-      "2 = voltage/current only, 3 = all working", 0.0, 3.0, 1.0, false }, 
+      "2 = voltage/current only, 3 = all working", 0.0, 3.0, 1.0, false },
+  { "SoC sync voltage", "Voltage above which SoC resets to 100% once charge current is low (V)",
+    SOC_RESET_VOLTAGE_MIN, SOC_RESET_VOLTAGE_MAX, 0.05, true }, 
 };
 
 static SwitchDef g_lightSwitches[4] = {
@@ -132,6 +136,8 @@ static SwitchType resolveSwitchId(int id) {
         return SwitchType::BatteryAutonomy;
       case BATTERY_SENSORS_OK:
         return SwitchType::BatterySensorsOK;
+      case BATTERY_SOC_RESET_V:
+        return SwitchType::BatterySocResetVoltage;
     }
   } else if (HAS_LIGHT && id < BATT_SWITCHES + LIGHT_SWITCHES) {
     switch(id - BATT_SWITCHES) {
@@ -206,6 +212,7 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::BatteryAutonomy:           return hw->battery->getAutonomyHours();
     case SwitchType::BatterySensorsOK:          return ( (hw->battery->isSensorValid() ? 2 : 0) 
                                                     | (hw->heater->isTemperatureValid() ? 1 : 0) );
+    case SwitchType::BatterySocResetVoltage:    return hw->battery->getSocResetVoltage();
     case SwitchType::LightBrightness:           return hw->light->getTargetBrightness() * 100.0;
     case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
     case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
@@ -220,7 +227,8 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
 void writeSwitchValue(Hardware *hw, SwitchType type, double v) {
   switch (type) {
     case SwitchType::BatteryMinTemperature: hw->heater->setLowThreshold(v); break;
-
+    case SwitchType::BatterySocResetVoltage: hw->battery->setSocResetVoltage((float) v); break;
+    
     case SwitchType::LightBrightness:       hw->light->setBrightness(v / 100.0f); break;
     case SwitchType::LightAutoEnabled:      hw->light->autoEnable(v != 0.0); break;
     case SwitchType::LightAutoBrightness:   hw->light->setAutoBrightness(v / 100.0f); break;

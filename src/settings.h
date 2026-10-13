@@ -54,6 +54,9 @@ class Settings {
     bool isAutoLightEnabled();
     void setAutoLightEnabled(const bool &enabled);
 
+    float getSocResetVoltage();
+    void setSocResetVoltage(const float &v);
+
   private:
     /* hostname: will be network SSID when acting as an AP */
     char hostname[HOSTNAME_MAX_LEN];
@@ -72,6 +75,9 @@ class Settings {
 
     /* Don't be default gateway for clients when acting as an AP */
     bool apDontBeDefaultGW;
+
+    /* SOC will be reset to 100% whne battery voltage is higher than this */  
+    float socResetVoltage;
 
     /* light motion automation */
     bool autoLightEnabled;

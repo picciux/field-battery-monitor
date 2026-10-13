@@ -6,7 +6,7 @@
 #include "hardware.h"
 #include "pins.h"
 #include "board.h"    
-
+#include "clamp_t.h"
 
 #define TRANSITION_FPS        50
 #define TRANSITION_PWM_DELAY  ( 1000 / TRANSITION_FPS) // in milliseconds
@@ -14,9 +14,6 @@
 #define TEMP_SAMPLE_INTERVAL_MS   5000   // ogni quanto avviare una conversione
 #define TEMP_CONVERSION_MS         800   // DS18B20 a 12 bit: max 750 ms
 #define TEMP_STALE_TIMEOUT_MS    60000   // oltre, il dato e' considerato non valido
-
-template <typename T>
-static inline T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
 /* temperature sensor */
 static OneWire oneWire(PIN_ONE_WIRE);
@@ -385,7 +382,7 @@ void Hardware::setup(Settings *settings)
     this->led = &_led;
     this->settings = settings;
 
-    this->battery->setup(BATTERY_CAPACITY);
+    this->battery->setup(BATTERY_CAPACITY, settings);
     this->heater->setup(settings);
 
     if (HAS_LIGHT) {

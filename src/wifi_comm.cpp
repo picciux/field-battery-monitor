@@ -359,12 +359,13 @@ int WifiComm::sendCaps(char *buf, int bufsize) {
   return snprintf(buf, bufsize,
     "{\"type\":\"capabilities\",\"payload\":{\"channels\":%d,\"light\":%s,\"outlets\":%d,"
     "\"light_auto_br_min_pct\":%u,\"light_auto_dr_min\":%u,\"light_auto_dr_max\":%u,"
-    "\"cp_lt_min\":%d,\"cp_lt_max\":%d,\"fw_ver\":\"%s\","
-    "\"reset_reason\":\"%s\",\"boot_count\":%u,\"uptime_s\":%lu}}",
+    "\"cp_lt_min\":%d,\"cp_lt_max\":%d,\"soc_rv_min\":%.2f,\"soc_rv_max\":%.2f,"
+    "\"fw_ver\":\"%s\",\"reset_reason\":\"%s\",\"boot_count\":%u,\"uptime_s\":%lu}}",
     BOARD_CHANNELS, HAS_LIGHT ? "true" : "false", OUTLET_COUNT,
     LIGHT_AUTO_BRIGHTNESS_MIN_PCT, LIGHT_AUTO_DURATION_MIN_S, LIGHT_AUTO_DURATION_MAX_S,
-    (int)CP_LOW_THRESHOLD_MIN_C, (int) CP_LOW_THRESHOLD_MAX_C, VERSION, 
-    getResetReasonStr(), getRebootCount(), millis() / 1000UL);
+    (int)CP_LOW_THRESHOLD_MIN_C, (int) CP_LOW_THRESHOLD_MAX_C, SOC_RESET_VOLTAGE_MIN,
+    SOC_RESET_VOLTAGE_MAX, VERSION, getResetReasonStr(), getRebootCount(), 
+    millis() / 1000UL);
 }
 
 // Formatta un evento in JSON nel buffer. Ritorna la lunghezza scritta, oppure 0
@@ -405,6 +406,12 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
       len = snprintf(buf, size,
         "{\"event\":\"" EVENT_BATTERY_AUTONOMY "\",\"hours\":%.1f}",
         h->battery->getAutonomyHours());
+      break;
+
+    case HardwareEvent::BatterySocSync:
+      len = snprintf(buf, size,
+        "{\"event\":\"" EVENT_SOC_SYNC "\",\"voltage\":%.2f}",
+        h->battery->getSocResetVoltage());
       break;
 
     case HardwareEvent::Safety:
@@ -463,6 +470,7 @@ void WifiComm::sendInitialState(uint8_t num)
 
   send(HardwareEvent::BatteryMainData, 0);
   send(HardwareEvent::BatteryAutonomy, 0);
+  send(HardwareEvent::BatterySocSync, 0);
   send(HardwareEvent::Safety, 0);
   send(HardwareEvent::Heater, 0);
   send(HardwareEvent::Light, 0);

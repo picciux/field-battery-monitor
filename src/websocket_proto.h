@@ -60,6 +60,7 @@
      <field name>          mandatory parameter missing or of the wrong type:
                            "temperature", "brightness", "enabled", "seconds",
                            "index", "power".
+     voltage               missing voltage field in soc_reset_voltage
      bad_index             outlet_power: index out of range.
      no_light              light action on a variant built without light.
      already_on_main | busy | ota_running
@@ -85,6 +86,8 @@
      int    light_auto_dr_max      maximum motion-light duration, seconds.
      int    cp_lt_min              minimum heater turn-on temperature, °C.
      int    cp_lt_max              maximum heater turn-on temperature, °C.
+     float  soc_rv_min             minimum battery soc reset voltage.
+     float  soc_rv_mac             maximum battery soc reset voltager.
      string fw_ver                 firmware version.
      string reset_reason           cause of the reset that preceded THIS boot:
                                    poweron, ext, sw, panic, int_wdt, task_wdt,
@@ -120,6 +123,13 @@
 
 /* resets SoC to 100% */
 #define ACTION_BATTERY_SOC_RESET        "battery_soc_reset"
+
+/* sets the SoC sync voltage threshold: above it (with low tail current held
+   for SOC_RESET_TIME) the SoC is reset to 100%.
+   Pars:
+    - float voltage (clamped to soc_rv_min..soc_rv_max)
+*/
+#define ACTION_SOC_RESET_VOLTAGE        "soc_reset_voltage"
 
 /* sets cold protection low threshold temperature. 
    Pars:
@@ -224,6 +234,12 @@
       first values after boot are not significant.
 */
 #define EVENT_BATTERY_AUTONOMY   "battery_autonomy_update"
+
+/* update SoC sync threshold event.
+   Pars:
+    - float voltage
+*/
+#define EVENT_SOC_SYNC                  "soc_sync_update"
 
 /* update cold protection state event.
    Pars:

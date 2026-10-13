@@ -16,6 +16,7 @@
 #define AUTO_LIGHT          "auto_light"
 #define AUTO_LIGHT_BRIGHT   "al_brightness"
 #define AUTO_LIGHT_DURATION "al_duration"
+#define SOC_RESET_V         "soc_rst_v"   // 9 caratteri, < 15
 
 static Preferences g_prefs;
 
@@ -39,6 +40,8 @@ void Settings::load() {
   autoLightEnabled = g_prefs.getBool(AUTO_LIGHT, DEFAULT_AUTO_LIGHT_ENABLED);
   autoLightBrightness = g_prefs.getFloat(AUTO_LIGHT_BRIGHT, DEFAULT_AUTO_LIGHT_BRIGHTNESS);
   autoLightDuration = (uint8_t) g_prefs.getUInt(AUTO_LIGHT_DURATION, DEFAULT_AUTO_LIGHT_DURATION);
+
+  socResetVoltage = g_prefs.getFloat(SOC_RESET_V, SOC_RESET_VOLTAGE);
 }
 
 char *Settings::getHostname() { return hostname; }
@@ -124,6 +127,13 @@ void Settings::setAutoLightDuration(const uint8_t &autoLightDuration_) {
   if (autoLightDuration == autoLightDuration_) return;
   autoLightDuration = autoLightDuration_;
   g_prefs.putUInt(AUTO_LIGHT_DURATION, autoLightDuration);
+}
+
+float Settings::getSocResetVoltage() { return socResetVoltage; }
+void Settings::setSocResetVoltage(const float &v) {
+  if (socResetVoltage == v) return;
+  socResetVoltage = v;
+  g_prefs.putFloat(SOC_RESET_V, socResetVoltage);
 }
 
 void Settings::setup() {

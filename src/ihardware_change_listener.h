@@ -7,6 +7,7 @@
 enum class HardwareEvent {
     BatteryMainData,   // Voltage, Current, SoC, Temperature
     BatteryAutonomy,   // AutonomyRemaining — ricalcolata/pushata ogni 30s
+    BatterySocSync,    // AoC sync voltage threshold 
     Safety,
     Heater,
     Light,
