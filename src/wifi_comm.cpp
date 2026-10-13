@@ -523,6 +523,11 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
           hardware->heater->setLowThreshold(fv);
           ret = true;
         } else why = "temperature";
+      } else if (!strcmp(action, ACTION_SOC_RESET_VOLTAGE)) {
+        if (readFloatField(doc, "voltage", fv)) {
+          hardware->battery->setSocResetVoltage(fv);
+          ret = true;
+        } else why = "voltage";
       } else if (!strcmp(action, ACTION_LIGHT_BRIGHTNESS)) {
         if (!hardware->light) why = "no_light";
         else if (readFloatField(doc, "brightness", fv)) {
