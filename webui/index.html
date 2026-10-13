@@ -176,24 +176,23 @@
         </div>
 
         <details class="fold">
-          <summary><svg class="icon"><use href="#i-fire"/></svg> Battery heater settings</summary>
-          <div class="ctl">
-            <div class="ctl-head" title="The heater turns on when battery temperature falls to this value">
-              <span class="lbl">Turn on below</span>
-              <span class="ctl-value"><span id="val-batt-lt">--</span> °C</span>
+          <summary><svg class="icon"><use href="#i-gears"/></svg> Battery settings</summary>
+          <div class="battery-settings">
+            <div class="ctl" id="heater-settings">
+              <div class="ctl-head" title="The heater turns on when battery temperature falls to this value">
+                <span class="lbl"><svg class="icon"><use href="#i-fire"/></svg> Turn on heating below</span>
+                <span class="ctl-value"><span id="val-batt-lt">--</span> °C</span>
+              </div>
+              <input type="range" id="slider-batt-lt" min="-10" max="10" value="5" aria-label="Heater on below">
             </div>
-            <input type="range" id="slider-batt-lt" min="-10" max="10" value="5" aria-label="Heater on below">
-          </div>
-        </details>
 
-        <details class="fold">
-          <summary><svg class="icon"><use href="#i-battery-full"/></svg> Charge sync settings</summary>
-          <div class="ctl">
-            <div class="ctl-head" title="When voltage stays above this value with a low charge current, battery is considered full and charge level resets to 100%">
-              <span class="lbl">Reset to 100% above</span>
-              <span class="ctl-value"><span id="val-batt-rv">--</span> V</span>
+            <div class="ctl" id="soc-reset-settings">
+              <div class="ctl-head" title="When voltage stays above this value with a low charge current, battery is considered full and charge level resets to 100%">
+                <span class="lbl"><svg class="icon"><use href="#i-battery-full"/></svg> Reset to 100% above</span>
+                <span class="ctl-value"><span id="val-batt-rv">--</span> V</span>
+              </div>
+              <input type="range" id="slider-batt-rv" min="13.9" max="14.6" step="0.05" value="14.1" aria-label="Charge sync voltage">
             </div>
-            <input type="range" id="slider-batt-rv" min="13.9" max="14.6" step="0.05" value="14.1" aria-label="Charge sync voltage">
           </div>
         </details>
       </div>

@@ -192,6 +192,11 @@ input[type="range"] {
   width: 100%;
 }
 
+.battery-settings { display: flex; gap: 24px; width:100%; }
+#heater-settings { flex: 1; }
+#soc-reset-settings { flex: 1; }
+
+
 .form-group {
   margin-bottom: 12px;
 }
