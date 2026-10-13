@@ -4,12 +4,12 @@
 // non riprodurne il comportamento interno. Un unico oggetto di stato `s` da cui
 // derivare tutti gli eventi, così gli scenari sono coerenti (SoC che integra la
 // corrente, safety con le stesse isteresi del firmware, valori congelati a
-// sensore guasto).
+// sensore guasto, SoC sync con soglia configurabile).
 //
 // Console (window.sim):
 //   sim.scenarios()            elenco scenari
 //   sim.scenario('lowBattery') applica uno scenario
-//   sim.speed(n)               accelera l'integrazione del SoC (1 = tempo reale)
+//   sim.speed(n)               accelera l'integrazione del SoC e il cronometro del sync (1 = tempo reale)
 //   sim.reject('outlet_power', 'power')  rifiuta un'azione con quel detail
 //   sim.reject('outlet_power')           rimuove il rifiuto
 //   sim.setIsSafe(false)       forza la safety; sim.setIsSafe(null) torna automatica
@@ -23,14 +23,27 @@ const CAPACITY_AH = 50;
 const FW_VER = '1.0-sim';
 const LIMITS = { cpMin: -10, cpMax: 10, socRvMin: 13.9, socRvMax: 14.6, brMinPct: 1, drMin: 10, drMax: 60 };
 const SAFETY = { socLow: 15, socRecover: 20, vLow: 11.0, vHyst: 0.3 };
+// Come SOC_RESET_TAIL_CURRENT e SOC_RESET_TIME in include_config.h
+const SYNC = { tailFrac: 0.02, timeMs: 3 * 60000 };
 const AUTONOMY_CAP_H = 24.0;
 const MIN_DISCHARGE_A = 0.05;
 const SOC_DEADBAND_A = 0.02;
 const BOOT_KEY = 'sim_boot_count';
 
+// Default di rete/identità (namespace NVS "settings", cancellato dal factory reset)
 const FACTORY = {
   display_name: 'Simulator', hostname: 'simulator',
   main_ssid: 'Sim Main', alt_ssid: 'Sim Alt', ap_no_def_gw: true,
+};
+
+// Default degli altri valori persistiti in "settings" (stessi di include_config.h).
+// Il factory reset del firmware li ripristina tutti, non solo la rete.
+const FACTORY_STATE = {
+  socResetV: 14.1,        // SOC_RESET_VOLTAGE
+  cpLt: 5.0,              // DEFAULT_COLD_PROTECTION_LOW_THRESHOLD
+  autoEnabled: false,     // DEFAULT_AUTO_LIGHT_ENABLED
+  autoBr: 0.25,           // DEFAULT_AUTO_LIGHT_BRIGHTNESS
+  autoDr: 30,             // DEFAULT_AUTO_LIGHT_DURATION
 };
 
 // ---------------------------------------------------------------------------
@@ -45,16 +58,22 @@ const s = {
   autonomy: AUTONOMY_CAP_H,
   sensorOk: true,         // INA226
   tempOk: true,           // DS18B20
+  socResetV: FACTORY_STATE.socResetV,   // soglia SoC sync (configurabile)
+  syncElapsedMs: 0,       // da quanto le condizioni di sync sono continuamente soddisfatte
   // safety
   isSafe: true, socUnsafe: false, voltUnsafe: false, safetyForced: null,
   // heater / luce / prese
-  cpLt: 5.0,
-  light: { brightness: 0, auto: true, auto_br: 0.25, auto_dr: 30 },
+  cpLt: FACTORY_STATE.cpLt,
+  light: { brightness: 0, auto: FACTORY_STATE.autoEnabled,
+           auto_br: FACTORY_STATE.autoBr, auto_dr: FACTORY_STATE.autoDr },
   outlets: [0, 0, 0],
   // diagnostica
   bootCount: 1, resetReason: 'poweron', bootTime: Date.now(),
   // settings
   settings: { ...FACTORY },
+  // factory reset richiesto: il firmware azzera la NVS subito, ma gli oggetti in
+  // RAM (soglie, luce) assumono i default solo al riavvio successivo.
+  factoryPending: false,
 };
 
 let emit = () => {};
@@ -81,7 +100,7 @@ function caps() {
       light_auto_dr_max: LIMITS.drMax,
       cp_lt_min: LIMITS.cpMin,
       cp_lt_max: LIMITS.cpMax,
-      soc_rv_min: LIMITS.socRvMin, 
+      soc_rv_min: LIMITS.socRvMin,
       soc_rv_max: LIMITS.socRvMax,
       fw_ver: FW_VER,
       reset_reason: s.resetReason,
@@ -101,7 +120,7 @@ const batteryEvent = () => ({
 });
 
 const autonomyEvent = () => ({ event: 'battery_autonomy_update', hours: round(s.autonomy, 1) });
-const socSyncEvent = () => ({ event: 'soc_sync_update', voltage: 14.1 });
+const socSyncEvent = () => ({ event: 'soc_sync_update', voltage: round(s.socResetV, 2) });
 const safetyEvent = () => ({ event: 'safety_update', is_safe: s.isSafe });
 const cpEvent = () => ({ event: 'cold_protection_update', lt: s.cpLt });
 const lightEvent = () => ({ event: 'light_update', ...s.light });
@@ -111,7 +130,7 @@ function settingsMsg() {
   return { type: 'settings', payload: { ...s.settings, version: FW_VER } };
 }
 
-// Replica sendInitialState() del firmware.
+// Replica sendInitialState() del firmware (stesso ordine).
 function emitAll() {
   emit(batteryEvent());
   emit(autonomyEvent());
@@ -149,6 +168,24 @@ function updateSafety() {
   setSafe(!(s.socUnsafe || s.voltUnsafe));
 }
 
+// Replica la valutazione di SoC sync in Battery::run(): con soc < 100, se
+// V >= soglia e |I| <= capacità * 2% per 3 minuti continuativi, SoC = 100.
+// Il cronometro avanza di 1 s * timeScale a ogni tick, coerente con l'integrazione.
+function updateSocSync() {
+  if (s.soc >= 100) { s.syncElapsedMs = 0; return; }
+  const tailA = CAPACITY_AH * SYNC.tailFrac;
+  if (Math.abs(s.current) <= tailA && s.voltage >= s.socResetV) {
+    s.syncElapsedMs += 1000 * timeScale;
+    if (s.syncElapsedMs >= SYNC.timeMs) {
+      s.soc = 100;
+      s.syncElapsedMs = 0;
+      console.log('[sim] SoC sync: SoC riportato a 100%');
+    }
+  } else {
+    s.syncElapsedMs = 0;
+  }
+}
+
 function computeAutonomy() {
   const discharge = -s.avgCurrent;
   if (discharge < MIN_DISCHARGE_A) return AUTONOMY_CAP_H;
@@ -173,6 +210,7 @@ function tick() {
     s.voltage = targetVoltage() + (Math.random() - 0.5) * 0.04;
     if (Math.abs(s.current) > SOC_DEADBAND_A)
       s.soc = clamp(s.soc + (s.current / CAPACITY_AH) * 100 * dtH, 0, 100);
+    updateSocSync();
     s.avgCurrent += (s.current - s.avgCurrent) * 0.05;
     updateSafety();
   }
@@ -191,6 +229,7 @@ function baseReset() {
   s.baseCurrent = -0.8;
   s.voltOffset = 0;
   s.safetyForced = null;
+  s.syncElapsedMs = 0;
   timeScale = 1;
 }
 
@@ -208,6 +247,10 @@ const SCENARIOS = {
   lowVoltage()  { baseReset(); s.soc = 90; s.voltOffset = -2.2; },
   // carica: corrente positiva, autonomia al tetto ("> 24h")
   charging()    { baseReset(); s.soc = 60; s.baseCurrent = 8; timeScale = 120; },
+  // fine carica: tensione sopra soglia e corrente di coda (0.5 A < 2% di 50 Ah).
+  // Con timeScale 20 il SoC sync scatta dopo ~9 s reali. Per provare la soglia:
+  // alzare lo slider oltre ~14.3 V e vedere che il sync non scatta più.
+  chargeTail()  { baseReset(); s.soc = 92; s.baseCurrent = 0.5; s.voltOffset = 1.2; timeScale = 20; },
 };
 
 export function scenarios() { return Object.keys(SCENARIOS); }
@@ -233,6 +276,18 @@ export function scenario(name) {
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
+// Replica Settings::factoryReset() + riavvio: tutti i valori persistiti tornano
+// ai default. Gli oggetti in RAM li adottano al reboot (vedi reboot()).
+function applyFactoryDefaults() {
+  s.socResetV = FACTORY_STATE.socResetV;
+  s.cpLt = FACTORY_STATE.cpLt;
+  s.light.auto = FACTORY_STATE.autoEnabled;
+  s.light.auto_br = FACTORY_STATE.autoBr;
+  s.light.auto_dr = FACTORY_STATE.autoDr;
+  s.syncElapsedMs = 0;
+  s.factoryPending = false;
+}
+
 // Replica WifiComm::updateSettings(): salvataggio parziale, detail con i campi scartati.
 function updateSettings(p) {
   if (!p || typeof p !== 'object' || Array.isArray(p))
@@ -242,6 +297,7 @@ function updateSettings(p) {
     if (p.factory_reset_confirm !== 'CONFIRM FACTORY RESET')
       return { ok: false, detail: 'factory_reset_confirm' };
     s.settings = { ...FACTORY };
+    s.factoryPending = true;
     emit(settingsMsg());
     scheduleReboot();
     return { ok: true, detail: '' };
@@ -303,8 +359,22 @@ function execute(obj) {
   switch (a) {
     case 'battery_soc_reset':
       s.soc = 100;
+      s.syncElapsedMs = 0;      // Battery::reset() azzera il cronometro del sync
       emit(batteryEvent());
       return { ok: true };
+
+    // Come Battery::setSocResetVoltage(): clamp ai limiti, nessun evento se il
+    // valore clampato coincide con l'attuale, il cronometro del sync riparte.
+    case 'soc_reset_voltage': {
+      if (!isNum(obj.voltage)) return { ok: false, detail: 'voltage' };
+      const v = clamp(obj.voltage, LIMITS.socRvMin, LIMITS.socRvMax);
+      if (v !== s.socResetV) {
+        s.socResetV = v;
+        s.syncElapsedMs = 0;
+        emit(socSyncEvent());
+      }
+      return { ok: true };
+    }
 
     case 'cp_low_threshold': {
       if (!isNum(obj.temperature)) return { ok: false, detail: 'temperature' };
@@ -382,11 +452,6 @@ export function send(obj, handle) {
   if (obj.id) res.id = obj.id;
   if (r.detail) res.detail = r.detail;
 
-  if (obj.action === 'soc_reset_voltage' && actionResult) {
-    const v = Math.min(14.6, Math.max(13.9, obj.voltage));
-    handle({ event: 'soc_sync_update', voltage: v });
-  }
-
   // Come il firmware: ogni azione riceve un result. Senza id lo si notifica via
   // handle(); con id il chiamante usa il valore di ritorno (vedi request() in main.js).
   if (!obj.id) emit(res);
@@ -428,6 +493,8 @@ function saveBootCount() {
 // la UI lo usa per riconoscere che il riavvio è avvenuto.
 export function reboot(handle) {
   if (handle) emit = handle;
+  if (s.factoryPending) applyFactoryDefaults();   // dopo un factory reset i default entrano in RAM ora
+  s.syncElapsedMs = 0;                            // il cronometro del sync è in RAM, non sopravvive al riavvio
   s.bootCount++;
   s.resetReason = 'sw';
   s.bootTime = Date.now();
@@ -483,7 +550,7 @@ export function reject(action, detail) {
   }
 }
 
-// Moltiplicatore dell'integrazione del SoC (1 = tempo reale).
+// Moltiplicatore dell'integrazione del SoC e del cronometro sync (1 = tempo reale).
 export function speed(n) { timeScale = Math.max(0, Number(n) || 1); }
 
 export function getState() { return s; }
