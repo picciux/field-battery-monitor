@@ -6,17 +6,19 @@
   --danger: #d9534f;
   --border: #ddd;
   --input-bg: #ffffff;
+  --btn-active: #fff;
 }
 
 :root.dark {
   --bg-color: #121212;
   --card-bg: #1e1e1e;
-  --text-color: #ff6e30bc;
-  --primary: #6d5353;
+  --text-color: #fd5c17bc;
+  --primary: #7a371b;
   --danger: #6e0400;
   --border: #333333;
   --input-bg: #2d2d2d;
   --nav-btn-bg: #2d2d2d;
+  --btn-active: #d1b7a9;
 }
 
 body {
@@ -60,7 +62,7 @@ h3 .icon {
 
 .nav-btn.active {
   background: var(--primary);
-  color: white;
+  color: var(--btn-active);
 }
 
 .nav-btn .icon { width: 1.5em; height: 1.5em; }
@@ -211,6 +213,17 @@ input[type="text"], input[type="password"] {
   width:100%; box-sizing:border-box; padding: 4px;
 }
 
+input[type="range"], input[type="checkbox"] {
+  accent-color:var(--primary);
+}
+
+input[type="file"]::file-selector-button {
+  color: var(--btn-active);
+  background-color:var(--primary);
+  border: 0px;
+  cursor: pointer;
+}
+
 .form-group input, input[type="text"], input[type="password"], input[type="number"] {
   background-color: var(--input-bg);
   color: var(--text-color);
@@ -221,7 +234,7 @@ input[type="text"], input[type="password"] {
   width: 100%;
   padding: 10px;
   background: var(--primary);
-  color: white;
+  color: var(--btn-active);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -232,7 +245,7 @@ input[type="text"], input[type="password"] {
   width: 50%;
   padding: 10px;
   background: var(--primary);
-  color: white;
+  color: var(--btn-active);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -375,7 +388,7 @@ input[type="text"], input[type="password"] {
   content: "";
   height: 18px; width: 18px;
   left: 4px; bottom: 4px;
-  background-color: white;
+  background-color: var(--primary);
   transition: .3s;
   border-radius: 50%;
 }
@@ -387,12 +400,18 @@ input:checked + .slider-toggle {
 
 input:checked + .slider-toggle:before {
   transform: translateX(24px);
+  background-color: var(--btn-active);
 }
 
 /* Adattamento Tema Scuro */
 :root.dark .slider-toggle {
   background-color: #333;
 }
+
+:root.dark input:checked + .slider-toggle:before {
+  background-color: var(--primary);
+}
+
 
 /* --- MODAL / OVERLAY (confirm box e progress box) --- */
 .modal-overlay {
