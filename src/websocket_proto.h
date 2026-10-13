@@ -87,7 +87,7 @@
      int    cp_lt_min              minimum heater turn-on temperature, °C.
      int    cp_lt_max              maximum heater turn-on temperature, °C.
      float  soc_rv_min             minimum battery soc reset voltage.
-     float  soc_rv_mac             maximum battery soc reset voltager.
+     float  soc_rv_max             maximum battery soc reset voltage.
      string fw_ver                 firmware version.
      string reset_reason           cause of the reset that preceded THIS boot:
                                    poweron, ext, sw, panic, int_wdt, task_wdt,
