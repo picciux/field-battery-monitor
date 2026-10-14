@@ -7,3 +7,4 @@
 node_modules/
 data/
 src/config.h
+indi/build
