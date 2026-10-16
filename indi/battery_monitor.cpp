@@ -88,8 +88,8 @@ bool BatteryMonitor::initProperties()
     BatteryNP[B_AUTONOMY].fill("AUTONOMY", "Autonomy (h, 24 = charging/idle)", "%5.1f", 0, 24, 0, 0);
     BatteryNP.fill(getDeviceName(), "BATTERY_STATE", "Battery", BATTERY_TAB, IP_RO, 0, IPS_IDLE);
 
-    SensorsLP[S_INA226].fill("INA226", "Current/voltage sensor", IPS_IDLE);
-    SensorsLP[S_DS18B20].fill("DS18B20", "Temperature sensor", IPS_IDLE);
+    SensorsLP[S_CURRENT_VOLTAGE].fill("CV_SENSOR", "Current/voltage sensor", IPS_IDLE);
+    SensorsLP[S_TEMPERATURE].fill("TEMP_SENSOR", "Temperature sensor", IPS_IDLE);
     SensorsLP.fill(getDeviceName(), "BATTERY_SENSORS", "Sensors", BATTERY_TAB, IPS_IDLE);
 
     // ---- SAFETY_STATUS standard (Light, elemento SAFETY)
@@ -99,6 +99,10 @@ bool BatteryMonitor::initProperties()
     // ---- cold protection (soglia di attacco riscaldatore). Limiti aggiornati dalle capabilities.
     ColdProtectionNP[0].fill("LOW_THRESHOLD", "Heater on below (C)", "%3.0f", -10, 10, 1, 5);
     ColdProtectionNP.fill(getDeviceName(), "COLD_PROTECTION", "Cold protection", BATTERY_TAB, IP_RW, 0, IPS_IDLE);
+
+    // ---- soc auto reset (voltage threshold to reset soc). Limiti aggiornati dalle capabilities.
+    SocResetVoltageNP[0].fill("SR_VOLTAGE", "Reset SoC over (V)", "%2.2f", 13.9, 14.6, 0.05, 14.1);
+    SocResetVoltageNP.fill(getDeviceName(), "SOC_RESET_VOLTAGE", "SoC reset voltage", BATTERY_TAB, IP_RW, 0, IPS_IDLE);
 
     // ---- automazione luce (la luminosita' manuale e' la porta 0 del PowerInterface)
     LightAutoSP[AUTO_ON].fill("ON", "Enabled", ISS_OFF);
@@ -110,7 +114,7 @@ bool BatteryMonitor::initProperties()
     LightAutoNP.fill(getDeviceName(), "LIGHT_AUTO_SETTINGS", "Automation settings", LIGHT_TAB, IP_RW, 0, IPS_IDLE);
 
     // ---- reset SoC a 100%
-    SocResetSP[0].fill("RESET", "Set SoC to 100%", ISS_OFF);
+    SocResetSP[0].fill("RESET", "Set battery to 100%", ISS_OFF);
     SocResetSP.fill(getDeviceName(), "SOC_RESET", "SoC reset", BATTERY_TAB, IP_RW, ISR_ATMOST1, 0, IPS_IDLE);
 
     // ---- diagnostica firmware (utile per tenere d'occhio i riavvii)
@@ -144,8 +148,12 @@ bool BatteryMonitor::updateProperties()
         setupPowerInterface();
 
         // Limiti dal firmware, prima di definire le proprieta'
+        SocResetVoltageNP[0].setMin(caps_.socRvMin);
+        SocResetVoltageNP[0].setMax(caps_.socRvMax);
+
         ColdProtectionNP[0].setMin(caps_.cpLtMin);
         ColdProtectionNP[0].setMax(caps_.cpLtMax);
+
         LightAutoNP[LA_BRIGHTNESS].setMin(caps_.lightAutoBrMinPct);
         LightAutoNP[LA_BRIGHTNESS].setMax(100);
         LightAutoNP[LA_DURATION].setMin(caps_.lightAutoDrMin);
@@ -155,6 +163,7 @@ bool BatteryMonitor::updateProperties()
         defineProperty(SensorsLP);
         defineProperty(SafetyStatusLP);
         defineProperty(ColdProtectionNP);
+        defineProperty(SocResetVoltageNP);
         if (hasLight_)
         {
             defineProperty(LightAutoSP);
@@ -171,6 +180,7 @@ bool BatteryMonitor::updateProperties()
         deleteProperty(SensorsLP);
         deleteProperty(SafetyStatusLP);
         deleteProperty(ColdProtectionNP);
+        deleteProperty(SocResetVoltageNP);
         if (hasLight_)
         {
             deleteProperty(LightAutoSP);
@@ -191,11 +201,11 @@ bool BatteryMonitor::Connect()
     const int port = std::atoi(ServerAddressTP[ADDR_PORT].getText());
     if (host.empty() || port <= 0 || port > 65535)
     {
-        LOG_ERROR("Indirizzo del firmware non valido.");
+        LOG_ERROR("Invalid device address.");
         return false;
     }
 
-    LOGF_INFO("Connessione a ws://%s:%d ...", host.c_str(), port);
+    LOGF_INFO("Connecting to ws://%s:%d ...", host.c_str(), port);
     link_.setUrl(host, port);
     link_.start();
 
@@ -203,8 +213,8 @@ bool BatteryMonitor::Connect()
     // quante porte esporre.
     if (!link_.waitForCaps(std::chrono::milliseconds(CONNECT_TIMEOUT_MS)))
     {
-        LOG_ERROR("Nessuna risposta dal firmware (capabilities non ricevute). Controllare host/porta e che il "
-                  "dispositivo non abbia troppi client websocket aperti.");
+        LOG_ERROR("No response from device. Check host/port and "
+                  "verify if too many clients are connected to device.");
         link_.stop();
         return false;
     }
@@ -214,8 +224,8 @@ bool BatteryMonitor::Connect()
     outlets_  = std::min(caps_.outlets, bm::MAX_OUTLETS);
     linkWasUp_ = true;
 
-    LOGF_INFO("Firmware v%s: %d canali, luce %s, %d outlet.", caps_.fwVer.c_str(), caps_.channels,
-              hasLight_ ? "si'" : "no", outlets_);
+    LOGF_INFO("Firmware v%s: %d channels, light %s, %d outlets.", caps_.fwVer.c_str(), caps_.channels,
+              hasLight_ ? "present'" : "not present", outlets_);
     noteBootCount(caps_);
 
     SetTimer(getCurrentPollingPeriod());
@@ -244,8 +254,8 @@ void BatteryMonitor::setupPowerInterface()
     if (powerInitDone_)
     {
         if (nPorts != powerInitPorts_)
-            LOG_WARN("La variante hardware del firmware e' cambiata dall'ultima connessione: riavviare il driver "
-                     "per aggiornare le porte Power.");
+            LOG_WARN("Device hardware variant changed since last connection: restart the driver "
+                     "to update the device capabilities.");
         return;
     }
 
@@ -377,6 +387,15 @@ bool BatteryMonitor::ISNewNumber(const char *dev, const char *name, double value
             return true;
         }
 
+        if (SocResetVoltageNP.isNameMatch(name))
+        {
+            SocResetVoltageNP.update(values, names, n);
+            const bool ok = link_.setSocResetVoltage(SocResetVoltageNP[0].getValue());
+            SocResetVoltageNP.setState(ok ? IPS_OK : IPS_ALERT);
+            SocResetVoltageNP.apply();
+            return true;
+        }
+
         if (LightAutoNP.isNameMatch(name))
         {
             LightAutoNP.update(values, names, n);
@@ -423,7 +442,7 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
             {
                 ok = link_.socReset();
                 if (ok)
-                    LOG_INFO("Richiesto reset del SoC al 100%.");
+                    LOG_INFO("SoC reset to 100%.");
             }
             SocResetSP.reset();   // e' un pulsante, non uno stato
             SocResetSP.setState(ok ? IPS_OK : IPS_ALERT);
@@ -470,7 +489,7 @@ IPState BatteryMonitor::evaluateSafety(const bm::State &s) const
 void BatteryMonitor::noteBootCount(const bm::Capabilities &c)
 {
     if (lastBootCount_ != 0 && c.bootCount > lastBootCount_)
-        LOGF_WARN("Il firmware si e' riavviato (boot_count %u -> %u, reset_reason=%s).", lastBootCount_,
+        LOGF_WARN("Device rebooted (boot_count %u -> %u, reset_reason=%s).", lastBootCount_,
                   c.bootCount, c.resetReason.c_str());
     lastBootCount_ = c.bootCount;
 }
@@ -483,9 +502,9 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
     if (d & D_LINK)
     {
         if (s.linkUp && !linkWasUp_)
-            LOG_INFO("Collegamento websocket ripristinato.");
+            LOG_INFO("Connection restored.");
         else if (!s.linkUp && linkWasUp_)
-            LOG_WARN("Collegamento websocket perso, riconnessione in corso...");
+            LOG_WARN("Connection lost, reconnecting...");
         linkWasUp_ = s.linkUp;
 
         if (!s.linkUp)
@@ -504,7 +523,7 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
     if (d & D_CAPS)
     {
         if (s.caps.light != caps_.light || std::min(s.caps.outlets, MAX_OUTLETS) != outlets_)
-            LOG_WARN("La variante hardware del firmware e' cambiata: riavviare il driver.");
+            LOG_WARN("Device hardware variant changed: restart the driver.");
         noteBootCount(s.caps);
 
         FirmwareTP[FW_VERSION].setText(s.caps.fwVer.c_str());
@@ -532,14 +551,14 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
 
         const IPState ina = s.sensorOk ? IPS_OK : IPS_ALERT;
         const IPState ds  = s.tempValid ? IPS_OK : IPS_ALERT;
-        if (SensorsLP[S_INA226].getState() != ina || SensorsLP[S_DS18B20].getState() != ds)
+        if (SensorsLP[S_CURRENT_VOLTAGE].getState() != ina || SensorsLP[S_TEMPERATURE].getState() != ds)
         {
-            SensorsLP[S_INA226].setState(ina);
-            SensorsLP[S_DS18B20].setState(ds);
+            SensorsLP[S_CURRENT_VOLTAGE].setState(ina);
+            SensorsLP[S_TEMPERATURE].setState(ds);
             SensorsLP.setState((ina == IPS_OK && ds == IPS_OK) ? IPS_OK : IPS_ALERT);
             SensorsLP.apply();
             if (ina != IPS_OK)
-                LOG_WARN("INA226 non risponde: tensione/corrente congelate, SoC e safety all'ultimo valore noto.");
+                LOG_WARN("Current/voltage sensor not responding: current/voltage now frozen, SoC and safety stay at last known value.");
         }
 
         pushPowerSensors(s);
@@ -557,6 +576,14 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
         ColdProtectionNP[0].setValue(s.coldLt);
         ColdProtectionNP.setState(IPS_OK);
         ColdProtectionNP.apply();
+    }
+
+    // ---- SoC reset voltage
+    if ((d & D_SOC_RV) && s.haveSocRV)
+    {
+        SocResetVoltageNP[0].setValue(s.socRV);
+        SocResetVoltageNP.setState(IPS_OK);
+        SocResetVoltageNP.apply();
     }
 
     // ---- luce e outlet
@@ -577,7 +604,7 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
 
     // ---- comandi rifiutati dal firmware
     if (d & D_RESULT)
-        LOGF_WARN("Il firmware ha rifiutato un comando (totale rifiutati: %u).", s.rejectedCommands);
+        LOGF_WARN("Device rejected a command (rejected total: %u).", s.rejectedCommands);
 
     // ---- SAFETY_STATUS: valutata a ogni tick, cosi' cattura anche il dato "vecchio"
     const IPState ns = evaluateSafety(s);

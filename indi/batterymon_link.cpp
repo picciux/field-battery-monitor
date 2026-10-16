@@ -163,6 +163,8 @@ void Link::handleText(const std::string &text)
             c.lightAutoDrMax    = (int) getOr<double>(*p, "light_auto_dr_max", 60);
             c.cpLtMin           = (int) getOr<double>(*p, "cp_lt_min", -10);
             c.cpLtMax           = (int) getOr<double>(*p, "cp_lt_max", 10);
+            c.socRvMin          = (float) getOr<double>(*p, "soc_rv_min", 13.9d);
+            c.socRvMax          = (float) getOr<double>(*p, "soc_rv_max", 14.6d);
             c.fwVer             = getOr<std::string>(*p, "fw_ver", "");
             c.resetReason       = getOr<std::string>(*p, "reset_reason", "");
             c.bootCount         = (uint32_t) getOr<double>(*p, "boot_count", 0);
@@ -218,6 +220,12 @@ void Link::handleText(const std::string &text)
         st_.coldLt = getOr<double>(j, "lt", 0.0);
         dirty_ |= D_COLD;
     }
+    else if (ev == "soc_sync_update")
+    {
+        st_.haveSocRV = true;
+        st_.socRV = getOr<double>(j, "voltage", 0.0);
+        dirty_ |= D_SOC_RV;
+    }
     else if (ev == "light_update")
     {
         st_.haveLight       = true;
@@ -256,6 +264,11 @@ bool Link::socReset()
 bool Link::setColdThreshold(double celsius)
 {
     return sendJson({{"action", "cp_low_threshold"}, {"temperature", celsius}});
+}
+
+bool Link::setSocResetVoltage(double volt)
+{
+    return sendJson({{"action", "soc_reset_voltage"}, {"voltage", volt}});
 }
 
 bool Link::setLightBrightness(double b01)

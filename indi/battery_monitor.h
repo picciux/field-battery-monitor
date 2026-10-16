@@ -82,10 +82,11 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
         enum { B_VOLTAGE, B_CURRENT, B_SOC, B_TEMPERATURE, B_AUTONOMY };
 
         INDI::PropertyLight SensorsLP {2};
-        enum { S_INA226, S_DS18B20 };
+        enum { S_CURRENT_VOLTAGE, S_TEMPERATURE };
 
         INDI::PropertyLight SafetyStatusLP {1};   // standard: SAFETY_STATUS / SAFETY
 
+        INDI::PropertyNumber SocResetVoltageNP {1};
         INDI::PropertyNumber ColdProtectionNP {1};
 
         INDI::PropertySwitch LightAutoSP {2};

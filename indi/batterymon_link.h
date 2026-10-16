@@ -40,6 +40,8 @@ namespace bm
         int lightAutoDrMax = 60;
         int cpLtMin = -10;
         int cpLtMax = 10;
+        float socRvMin = 13.9f;
+        float socRvMax = 14.6f;
         std::string fwVer;
         std::string resetReason;
         uint32_t bootCount = 0;
@@ -79,6 +81,9 @@ namespace bm
         bool haveCold = false;
         double coldLt = 0.0;
 
+        bool haveSocRV = false;
+        double socRV = 0.0;
+
         // light_update (0..1 per le luminosita')
         bool haveLight = false;
         double lightBrightness = 0.0;
@@ -102,9 +107,10 @@ namespace bm
         D_AUTONOMY = 1u << 3,
         D_SAFETY   = 1u << 4,
         D_COLD     = 1u << 5,
-        D_LIGHT    = 1u << 6,
-        D_OUTLET   = 1u << 7,
-        D_RESULT   = 1u << 8,
+        D_SOC_RV   = 1u << 6,
+        D_LIGHT    = 1u << 7,
+        D_OUTLET   = 1u << 8,
+        D_RESULT   = 1u << 9,
     };
 
     class Link
@@ -134,6 +140,7 @@ namespace bm
         // --- il messaggio e' stato accodato; l'esito reale arriva come evento.
         bool socReset();
         bool setColdThreshold(double celsius);
+        bool setSocResetVoltage(double volt);
         bool setLightBrightness(double b01);
         bool setLightAuto(bool enabled);
         bool setLightAutoBrightness(double b01);
