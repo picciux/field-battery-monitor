@@ -109,7 +109,10 @@ bool BatteryMonitor::initProperties()
     SocResetVoltageNP[0].fill("SR_VOLTAGE", "Reset SoC over (V)", "%2.2f", 13.9, 14.6, 0.05, 14.1);
     SocResetVoltageNP.fill(getDeviceName(), "SOC_RESET_VOLTAGE", "SoC reset voltage", BATTERY_TAB, IP_RW, 0, IPS_IDLE);
 
-    // ---- automazione luce (la luminosita' manuale e' la porta 0 del PowerInterface)
+    // ---- luce 
+    LightBrigthnessNP[0].fill("BRIGHTNESS", "On brightness (%)", "%3.0f", 0, 100, 1, 0);
+    LightBrigthnessNP.fill(getDeviceName(), "LIGHT", "Light", LIGHT_TAB, IP_RW, 0, IPS_IDLE);
+
     LightAutoSP[AUTO_ON].fill("ON", "Enabled", ISS_OFF);
     LightAutoSP[AUTO_OFF].fill("OFF", "Disabled", ISS_ON);
     LightAutoSP.fill(getDeviceName(), "LIGHT_AUTO", "Motion automation", LIGHT_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
@@ -172,6 +175,7 @@ bool BatteryMonitor::updateProperties()
         defineProperty(SocResetVoltageNP);
         if (hasLight_)
         {
+            defineProperty(LightBrigthnessNP);
             defineProperty(LightAutoSP);
             defineProperty(LightAutoNP);
         }
@@ -190,6 +194,7 @@ bool BatteryMonitor::updateProperties()
         deleteProperty(SocResetVoltageNP);
         if (hasLight_)
         {
+            deleteProperty(LightBrigthnessNP);
             deleteProperty(LightAutoSP);
             deleteProperty(LightAutoNP);
         }
@@ -259,7 +264,7 @@ bool BatteryMonitor::saveConfigItems(FILE *fp)
 
 void BatteryMonitor::setupPowerInterface()
 {
-    const int nPorts = (hasLight_ ? 1 : 0) + outlets_;
+    const int nPorts = outlets_;
 
     if (powerInitDone_)
     {
@@ -274,49 +279,16 @@ void BatteryMonitor::setupPowerInterface()
         cap |= POWER_HAS_DEW_OUT;
     INDI::PowerInterface::SetCapability(cap);
 
-    // VERIFICARE: l'esempio ufficiale la chiama in initProperties(); qui e'
-    // differita alla connessione perche' il numero di porte e' dinamico. Se
-    // non fosse supportato, ripiegare su un numero fisso di porte (es. 1 + 3).
-    INDI::PowerInterface::initProperties("Power", 0, nPorts, 0, 0, 0);
-
-    if (hasLight_) {
-        DewChannelLabelsTP[0].setText("Light");
-        DewChannelLabelsTP.apply();
-    }
+    INDI::PowerInterface::initProperties("DC Outlets", 0, nPorts, 0, 0, 0);
 
     powerInitDone_ = true;
     powerInitPorts_ = nPorts;
 }
 
-// Layout porte: [Light se presente] [Outlet 0..N-1]
-bool BatteryMonitor::resolvePort(size_t port, PortTarget &t) const
-{
-    int idx = (int) port;
-    if (hasLight_)
-    {
-        if (idx == 0)
-        {
-            t = {true, -1};
-            return true;
-        }
-        idx--;
-    }
-    if (idx >= 0 && idx < outlets_)
-    {
-        t = {false, idx};
-        return true;
-    }
-    return false;
-}
-
 bool BatteryMonitor::SetDewPort(size_t port, bool enabled, double dutyCycle)
 {
-    PortTarget t;
-    if (!resolvePort(port, t))
-        return false;
-
     const double p = enabled ? clamp01(dutyCycle / 100.0) : 0.0;
-    return t.isLight ? link_.setLightBrightness(p) : link_.setOutletPower(t.outlet, p);
+    return link_.setOutletPower(port, p);
 }
 
 // Non supportati dall'hardware
@@ -348,23 +320,12 @@ void BatteryMonitor::pushPowerSensors(const bm::State &s)
 // publish state to UI
 void BatteryMonitor::mirrorPortsToPowerInterface(const bm::State &s)
 {
-    size_t index = 0;
-    if (hasLight_) {
-        if (s.lightBrightness > 0) {
-            DewChannelDutyCycleNP[index].setValue(s.lightBrightness * 100.0);
-            DewChannelsSP[index].setState(ISS_ON);
-        } else {
-            DewChannelsSP[index].setState(ISS_OFF);            
-        }
-    }
-
     for (int i = 0; i < outlets_; i++) {
-        index = i + (hasLight_ ? 1 : 0);
         if (s.outletPower[i] > 0) {
-            DewChannelDutyCycleNP[index].setValue(s.outletPower[i] * 100.0);
-            DewChannelsSP[index].setState(ISS_ON);
+            DewChannelDutyCycleNP[i].setValue(s.outletPower[i] * 100.0);
+            DewChannelsSP[i].setState(ISS_ON);
         } else {
-            DewChannelsSP[index].setState(ISS_OFF);
+            DewChannelsSP[i].setState(ISS_OFF);
         }
     }
 
@@ -426,6 +387,16 @@ bool BatteryMonitor::ISNewNumber(const char *dev, const char *name, double value
             const bool ok = link_.setSocResetVoltage(SocResetVoltageNP[0].getValue());
             SocResetVoltageNP.setState(ok ? IPS_OK : IPS_ALERT);
             SocResetVoltageNP.apply();
+            return true;
+        }
+
+        if (LightBrigthnessNP.isNameMatch(name))
+        {
+            bool ok = true;
+            LightBrigthnessNP.update(values, names, n);
+            ok &= link_.setLightBrightness(clamp01(LightBrigthnessNP[0].getValue() / 100.0));
+            LightBrigthnessNP.setState(ok ? IPS_OK : IPS_ALERT);
+            LightBrigthnessNP.apply();
             return true;
         }
 
@@ -630,6 +601,10 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
     // ---- luce e outlet
     if ((d & D_LIGHT) && hasLight_ && s.haveLight)
     {
+        LightBrigthnessNP[0].setValue(s.lightBrightness * 100.0);
+        LightBrigthnessNP.setState(IPS_OK);
+        LightBrigthnessNP.apply();
+
         LightAutoSP[AUTO_ON].setState(s.lightAuto ? ISS_ON : ISS_OFF);
         LightAutoSP[AUTO_OFF].setState(s.lightAuto ? ISS_OFF : ISS_ON);
         LightAutoSP.setState(IPS_OK);
@@ -640,7 +615,7 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
         LightAutoNP.setState(IPS_OK);
         LightAutoNP.apply();
     }
-    if (d & (D_LIGHT | D_OUTLET))
+    if (d & (D_OUTLET))
         mirrorPortsToPowerInterface(s);
 
     // ---- comandi rifiutati dal firmware

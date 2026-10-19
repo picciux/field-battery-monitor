@@ -59,7 +59,6 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
         // ---- PowerInterface: inizializzazione differita (le porte dipendono dalla variante firmware) ----
         void setupPowerInterface();
         struct PortTarget { bool isLight; int outlet; };
-        bool resolvePort(size_t port, PortTarget &t) const;
 
         bm::Link link_;
 
@@ -91,6 +90,7 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
         INDI::PropertyNumber SocResetVoltageNP {1};
         INDI::PropertyNumber ColdProtectionNP {1};
 
+        INDI::PropertyNumber LightBrigthnessNP{1};
         INDI::PropertySwitch LightAutoSP {2};
         enum { AUTO_ON, AUTO_OFF };
         INDI::PropertyNumber LightAutoNP {2};
