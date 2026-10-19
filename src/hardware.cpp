@@ -340,6 +340,7 @@ void PowerOutlet::_apply(float p) {
 }
 
 void PowerOutlet::setPower(float power) {
+  _off.cancel();
   _apply(power);
 }
 
