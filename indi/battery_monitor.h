@@ -77,8 +77,6 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
         INDI::PropertyText ServerAddressTP {2};
         enum { ADDR_HOST, ADDR_PORT };
 
-        INDI::PropertyText SystemNameTP {1};
-
         INDI::PropertyNumber BatteryNP {5};
         enum { B_VOLTAGE, B_CURRENT, B_SOC, B_TEMPERATURE, B_AUTONOMY };
 
@@ -98,6 +96,6 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
 
         INDI::PropertySwitch SocResetSP {1};
 
-        INDI::PropertyText FirmwareTP {4};
-        enum { FW_VERSION, FW_RESET_REASON, FW_BOOT_COUNT, FW_UPTIME };
+        INDI::PropertyText SystemInfoTP {5};
+        enum { SYS_NAME, FW_VERSION, SYS_RESET_REASON, SYS_BOOT_COUNT, SYS_UPTIME };
 };

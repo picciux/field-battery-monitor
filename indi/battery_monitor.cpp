@@ -80,11 +80,6 @@ bool BatteryMonitor::initProperties()
     ServerAddressTP[ADDR_PORT].fill("PORT", "Port", DEFAULT_PORT);
     ServerAddressTP.fill(getDeviceName(), "SERVER_ADDRESS", "Server", CONNECTION_TAB, IP_RW, 60, IPS_IDLE);
 
-    // ---- System Name (sola lettura)
-   SystemNameTP[0].fill("NAME", "Name", "");
-   SystemNameTP.fill(getDeviceName(), "SYSTEM_NAME", "System name",
-                     INFO_TAB, IP_RO, 60, IPS_IDLE);
-
     // ---- batteria
     BatteryNP[B_VOLTAGE].fill("VOLTAGE", "Voltage (V)", "%6.2f", 0, 20, 0, 0);
     BatteryNP[B_CURRENT].fill("CURRENT", "Current (A, - = discharge)", "%6.3f", -100, 100, 0, 0);
@@ -110,7 +105,7 @@ bool BatteryMonitor::initProperties()
     SocResetVoltageNP.fill(getDeviceName(), "SOC_RESET_VOLTAGE", "SoC reset voltage", BATTERY_TAB, IP_RW, 0, IPS_IDLE);
 
     // ---- luce 
-    LightBrigthnessNP[0].fill("BRIGHTNESS", "On brightness (%)", "%3.0f", 0, 100, 1, 0);
+    LightBrigthnessNP[0].fill("BRIGHTNESS", "Brightness (%)", "%3.0f", 0, 100, 1, 0);
     LightBrigthnessNP.fill(getDeviceName(), "LIGHT", "Light", LIGHT_TAB, IP_RW, 0, IPS_IDLE);
 
     LightAutoSP[AUTO_ON].fill("ON", "Enabled", ISS_OFF);
@@ -126,11 +121,12 @@ bool BatteryMonitor::initProperties()
     SocResetSP.fill(getDeviceName(), "SOC_RESET", "SoC reset", BATTERY_TAB, IP_RW, ISR_ATMOST1, 0, IPS_IDLE);
 
     // ---- diagnostica firmware (utile per tenere d'occhio i riavvii)
-    FirmwareTP[FW_VERSION].fill("VERSION", "Firmware", "");
-    FirmwareTP[FW_RESET_REASON].fill("RESET_REASON", "Last reset reason", "");
-    FirmwareTP[FW_BOOT_COUNT].fill("BOOT_COUNT", "Boot count", "");
-    FirmwareTP[FW_UPTIME].fill("UPTIME", "Uptime", "");
-    FirmwareTP.fill(getDeviceName(), "FIRMWARE_INFO", "Firmware", DIAG_TAB, IP_RO, 0, IPS_IDLE);
+    SystemInfoTP[SYS_NAME].fill("NAME", "Name", "");
+    SystemInfoTP[FW_VERSION].fill("VERSION", "Firmware", "");
+    SystemInfoTP[SYS_RESET_REASON].fill("RESET_REASON", "Last reset reason", "");
+    SystemInfoTP[SYS_BOOT_COUNT].fill("BOOT_COUNT", "Boot count", "");
+    SystemInfoTP[SYS_UPTIME].fill("UPTIME", "Uptime", "");
+    SystemInfoTP.fill(getDeviceName(), "SYSTEM_INFO", "System Info", INFO_TAB, IP_RO, 0, IPS_IDLE);
 
     addDebugControl();
     addPollPeriodControl();
@@ -167,7 +163,6 @@ bool BatteryMonitor::updateProperties()
         LightAutoNP[LA_DURATION].setMin(caps_.lightAutoDrMin);
         LightAutoNP[LA_DURATION].setMax(caps_.lightAutoDrMax);
 
-        defineProperty(SystemNameTP);
         defineProperty(BatteryNP);
         defineProperty(SensorsLP);
         defineProperty(SafetyStatusLP);
@@ -180,13 +175,12 @@ bool BatteryMonitor::updateProperties()
             defineProperty(LightAutoNP);
         }
         defineProperty(SocResetSP);
-        defineProperty(FirmwareTP);
+        defineProperty(SystemInfoTP);
 
         INDI::PowerInterface::updateProperties();
     }
     else
     {
-        deleteProperty(SystemNameTP);
         deleteProperty(BatteryNP);
         deleteProperty(SensorsLP);
         deleteProperty(SafetyStatusLP);
@@ -199,7 +193,7 @@ bool BatteryMonitor::updateProperties()
             deleteProperty(LightAutoNP);
         }
         deleteProperty(SocResetSP);
-        deleteProperty(FirmwareTP);
+        deleteProperty(SystemInfoTP);
 
         INDI::PowerInterface::updateProperties();
     }
@@ -279,7 +273,7 @@ void BatteryMonitor::setupPowerInterface()
         cap |= POWER_HAS_DEW_OUT;
     INDI::PowerInterface::SetCapability(cap);
 
-    INDI::PowerInterface::initProperties("DC Outlets", 0, nPorts, 0, 0, 0);
+    INDI::PowerInterface::initProperties(POWER_TAB, 0, nPorts, 0, 0, 0);
 
     powerInitDone_ = true;
     powerInitPorts_ = nPorts;
@@ -530,25 +524,25 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
             LOG_WARN("Device hardware variant changed: restart the driver.");
         noteBootCount(s.caps);
 
-        FirmwareTP[FW_VERSION].setText(s.caps.fwVer.c_str());
-        FirmwareTP[FW_RESET_REASON].setText(s.caps.resetReason.c_str());
-        FirmwareTP[FW_BOOT_COUNT].setText(std::to_string(s.caps.bootCount).c_str());
+        SystemInfoTP[FW_VERSION].setText(s.caps.fwVer.c_str());
+        SystemInfoTP[SYS_RESET_REASON].setText(s.caps.resetReason.c_str());
+        SystemInfoTP[SYS_BOOT_COUNT].setText(std::to_string(s.caps.bootCount).c_str());
 
         char up[32];
         const uint32_t t = s.caps.uptimeS;
         snprintf(up, sizeof(up), "%ud %02u:%02u:%02u", t / 86400, (t / 3600) % 24, (t / 60) % 60, t % 60);
-        FirmwareTP[FW_UPTIME].setText(up);
+        SystemInfoTP[SYS_UPTIME].setText(up);
 
-        FirmwareTP.setState(IPS_OK);
-        FirmwareTP.apply();
+        SystemInfoTP.setState(IPS_OK);
+        SystemInfoTP.apply();
     }
 
     // ---- settings. We're interested in system name only
     if (d & D_SETTINGS)
     {
-        SystemNameTP[0].setText(s.stgs.systemName);
-        SystemNameTP.setState(IPS_OK);
-        SystemNameTP.apply();
+        SystemInfoTP[SYS_NAME].setText(s.stgs.systemName);
+        SystemInfoTP.setState(IPS_OK);
+        SystemInfoTP.apply();
     }
 
     // ---- batteria
