@@ -1,7 +1,7 @@
 # indi-batterymonitor (scheletro)
 
 Driver INDI per il Battery Monitor ESP32. Parla col firmware via **websocket (porta 81)**,
-non via Alpaca. Non compilato né testato: è uno scheletro.
+non via Alpaca.
 
 ## Mappatura firmware → INDI
 

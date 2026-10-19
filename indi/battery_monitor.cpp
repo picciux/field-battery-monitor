@@ -340,16 +340,34 @@ void BatteryMonitor::pushPowerSensors(const bm::State &s)
 #endif
 }
 
+// publish state to UI
 void BatteryMonitor::mirrorPortsToPowerInterface(const bm::State &s)
 {
-    // TODO: riflettere sulla UI del PowerInterface lo stato reale delle porte
-    // (luce / outlet) quando cambia lato firmware (web UI, PIR, altro client).
-    // Dipende dai nomi delle property interne di indipowerinterface.h
-    // (duty cycle e switch on/off delle porte Dew): da completare guardando
-    // l'header o un driver gia' migrato (es. Pegasus).
-    // Dati disponibili: s.lightBrightness (0..1) -> porta 0 se hasLight_,
-    //                   s.outletPower[i]  (0..1) -> porta (hasLight_ ? 1 : 0) + i
-    (void) s;
+    size_t index = 0;
+    if (hasLight_) {
+        if (s.lightBrightness > 0) {
+            DewChannelDutyCycleNP[index].setValue(s.lightBrightness * 100.0);
+            DewChannelsSP[index].setState(ISS_ON);
+        } else {
+            DewChannelsSP[index].setState(ISS_OFF);            
+        }
+    }
+
+    for (int i = 0; i < outlets_; i++) {
+        index = i + (hasLight_ ? 1 : 0);
+        if (s.outletPower[i] > 0) {
+            DewChannelDutyCycleNP[index].setValue(s.outletPower[i] * 100.0);
+            DewChannelsSP[index].setState(ISS_ON);
+        } else {
+            DewChannelsSP[index].setState(ISS_OFF);
+        }
+    }
+
+    DewChannelDutyCycleNP.setState(IPS_OK);
+    DewChannelDutyCycleNP.apply();
+
+    DewChannelsSP.setState(IPS_OK);
+    DewChannelsSP.apply();
 }
 
 // ============================================================ client -> device

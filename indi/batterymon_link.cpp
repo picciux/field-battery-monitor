@@ -163,8 +163,8 @@ void Link::handleText(const std::string &text)
             c.lightAutoDrMax    = (int) getOr<double>(*p, "light_auto_dr_max", 60);
             c.cpLtMin           = (int) getOr<double>(*p, "cp_lt_min", -10);
             c.cpLtMax           = (int) getOr<double>(*p, "cp_lt_max", 10);
-            c.socRvMin          = (float) getOr<double>(*p, "soc_rv_min", 13.9d);
-            c.socRvMax          = (float) getOr<double>(*p, "soc_rv_max", 14.6d);
+            c.socRvMin          = (float) getOr<double>(*p, "soc_rv_min", 13.9);
+            c.socRvMax          = (float) getOr<double>(*p, "soc_rv_max", 14.6);
             c.fwVer             = getOr<std::string>(*p, "fw_ver", "");
             c.resetReason       = getOr<std::string>(*p, "reset_reason", "");
             c.bootCount         = (uint32_t) getOr<double>(*p, "boot_count", 0);
