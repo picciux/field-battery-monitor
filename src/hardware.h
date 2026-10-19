@@ -159,6 +159,8 @@ class Hardware {
         Settings *settings;
 
         int getOutletsNum();
+        void scheduleOff(unsigned long delayMs);
+        unsigned int getRemainingS(unsigned long now);
 
         void setup(Settings *settings);
         void run(unsigned long now);

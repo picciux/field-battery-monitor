@@ -410,6 +410,26 @@ static Light _light;
 static PowerOutlet _outletObjs[MAX_OUTLETS];
 static PowerOutlet *_outletPtrs[MAX_OUTLETS];
 
+void Hardware::scheduleOff(unsigned long delayMs) {
+  if (light)
+    light->scheduleOff(delayMs);
+  for (int i = 0; i < OUTLET_COUNT; i++)
+    outlets[i]->scheduleOff(delayMs);
+}
+
+unsigned int Hardware::getRemainingS(unsigned long now) {
+  unsigned int max = 0;
+  if (light)
+    max = light->getRemainingS(now);
+  
+  for (int i = 0; i < OUTLET_COUNT; i++) {
+    unsigned int s = outlets[i]->getRemainingS(now);
+    if (s > max) max = s;
+  }
+
+  return max;
+}
+
 void Hardware::setup(Settings *settings)
 {
     this->battery = &_battery;
