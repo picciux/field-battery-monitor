@@ -279,6 +279,11 @@ void BatteryMonitor::setupPowerInterface()
     // non fosse supportato, ripiegare su un numero fisso di porte (es. 1 + 3).
     INDI::PowerInterface::initProperties("Power", 0, nPorts, 0, 0, 0);
 
+    if (hasLight_) {
+        DewChannelLabelsTP[0].setText("Light");
+        DewChannelLabelsTP.apply();
+    }
+
     powerInitDone_ = true;
     powerInitPorts_ = nPorts;
 }
