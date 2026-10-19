@@ -37,7 +37,9 @@ static AlpacaDeviceInfo g_SwitchInfo = {
 #define OUTLET_2                 1
 #define OUTLET_3                 2
 
-#define MAX_SWITCHES            (BATT_SWITCHES + LIGHT_SWITCHES + MAX_OUTLETS)
+#define TIMED_OFF                0
+
+#define MAX_SWITCHES            (BATT_SWITCHES + LIGHT_SWITCHES + MAX_OUTLETS + 1) //+1 is timed off switch
 
 enum class SwitchType {
   BatteryVoltage,
@@ -55,6 +57,7 @@ enum class SwitchType {
   Outlet1,
   Outlet2,
   Outlet3,
+  TimedOff,
   Unknown
 };
 
@@ -84,6 +87,8 @@ static SwitchDef g_outletSwitches[MAX_OUTLETS] = {
   { "Power outlet 3", "Power outlet 3 (%)", 0.0, 100.0, 1.0, true }    
 };
 
+static SwitchDef g_timedOffSwitch = { "Timed off", "Power-off all in (s)", 0.0, 300.0, 1.0, true };
+
 static DeviceDef g_device;
 static bool g_switchConnected;
 static int g_numSwitches;
@@ -102,6 +107,10 @@ static void buildDeviceTable() {
       g_switches[g_numSwitches++] = g_outletSwitches[i];
     }
   }
+
+  // add switch to schedule delayed turn-off.
+  g_switches[g_numSwitches++] = g_timedOffSwitch;
+
   g_device = { SWITCH_DEVICE_NUMBER, &g_SwitchInfo, g_switches, g_numSwitches };
 }
 
@@ -150,7 +159,7 @@ static SwitchType resolveSwitchId(int id) {
       case LIGHT_AUTO_DURATION:
         return SwitchType::LightAutoDuration;
     }
-  } else {
+  } else if (id < BATT_SWITCHES + (HAS_LIGHT ? LIGHT_SWITCHES : 0) + OUTLET_COUNT) {
     int prev_switches = BATT_SWITCHES + (HAS_LIGHT ? LIGHT_SWITCHES : 0);
     if (id >= prev_switches && id < prev_switches + OUTLET_COUNT) {
       switch(id - prev_switches) {
@@ -162,6 +171,9 @@ static SwitchType resolveSwitchId(int id) {
           return SwitchType::Outlet3;
       }
     }
+  } else if (id == BATT_SWITCHES + (HAS_LIGHT ? LIGHT_SWITCHES : 0) + OUTLET_COUNT) {
+    //timed off switch
+    return SwitchType::TimedOff;
   }
 
   return SwitchType::Unknown;
@@ -220,6 +232,8 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::Outlet1:                   return round(hw->outlets[0]->getPower() * 100.0);
     case SwitchType::Outlet2:                   return round(hw->outlets[1]->getPower() * 100.0);
     case SwitchType::Outlet3:                   return round(hw->outlets[2]->getPower() * 100.0);
+
+    case SwitchType::TimedOff:                  return hw->getRemainingS(millis());
   }
   return 0.0; //Unknown
 }
@@ -237,6 +251,8 @@ void writeSwitchValue(Hardware *hw, SwitchType type, double v) {
     case SwitchType::Outlet1:               hw->outlets[0]->setPower(v / 100.0f); break;
     case SwitchType::Outlet2:               hw->outlets[1]->setPower(v / 100.0f); break;
     case SwitchType::Outlet3:               hw->outlets[2]->setPower(v / 100.0f); break;
+
+    case SwitchType::TimedOff:              hw->scheduleOff((unsigned long) v * 1000ul); break;
   }
 }
 
