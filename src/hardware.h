@@ -4,6 +4,7 @@
 #include "battery.h"
 #include "settings.h"
 #include "ihardware_change_listener.h"
+#include "off_timer.h"
 
 class PwmPin {
     private:
@@ -56,6 +57,8 @@ class Light : public BaseLight {
         int pirPin = -1;
         Settings *settings = nullptr;
         IHardwareChangeListener *_listener = nullptr;
+        OffTimer _off;
+        void _apply(float b);
     public:
         void setBrightness(float brightness); 
         bool isAutoEnabled();
@@ -65,6 +68,8 @@ class Light : public BaseLight {
         int getAutoDuration();
         void setChangeListener(IHardwareChangeListener *listener) { _listener = listener; };
         void setAutoDuration(int seconds);
+        void scheduleOff(unsigned long delayMs);
+        unsigned int getRemainingS(unsigned long now);
         void setup(int pwmPin, int pirPin, Settings *settings);
         void run(unsigned long now);
 };
@@ -96,11 +101,16 @@ class PowerOutlet {
         PwmPin _pin;
         IHardwareChangeListener *_listener = nullptr;
         int _index = 0;
+        OffTimer _off;
+        void _apply(float p);
     public:
         void setPower(float power);
         float getPower() { return _pin.getValue(); }
         void setChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
+        void scheduleOff(unsigned long delayMs);
+        unsigned int getRemainingS(unsigned long now);
         void setup(int pinNumber, int index) { _pin.setup(pinNumber); _index = index; }
+        void run(unsigned long now);
 };
 
 class Led : public BaseLight {

@@ -147,11 +147,16 @@ void BaseLight::run(unsigned long now)
   _setBrightness(fromPerceptual(ps + progress * (pt - ps))); 
 }
 
+void Light::_apply(float b) {
+  if (BaseLight::setBrightness(b) && _listener)
+    _listener->onHardwareChanged(HardwareEvent::Light, 0);
+}
+
 void Light::setBrightness(float brightness)
 {
   this->autoActive = false;
-  if (BaseLight::setBrightness(brightness) && _listener)
-    _listener->onHardwareChanged(HardwareEvent::Light, 0);
+  _off.cancel();
+  _apply(brightness);
 }
 
 bool Light::isAutoEnabled()
@@ -205,6 +210,16 @@ void Light::setAutoDuration(int seconds)
   }
 }
 
+void Light::scheduleOff(unsigned long delayMs) {
+  if (delayMs == 0 || getBrightness() == 0) { _off.cancel(); }
+  else _off.arm(millis(), delayMs);
+  if (_listener) _listener->onHardwareChanged(HardwareEvent::Light, 0);  
+}
+
+unsigned int Light::getRemainingS(unsigned long now) {
+  return _off.remainingS(now);
+}
+
 void Light::setup(int pwmPin, int pirPin, Settings *settings)
 {
     BaseLight::setup(pwmPin);
@@ -221,6 +236,8 @@ void Light::run(unsigned long now)
 {
   if (autoEnabled) {
     bool isMoving = digitalRead(pirPin);
+
+    if (_off.expired(now)) { _off.cancel(); _apply(0.0f); }
 
     if (isMoving) {
       if (!autoActive) {
@@ -316,10 +333,28 @@ void Heater::run(unsigned long now)
   }
 }
 
-void PowerOutlet::setPower(float power) {
-  if (_pin.setValue(power) && _listener) {
+void PowerOutlet::_apply(float p) {
+  if (_pin.setValue(p) && _listener) {
       _listener->onHardwareChanged(HardwareEvent::Outlet, _index);
   }
+}
+
+void PowerOutlet::setPower(float power) {
+  _apply(power);
+}
+
+void PowerOutlet::scheduleOff(unsigned long delayMs) {
+  if (delayMs == 0 || _pin.getByteValue() == 0) { _off.cancel(); }
+  else _off.arm(millis(), delayMs);
+  if (_listener) _listener->onHardwareChanged(HardwareEvent::Outlet, _index);
+}
+
+unsigned int PowerOutlet::getRemainingS(unsigned long now) {
+  return _off.remainingS(now);
+}
+
+void PowerOutlet::run(unsigned long now) {
+  if (_off.expired(now)) { _off.cancel(); _apply(0.0f); }
 }
 
 void Led::setBrightness(float brightness) {
@@ -412,6 +447,8 @@ void Hardware::run(unsigned long now)
     this->battery->run(now);
     this->heater->run(now);
     if (this->light) this->light->run(now);
+    for (int i = 0 ; i < OUTLET_COUNT; i++)
+      this->outlets[i]->run(now);
     this->led->run(now);
 }
 
