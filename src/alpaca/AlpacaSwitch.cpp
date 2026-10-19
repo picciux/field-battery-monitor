@@ -87,7 +87,7 @@ static SwitchDef g_outletSwitches[MAX_OUTLETS] = {
   { "Power outlet 3", "Power outlet 3 (%)", 0.0, 100.0, 1.0, true }    
 };
 
-static SwitchDef g_timedOffSwitch = { "Timed off", "Power-off all in (s)", 0.0, 300.0, 1.0, true };
+static SwitchDef g_timedOffSwitch = { "Timed off", "Power-off all in (s)", 0.0, OFF_TIMER_MAX_DELAY_S, 1.0, true };
 
 static DeviceDef g_device;
 static bool g_switchConnected;
