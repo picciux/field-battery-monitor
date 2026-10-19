@@ -587,10 +587,7 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
                 } else { why = "bad_index"; }
               } else { why = "index"; }
             } else if (strcmp(target, "all")) {
-              if (hardware->light)
-                hardware->light->scheduleOff(delay_ms);
-              for (int i = 0; i < OUTLET_COUNT; i++)
-                hardware->outlets[i]->scheduleOff(delay_ms);
+              hardware->scheduleOff(delay_ms);
               ret = true;
             } else { why = "target"; }
           } else { why = "delay_s"; }
