@@ -573,12 +573,12 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
           if (readIntField(doc, "delay_s", delay_s) && delay_s >= 0 && delay_s <= OFF_TIMER_MAX_DELAY_S ) {
             const unsigned long delay_ms = delay_s * 1000ul;
 
-            if (strcmp(target, "light")) {
+            if (!strcmp(target, "light")) {
               if (hardware->light) {
                 hardware->light->scheduleOff(delay_ms);
                 ret = true;
               } else { why = "no_light"; }
-            } else if (strcmp(target, "outlet")) {
+            } else if (!strcmp(target, "outlet")) {
               int outlet_idx = 0;
               if (readIntField(doc, "index", outlet_idx)) {
                 if (outlet_idx >= 0 && outlet_idx < OUTLET_COUNT) {
@@ -586,7 +586,7 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
                   ret = true;
                 } else { why = "bad_index"; }
               } else { why = "index"; }
-            } else if (strcmp(target, "all")) {
+            } else if (!strcmp(target, "all")) {
               hardware->scheduleOff(delay_ms);
               ret = true;
             } else { why = "target"; }
