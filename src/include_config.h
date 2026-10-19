@@ -169,6 +169,11 @@
 #define LIGHT_FADE_GAMMA 2.0f
 #endif
 
+/* ------- OFF TIMER ------- */
+#ifndef OFF_TIMER_MAX_DELAY_S
+#define OFF_TIMER_MAX_DELAY_S         300 //seconds
+#endif
+
 /* ------- ALPACA ------*/
 #ifndef ALPACA_LOCATION
 #define ALPACA_LOCATION "Unknown"

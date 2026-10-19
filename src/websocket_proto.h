@@ -88,6 +88,7 @@
      int    cp_lt_max              maximum heater turn-on temperature, °C.
      float  soc_rv_min             minimum battery soc reset voltage.
      float  soc_rv_max             maximum battery soc reset voltage.
+     int    off_delay_max_s        maximum timed off delay, seconds.
      string fw_ver                 firmware version.
      string reset_reason           cause of the reset that preceded THIS boot:
                                    poweron, ext, sw, panic, int_wdt, task_wdt,
@@ -173,6 +174,14 @@
     - float power (0.0 - 1.0)
 */
 #define ACTION_OUTLET_POWER             "outlet_power"
+
+/* schedule a delayed turn off for light or outlets
+   Pars:
+    - str target ["light", "outlet", "all"]
+    - int index (0..outlets-1, else "bad_index", only if target=="outlet")
+    - int delay_s (1 - 300)
+*/
+#define ACTION_TIMED_OFF             "timed_off"
 
 /* requests device restart. no pars. The result is sent first; the reboot
    follows after ~500 ms, so the connection will drop. */
@@ -260,13 +269,15 @@
     - bool auto enabled/disabled
     - float auto_br brightness
     - int auto_dr duration 
+    - long off_in (0 = no timer)
 */
 #define EVENT_LIGHT     "light_update"
 
 /* update power outlets state event.
    Pars:
     - int index
-    - float power 
+    - float power
+    - long off_in (0 = no timer)
 */
 #define EVENT_OUTLET   "outlet_update"
 

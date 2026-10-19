@@ -360,11 +360,12 @@ int WifiComm::sendCaps(char *buf, int bufsize) {
     "{\"type\":\"capabilities\",\"payload\":{\"channels\":%d,\"light\":%s,\"outlets\":%d,"
     "\"light_auto_br_min_pct\":%u,\"light_auto_dr_min\":%u,\"light_auto_dr_max\":%u,"
     "\"cp_lt_min\":%d,\"cp_lt_max\":%d,\"soc_rv_min\":%.2f,\"soc_rv_max\":%.2f,"
-    "\"fw_ver\":\"%s\",\"reset_reason\":\"%s\",\"boot_count\":%u,\"uptime_s\":%lu}}",
+    "\"off_delay_max_s\":%d,\"fw_ver\":\"%s\",\"reset_reason\":\"%s\","
+    "\"boot_count\":%u,\"uptime_s\":%lu}}",
     BOARD_CHANNELS, HAS_LIGHT ? "true" : "false", OUTLET_COUNT,
     LIGHT_AUTO_BRIGHTNESS_MIN_PCT, LIGHT_AUTO_DURATION_MIN_S, LIGHT_AUTO_DURATION_MAX_S,
     (int)CP_LOW_THRESHOLD_MIN_C, (int) CP_LOW_THRESHOLD_MAX_C, SOC_RESET_VOLTAGE_MIN,
-    SOC_RESET_VOLTAGE_MAX, VERSION, getResetReasonStr(), getRebootCount(), 
+    SOC_RESET_VOLTAGE_MAX, OFF_TIMER_MAX_DELAY_S, VERSION, getResetReasonStr(), getRebootCount(), 
     millis() / 1000UL);
 }
 
@@ -430,18 +431,19 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
       if (!h->light) return 0;   // variante senza luce
       len = snprintf(buf, size,
         "{\"event\":\"" EVENT_LIGHT "\",\"brightness\":%.2f,\"auto\":%s,"
-        "\"auto_br\":%.2f,\"auto_dr\":%d}",
+        "\"auto_br\":%.2f,\"auto_dr\":%d,\"off_in\":%d}",
         h->light->getTargetBrightness(),
         h->light->isAutoEnabled() ? "true" : "false",
         h->light->getAutoBrightness(),
-        h->light->getAutoDuration());
+        h->light->getAutoDuration(),
+        h->light->getRemainingS(millis()));
       break;
 
     case HardwareEvent::Outlet:
       if (index < 0 || index >= h->getOutletsNum()) return 0;
       len = snprintf(buf, size,
-        "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"power\":%.2f}",
-        index, h->outlets[index]->getPower());
+        "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"power\":%.2f,\"off_in\":%d}",
+        index, h->outlets[index]->getPower(), h->outlets[index]->getRemainingS(millis()));
       break;
   
   }
@@ -562,6 +564,37 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
           hardware->outlets[idx]->setPower(fv);
           ret = true;
         }
+      } else if (!strcmp(action, ACTION_TIMED_OFF)) {
+        JsonVariantConst t = doc["target"];
+        if ((! t.isNull()) && t.is<const char *>()) {
+          const char *target = t;
+          int delay_s = 0;
+
+          if (readIntField(doc, "delay_s", delay_s) && delay_s >= 0 && delay_s <= OFF_TIMER_MAX_DELAY_S ) {
+            const unsigned long delay_ms = delay_s * 1000ul;
+
+            if (strcmp(target, "light")) {
+              if (hardware->light) {
+                hardware->light->scheduleOff(delay_ms);
+                ret = true;
+              } else { why = "no_light"; }
+            } else if (strcmp(target, "outlet")) {
+              int outlet_idx = 0;
+              if (readIntField(doc, "index", outlet_idx)) {
+                if (outlet_idx >= 0 && outlet_idx < OUTLET_COUNT) {
+                  hardware->outlets[outlet_idx]->scheduleOff(delay_ms);
+                  ret = true;
+                } else { why = "bad_index"; }
+              } else { why = "index"; }
+            } else if (strcmp(target, "all")) {
+              if (hardware->light)
+                hardware->light->scheduleOff(delay_ms);
+              for (int i = 0; i < OUTLET_COUNT; i++)
+                hardware->outlets[i]->scheduleOff(delay_ms);
+              ret = true;
+            } else { why = "target"; }
+          } else { why = "delay_s"; }
+        } else { why = "target"; }
       } else if (!strcmp(action, ACTION_WIFI_RESCAN)) {
         const char *rwhy = "";
         bool ok = requestRescan(rwhy);
