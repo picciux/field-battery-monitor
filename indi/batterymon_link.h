@@ -48,6 +48,12 @@ namespace bm
         uint32_t uptimeS = 0;
     };
 
+    struct Settings
+    {
+        // we're interested in system name only
+        std::string systemName;
+    };
+
     // Ultimo stato noto del dispositivo (uno per evento del protocollo)
     struct State
     {
@@ -56,6 +62,9 @@ namespace bm
 
         bool haveCaps = false;
         Capabilities caps;
+
+        bool haveSettings = false;
+        Settings stgs;
 
         // battery_update. voltage/current/temperature possono essere null nel JSON
         bool haveBattery = false;
@@ -111,6 +120,7 @@ namespace bm
         D_LIGHT    = 1u << 7,
         D_OUTLET   = 1u << 8,
         D_RESULT   = 1u << 9,
+        D_SETTINGS = 1u << 10
     };
 
     class Link
@@ -138,6 +148,7 @@ namespace bm
 
         // --- Comandi (vedi websocket_proto.h del firmware). Ritornano true se
         // --- il messaggio e' stato accodato; l'esito reale arriva come evento.
+        bool getSettings();
         bool socReset();
         bool setColdThreshold(double celsius);
         bool setSocResetVoltage(double volt);

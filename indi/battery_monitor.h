@@ -78,6 +78,8 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
         INDI::PropertyText ServerAddressTP {2};
         enum { ADDR_HOST, ADDR_PORT };
 
+        INDI::PropertyText SystemNameTP {1};
+
         INDI::PropertyNumber BatteryNP {5};
         enum { B_VOLTAGE, B_CURRENT, B_SOC, B_TEMPERATURE, B_AUTONOMY };
 

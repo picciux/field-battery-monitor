@@ -173,6 +173,18 @@ void Link::handleText(const std::string &text)
             dirty_ |= D_CAPS;
             cv_.notify_all();
         }
+        else if (type == "settings")
+        {
+            // Nessun id di correlazione: sappiamo solo che *un* comando e' stato rifiutato
+            auto p = j.find("payload");
+            if (p == j.end() || !p->is_object())
+                return;
+            Settings &s = st_.stgs;
+            s.systemName        = getOr<std::string>(*p, "display_name", "");
+            st_.haveSettings = true;
+            dirty_ |= D_SETTINGS;
+            cv_.notify_all();
+        }
         else if (type == "result")
         {
             // Nessun id di correlazione: sappiamo solo che *un* comando e' stato rifiutato
@@ -182,7 +194,7 @@ void Link::handleText(const std::string &text)
                 dirty_ |= D_RESULT;
             }
         }
-        return;   // "settings" e altri: non ci interessano
+        return;   // altri: non ci interessano
     }
 
     // --- eventi "event"
@@ -254,6 +266,11 @@ bool Link::sendJson(const json &j)
     if (!isOpen())
         return false;
     return ws_.sendText(j.dump()).success;
+}
+
+bool Link::getSettings()
+{
+    return sendJson({{"action", "get_settings"}});
 }
 
 bool Link::socReset()

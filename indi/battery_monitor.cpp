@@ -80,6 +80,11 @@ bool BatteryMonitor::initProperties()
     ServerAddressTP[ADDR_PORT].fill("PORT", "Port", DEFAULT_PORT);
     ServerAddressTP.fill(getDeviceName(), "SERVER_ADDRESS", "Server", CONNECTION_TAB, IP_RW, 60, IPS_IDLE);
 
+    // ---- System Name (sola lettura)
+   SystemNameTP[0].fill("NAME", "Name", "");
+   SystemNameTP.fill(getDeviceName(), "SYSTEM_NAME", "System name",
+                     INFO_TAB, IP_RO, 60, IPS_IDLE);
+
     // ---- batteria
     BatteryNP[B_VOLTAGE].fill("VOLTAGE", "Voltage (V)", "%6.2f", 0, 20, 0, 0);
     BatteryNP[B_CURRENT].fill("CURRENT", "Current (A, - = discharge)", "%6.3f", -100, 100, 0, 0);
@@ -159,6 +164,7 @@ bool BatteryMonitor::updateProperties()
         LightAutoNP[LA_DURATION].setMin(caps_.lightAutoDrMin);
         LightAutoNP[LA_DURATION].setMax(caps_.lightAutoDrMax);
 
+        defineProperty(SystemNameTP);
         defineProperty(BatteryNP);
         defineProperty(SensorsLP);
         defineProperty(SafetyStatusLP);
@@ -176,6 +182,7 @@ bool BatteryMonitor::updateProperties()
     }
     else
     {
+        deleteProperty(SystemNameTP);
         deleteProperty(BatteryNP);
         deleteProperty(SensorsLP);
         deleteProperty(SafetyStatusLP);
@@ -227,6 +234,9 @@ bool BatteryMonitor::Connect()
     LOGF_INFO("Firmware v%s: %d channels, light %s, %d outlets.", caps_.fwVer.c_str(), caps_.channels,
               hasLight_ ? "present'" : "not present", outlets_);
     noteBootCount(caps_);
+
+    // Ask for settings to retrieve system name
+    link_.getSettings();
 
     SetTimer(getCurrentPollingPeriod());
     return true;
@@ -537,6 +547,14 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
 
         FirmwareTP.setState(IPS_OK);
         FirmwareTP.apply();
+    }
+
+    // ---- settings. We're interested in system name only
+    if (d & D_SETTINGS)
+    {
+        SystemNameTP[0].setText(s.stgs.systemName);
+        SystemNameTP.setState(IPS_OK);
+        SystemNameTP.apply();
     }
 
     // ---- batteria
