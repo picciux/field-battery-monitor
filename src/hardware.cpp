@@ -333,25 +333,36 @@ void Heater::run(unsigned long now)
   }
 }
 
-void PowerOutlet::_apply(float p) {
-  if (_pin.setValue(p) && _listener) {
+void PowerOutlet::_apply(bool on) {
+  if (_on == on) return;
+  _on = on;
+  digitalWrite(_pin, on ? HIGH : LOW);
+  if ( _listener) {
       _listener->onHardwareChanged(HardwareEvent::Outlet, _index);
   }
 }
 
-void PowerOutlet::setPower(float power) {
+void PowerOutlet::setOn(bool on) {
   _off.cancel();
-  _apply(power);
+  _apply(on);
 }
 
 void PowerOutlet::scheduleOff(unsigned long delayMs) {
-  if (delayMs == 0 || _pin.getByteValue() == 0) { _off.cancel(); }
+  if (delayMs == 0 || ! _on) { _off.cancel(); }
   else _off.arm(millis(), delayMs);
   if (_listener) _listener->onHardwareChanged(HardwareEvent::Outlet, _index);
 }
 
 unsigned int PowerOutlet::getRemainingS(unsigned long now) {
   return _off.remainingS(now);
+}
+
+void PowerOutlet::setup(int pinNumber, int index) {
+  _pin = pinNumber;
+  _index = index;
+  pinMode(_pin, OUTPUT);
+  digitalWrite(_pin, LOW);
+  _on = false;
 }
 
 void PowerOutlet::run(unsigned long now) {

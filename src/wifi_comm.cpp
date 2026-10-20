@@ -442,8 +442,9 @@ int WifiComm::formatEvent(HardwareEvent event, int index, char *buf, size_t size
     case HardwareEvent::Outlet:
       if (index < 0 || index >= h->getOutletsNum()) return 0;
       len = snprintf(buf, size,
-        "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"power\":%.2f,\"off_in\":%d}",
-        index, h->outlets[index]->getPower(), h->outlets[index]->getRemainingS(millis()));
+        "{\"event\":\"" EVENT_OUTLET "\",\"index\":%d,\"on\":%s,\"off_in\":%d}",
+        index, h->outlets[index]->isOn() ? "true" : "false", 
+        h->outlets[index]->getRemainingS(millis()));
       break;
   
   }
@@ -555,13 +556,14 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
           hardware->light->setAutoDuration(iv);
           ret = true;
         } else why = "seconds";
-      } else if (!strcmp(action, ACTION_OUTLET_POWER)) {
+      } else if (!strcmp(action, ACTION_OUTLET_STATE)) {
         int idx = 0;
+        JsonVariantConst o = doc["on"];
         if (!readIntField(doc, "index", idx)) why = "index";
         else if (idx < 0 || idx >= hardware->getOutletsNum()) why = "bad_index";
-        else if (!readFloatField(doc, "power", fv)) why = "power";
+        else if (! o.is<bool>()) why = "on";
         else {
-          hardware->outlets[idx]->setPower(fv);
+          hardware->outlets[idx]->setOn(o.as<bool>());
           ret = true;
         }
       } else if (!strcmp(action, ACTION_TIMED_OFF)) {
@@ -570,8 +572,8 @@ void WifiComm::websocketEvent(Settings &s, uint8_t num, WStype_t type, uint8_t *
           const char *target = t;
           int delay_s = 0;
 
-          if (readIntField(doc, "delay_s", delay_s) && delay_s >= 0 && delay_s <= OFF_TIMER_MAX_DELAY_S ) {
-            const unsigned long delay_ms = delay_s * 1000ul;
+          if (readIntField(doc, "delay_s", delay_s)) {
+            const unsigned long delay_ms = 1000ul * clampT(delay_s, 0, OFF_TIMER_MAX_DELAY_S);
 
             if (!strcmp(target, "light")) {
               if (hardware->light) {

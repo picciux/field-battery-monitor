@@ -61,7 +61,8 @@
                            "temperature", "brightness", "enabled", "seconds",
                            "index", "power".
      voltage               missing voltage field in soc_reset_voltage
-     bad_index             outlet_power: index out of range.
+     bad_index             outlet_state: index out of range.
+     on                    outlet_state: missing on parameter.
      no_light              light action on a variant built without light.
      already_on_main | busy | ota_running
                            wifi_rescan refusals (see ACTION_WIFI_RESCAN).
@@ -171,9 +172,9 @@
 /* sets power outlet
    Pars:
     - int index (0..outlets-1, else "bad_index")
-    - float power (0.0 - 1.0)
+    - bool on
 */
-#define ACTION_OUTLET_POWER             "outlet_power"
+#define ACTION_OUTLET_STATE             "outlet_state"
 
 /* schedule a delayed turn off for light or outlets
    Pars:
@@ -276,7 +277,7 @@
 /* update power outlets state event.
    Pars:
     - int index
-    - float power
+    - bool on
     - long off_in (0 = no timer)
 */
 #define EVENT_OUTLET   "outlet_update"

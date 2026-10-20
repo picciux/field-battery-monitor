@@ -82,9 +82,9 @@ static SwitchDef g_lightSwitches[4] = {
 };
 
 static SwitchDef g_outletSwitches[MAX_OUTLETS] = {
-  { "Power outlet 1", "Power outlet 1 (%)", 0.0, 100.0, 1.0, true },
-  { "Power outlet 2", "Power outlet 2 (%)", 0.0, 100.0, 1.0, true },
-  { "Power outlet 3", "Power outlet 3 (%)", 0.0, 100.0, 1.0, true }    
+  { "Power outlet 1", "Power outlet 1 (%)", 0.0, 1.0, 1.0, true },
+  { "Power outlet 2", "Power outlet 2 (%)", 0.0, 1.0, 1.0, true },
+  { "Power outlet 3", "Power outlet 3 (%)", 0.0, 1.0, 1.0, true }    
 };
 
 static SwitchDef g_timedOffSwitch = { "Timed off", "Power-off all in (s)", 0.0, OFF_TIMER_MAX_DELAY_S, 1.0, true };
@@ -229,9 +229,9 @@ double getSwitchValue(Hardware *hw, SwitchType type) {
     case SwitchType::LightAutoEnabled:          return hw->light->isAutoEnabled();
     case SwitchType::LightAutoBrightness:       return hw->light->getAutoBrightness() * 100.0;
     case SwitchType::LightAutoDuration:         return hw->light->getAutoDuration();
-    case SwitchType::Outlet1:                   return round(hw->outlets[0]->getPower() * 100.0);
-    case SwitchType::Outlet2:                   return round(hw->outlets[1]->getPower() * 100.0);
-    case SwitchType::Outlet3:                   return round(hw->outlets[2]->getPower() * 100.0);
+    case SwitchType::Outlet1:                   return (hw->outlets[0]->isOn() ? 1.0 : 0.0);
+    case SwitchType::Outlet2:                   return (hw->outlets[1]->isOn() ? 1.0 : 0.0);
+    case SwitchType::Outlet3:                   return (hw->outlets[2]->isOn() ? 1.0 : 0.0);
 
     case SwitchType::TimedOff:                  return hw->getRemainingS(millis());
   }
@@ -248,9 +248,9 @@ void writeSwitchValue(Hardware *hw, SwitchType type, double v) {
     case SwitchType::LightAutoBrightness:   hw->light->setAutoBrightness(v / 100.0f); break;
     case SwitchType::LightAutoDuration:     hw->light->setAutoDuration((int) v); break;
 
-    case SwitchType::Outlet1:               hw->outlets[0]->setPower(v / 100.0f); break;
-    case SwitchType::Outlet2:               hw->outlets[1]->setPower(v / 100.0f); break;
-    case SwitchType::Outlet3:               hw->outlets[2]->setPower(v / 100.0f); break;
+    case SwitchType::Outlet1:               hw->outlets[0]->setOn(v >= 0.5); break;
+    case SwitchType::Outlet2:               hw->outlets[1]->setOn(v >= 0.5); break;
+    case SwitchType::Outlet3:               hw->outlets[2]->setOn(v >= 0.5); break;
 
     case SwitchType::TimedOff:              hw->scheduleOff((unsigned long) v * 1000ul); break;
   }
@@ -270,7 +270,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
     int dn = AlpacaHelper::pathArgToInt(server, 0);
     uint32_t ctid = AlpacaHelper::getClientTransactionID(server);
     if (dn != 0) {
-      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Number fuori range", ctid);
+      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Number out of range", ctid);
       return;
     }
     AlpacaHelper::sendInt(server, g_device.num_switches, ctid);
@@ -354,7 +354,7 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
       return;
     }
     if (! AlpacaHelper::hasArg(server, "State")) {
-      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Parametro State mancante", r.ctid);
+      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Missing State parameter", r.ctid);
       return;
     }
     bool state = AlpacaHelper::queryArgToBool(server, "State", false);
@@ -373,13 +373,17 @@ void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
       return;
     }
     if (!AlpacaHelper::hasArg(server, "Value")) {
-      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Parametro Value mancante", r.ctid);
+      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Missing Value parameter", r.ctid);
       return;
     }
     double value = AlpacaHelper::queryArgToDouble(server, "Value", 0.0);
     if (value < s.minValue || value > s.maxValue) {
       AlpacaHelper::sendError(server, AlpacaError::InvalidValue,
                                "Value fuori range [min,max]", r.ctid);
+      return;
+    }
+    if (s.maxValue - s.minValue == s.step && value != s.minValue && value != s.maxValue) {
+      AlpacaHelper::sendError(server, AlpacaError::InvalidValue, "Value is not valid", r.ctid);
       return;
     }
     writeSwitchValue(hardware, r.switchType, value);

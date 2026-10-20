@@ -98,18 +98,19 @@ class Heater {
 
 class PowerOutlet {
     private:
-        PwmPin _pin;
+        int _pin = -1;
+        bool _on = false;
         IHardwareChangeListener *_listener = nullptr;
         int _index = 0;
         OffTimer _off;
-        void _apply(float p);
+        void _apply(bool on);
     public:
-        void setPower(float power);
-        float getPower() { return _pin.getValue(); }
+        void setOn(bool on);
+        bool isOn() { return _on; }
         void setChangeListener(IHardwareChangeListener *listener) { _listener = listener; }
         void scheduleOff(unsigned long delayMs);
         unsigned int getRemainingS(unsigned long now);
-        void setup(int pinNumber, int index) { _pin.setup(pinNumber); _index = index; }
+        void setup(int pinNumber, int index);
         void run(unsigned long now);
 };
 
