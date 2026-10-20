@@ -1,4 +1,4 @@
-# indi-batterymonitor (scheletro)
+# indi-batterymonitor
 
 Driver INDI per il Battery Monitor ESP32. Parla col firmware via **websocket (porta 81)**,
 non via Alpaca.
@@ -12,14 +12,14 @@ non via Alpaca.
 | sensori INA226 / DS18B20 | `BATTERY_SENSORS` (Light) |
 | `safety_update` | **`SAFETY_STATUS`** (Light, elemento `SAFETY`) |
 | `cold_protection_update` / `cp_low_threshold` | `COLD_PROTECTION.LOW_THRESHOLD` |
-| `light_update` brightness / `light_brightness` | PowerInterface, **porta 0** (se il firmware ha la luce) |
-| `outlet_update` / `outlet_power` | PowerInterface, porte successive |
-| `light_auto*` | `LIGHT_AUTO`, `LIGHT_AUTO_SETTINGS` |
+| `light_update` brightness / `light_brightness` | `LIGHT.BRIGHTNESS` (se il firmware ha la luce) |
+| `light_auto*` | `LIGHT_AUTO`, `LIGHT_AUTO_SETTINGS` (se il firmware ha la luce) |
+| `outlet_update` / `outlet_state` | PowerInterface, porte DC `PowerChannels` |
 | `battery_soc_reset` | `SOC_RESET` (pulsante) |
 | `capabilities` (fw_ver, reset_reason, boot_count, uptime_s) | `FIRMWARE_INFO` + warning se `boot_count` sale |
 
-Luce e outlet sono esposti come porte **Dew** (duty-cycle 0–100%) perché sono l'unico tipo di porta
-PWM del PowerInterface; le porte DC sono solo on/off.
+Luce è esposta con proprietà custom, non definite in `PowerInterface`.
+Outlet sono esposti come porte **DC** (on/off) in coerenza con il firmware.
 
 ### Valori di `SAFETY_STATUS`
 
