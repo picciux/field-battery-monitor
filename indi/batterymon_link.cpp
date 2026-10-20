@@ -165,6 +165,7 @@ void Link::handleText(const std::string &text)
             c.cpLtMax           = (int) getOr<double>(*p, "cp_lt_max", 10);
             c.socRvMin          = (float) getOr<double>(*p, "soc_rv_min", 13.9);
             c.socRvMax          = (float) getOr<double>(*p, "soc_rv_max", 14.6);
+            c.offTimerMax       = (int) getOr<double>(*p, "off_delay_max_s", 300);
             c.fwVer             = getOr<std::string>(*p, "fw_ver", "");
             c.resetReason       = getOr<std::string>(*p, "reset_reason", "");
             c.bootCount         = (uint32_t) getOr<double>(*p, "boot_count", 0);
@@ -250,10 +251,10 @@ void Link::handleText(const std::string &text)
     else if (ev == "outlet_update")
     {
         const int idx = (int) getOr<double>(j, "index", -1);
-        if (idx >= 0 && idx < MAX_OUTLETS && isNum(j, "power"))
+        if (idx >= 0 && idx < MAX_OUTLETS)
         {
             st_.haveOutlet[idx]  = true;
-            st_.outletPower[idx] = getOr<double>(j, "power", 0.0);
+            st_.outletState[idx] = getOr<bool>(j, "on", false);
             dirty_ |= D_OUTLET;
         }
     }
@@ -308,9 +309,9 @@ bool Link::setLightAutoDuration(int seconds)
     return sendJson({{"action", "light_auto_duration"}, {"seconds", seconds}});
 }
 
-bool Link::setOutletPower(int index, double p01)
+bool Link::setOutletState(int index, bool b01)
 {
-    return sendJson({{"action", "outlet_power"}, {"index", index}, {"power", p01}});
+    return sendJson({{"action", "outlet_state"}, {"index", index}, {"on", b01 }});
 }
 
 bool Link::restartDevice()

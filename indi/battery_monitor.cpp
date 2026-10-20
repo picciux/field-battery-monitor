@@ -270,23 +270,21 @@ void BatteryMonitor::setupPowerInterface()
 
     uint32_t cap = POWER_HAS_VOLTAGE_SENSOR | POWER_HAS_OVERALL_CURRENT;
     if (nPorts > 0)
-        cap |= POWER_HAS_DEW_OUT;
+        cap |= POWER_HAS_DC_OUT;
     INDI::PowerInterface::SetCapability(cap);
 
-    INDI::PowerInterface::initProperties(POWER_TAB, 0, nPorts, 0, 0, 0);
+    INDI::PowerInterface::initProperties(POWER_TAB, nPorts, 0, 0, 0, 0);
 
     powerInitDone_ = true;
     powerInitPorts_ = nPorts;
 }
 
-bool BatteryMonitor::SetDewPort(size_t port, bool enabled, double dutyCycle)
-{
-    const double p = enabled ? clamp01(dutyCycle / 100.0) : 0.0;
-    return link_.setOutletPower(port, p);
+bool BatteryMonitor::SetPowerPort(size_t index, bool on) { 
+    return link_.setOutletState(index, on);
 }
 
 // Non supportati dall'hardware
-bool BatteryMonitor::SetPowerPort(size_t, bool)          { return false; }
+bool BatteryMonitor::SetDewPort(size_t, bool, double) { return false; }
 bool BatteryMonitor::SetVariablePort(size_t, bool, double) { return false; }
 bool BatteryMonitor::SetLEDEnabled(bool)                 { return false; }
 bool BatteryMonitor::SetAutoDewEnabled(size_t, bool)     { return false; }
@@ -315,19 +313,11 @@ void BatteryMonitor::pushPowerSensors(const bm::State &s)
 void BatteryMonitor::mirrorPortsToPowerInterface(const bm::State &s)
 {
     for (int i = 0; i < outlets_; i++) {
-        if (s.outletPower[i] > 0) {
-            DewChannelDutyCycleNP[i].setValue(s.outletPower[i] * 100.0);
-            DewChannelsSP[i].setState(ISS_ON);
-        } else {
-            DewChannelsSP[i].setState(ISS_OFF);
-        }
+        PowerChannelsSP[i].setState(s.outletState[i] ? ISS_ON : ISS_OFF);
     }
 
-    DewChannelDutyCycleNP.setState(IPS_OK);
-    DewChannelDutyCycleNP.apply();
-
-    DewChannelsSP.setState(IPS_OK);
-    DewChannelsSP.apply();
+    PowerChannelsSP.setState(IPS_OK);
+    PowerChannelsSP.apply();
 }
 
 // ============================================================ client -> device

@@ -42,6 +42,7 @@ namespace bm
         int cpLtMax = 10;
         float socRvMin = 13.9f;
         float socRvMax = 14.6f;
+        int offTimerMax = 300;
         std::string fwVer;
         std::string resetReason;
         uint32_t bootCount = 0;
@@ -102,7 +103,7 @@ namespace bm
 
         // outlet_update
         bool haveOutlet[MAX_OUTLETS] = {};
-        double outletPower[MAX_OUTLETS] = {};   // 0..1
+        bool outletState[MAX_OUTLETS] = {};   // on/off
 
         // {"type":"result","payload":false} ricevuti
         uint32_t rejectedCommands = 0;
@@ -156,7 +157,7 @@ namespace bm
         bool setLightAuto(bool enabled);
         bool setLightAutoBrightness(double b01);
         bool setLightAutoDuration(int seconds);
-        bool setOutletPower(int index, double p01);
+        bool setOutletState(int index, bool b01);
         bool restartDevice();
 
     private:
