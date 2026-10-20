@@ -66,7 +66,7 @@ const s = {
   cpLt: FACTORY_STATE.cpLt,
   light: { brightness: 0, auto: FACTORY_STATE.autoEnabled,
            auto_br: FACTORY_STATE.autoBr, auto_dr: FACTORY_STATE.autoDr },
-  outlets: [0, 0, 0],
+  outlets: [false, false, false],
   // diagnostica
   bootCount: 1, resetReason: 'poweron', bootTime: Date.now(),
   // settings
@@ -124,7 +124,7 @@ const socSyncEvent = () => ({ event: 'soc_sync_update', voltage: round(s.socRese
 const safetyEvent = () => ({ event: 'safety_update', is_safe: s.isSafe });
 const cpEvent = () => ({ event: 'cold_protection_update', lt: s.cpLt });
 const lightEvent = () => ({ event: 'light_update', ...s.light });
-const outletEvent = (i) => ({ event: 'outlet_update', index: i, power: round(s.outlets[i], 2) });
+const outletEvent = (i) => ({ event: 'outlet_update', index: i, on: s.outlets[i] });
 
 function settingsMsg() {
   return { type: 'settings', payload: { ...s.settings, version: FW_VER } };
@@ -414,13 +414,13 @@ function execute(obj) {
       return { ok: true };
     }
 
-    case 'outlet_power': {
+    case 'outlet_state': {
       if (!isInt(obj.index)) return { ok: false, detail: 'index' };
       if (obj.index < 0 || obj.index >= VARIANT.outlets) return { ok: false, detail: 'bad_index' };
-      if (!isNum(obj.power)) return { ok: false, detail: 'power' };
-      const v = Math.round(clamp(obj.power, 0, 1) * 255) / 255;   // quantizzazione PWM 8 bit
-      if (v !== s.outlets[obj.index]) { s.outlets[obj.index] = v; emit(outletEvent(obj.index)); }
-      return { ok: true };
+      if (typeof obj.on === 'boolean') {
+        if (obj.on != s.outlets[obj.index]) { s.outlets[obj.index] = obj.on; emit(outletEvent(obj.index)); }
+        return { ok: true };
+      } else return { ok: false, detail: 'on' };
     }
 
     case 'wifi_rescan':

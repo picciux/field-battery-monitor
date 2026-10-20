@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.10';
+const VERSION = '1.0.13';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -91,14 +91,24 @@ function setSwitch(field, value) {
     if (field === 'light-auto') dimAutoSettings(value); 
 }
 
-function createOutletSliders(n) {
-  if (containerOutlets.children.length > 1) return; // do nothing if we already have sliders
+function createOutletSwitches(n) {
+  if (containerOutlets.querySelector('.switch-container')) return;
   for (let i = 0; i < n; i++) {
-    const slider = createDynamicSlider(containerOutlets, 'outlet', i, `Outlet ${i + 1}`, 'i-plug', 0);
-    linkSliderLabel(`outlet${i}`);
-    const index = i;
-    slider.addEventListener('change', (e) => {
-      sendWsMessage({ action: 'outlet_power', index: index, power: (parseFloat(e.target.value) / 100.0) });
+    const key = `outlet${i}`;
+    const ctl = document.createElement('div');
+    ctl.className = 'switch-container';
+    ctl.innerHTML = `
+      <span class="lbl"><svg class="icon"><use href="#i-plug"/></svg> Outlet ${i + 1}</span>
+      <span class="switch-right">
+        <span id="txt-${key}" class="ctl-value">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="switch-${key}" aria-label="Outlet ${i + 1}" />
+          <span class="slider-toggle"></span>
+        </label>
+      </span>`;
+    containerOutlets.appendChild(ctl);
+    linkSwitchLabel(key).addEventListener('change', e => {
+      sendWsMessage({ action: 'outlet_state', index: i, on: e.target.checked });
     });
   }
 }
@@ -482,7 +492,7 @@ function handleIncomingData(data) {
         }
 
         if (p.outlets > 0) {
-          createOutletSliders(p.outlets);
+          createOutletSwitches(p.outlets);
           containerOutlets.classList.remove('hidden');
         }
 
@@ -641,8 +651,7 @@ function handleIncomingData(data) {
           - float power 
       */
       case 'outlet_update': {
-          let v = parseFloat(data.power) * 100.0;
-          setSlider('outlet' + data.index, v.toFixed(0));
+          setSwitch('outlet' + data.index, data.on);
           break;
       }          
 
