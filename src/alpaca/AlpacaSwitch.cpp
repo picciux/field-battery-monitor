@@ -82,9 +82,9 @@ static SwitchDef g_lightSwitches[4] = {
 };
 
 static SwitchDef g_outletSwitches[MAX_OUTLETS] = {
-  { "Power outlet 1", "Power outlet 1 (%)", 0.0, 1.0, 1.0, true },
-  { "Power outlet 2", "Power outlet 2 (%)", 0.0, 1.0, 1.0, true },
-  { "Power outlet 3", "Power outlet 3 (%)", 0.0, 1.0, 1.0, true }    
+  { "Power outlet 1", "Power outlet 1 state (on/off)", 0.0, 1.0, 1.0, true },
+  { "Power outlet 2", "Power outlet 2 state (on/off)", 0.0, 1.0, 1.0, true },
+  { "Power outlet 3", "Power outlet 3 state (on/off)", 0.0, 1.0, 1.0, true }    
 };
 
 static SwitchDef g_timedOffSwitch = { "Timed off", "Power-off all in (s)", 0.0, OFF_TIMER_MAX_DELAY_S, 1.0, true };
