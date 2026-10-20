@@ -246,6 +246,7 @@ void Link::handleText(const std::string &text)
         st_.lightAuto       = getOr<bool>(j, "auto", false);
         st_.lightAutoBr     = getOr<double>(j, "auto_br", 0.0);
         st_.lightAutoDr     = (int) getOr<double>(j, "auto_dr", 0);
+        st_.lightOffIn      = (int) getOr<double>(j, "off_in", 0);
         dirty_ |= D_LIGHT;
     }
     else if (ev == "outlet_update")
@@ -255,6 +256,7 @@ void Link::handleText(const std::string &text)
         {
             st_.haveOutlet[idx]  = true;
             st_.outletState[idx] = getOr<bool>(j, "on", false);
+            st_.outletOffIn[idx] = getOr<double>(j, "off_in", 0);
             dirty_ |= D_OUTLET;
         }
     }
@@ -312,6 +314,22 @@ bool Link::setLightAutoDuration(int seconds)
 bool Link::setOutletState(int index, bool b01)
 {
     return sendJson({{"action", "outlet_state"}, {"index", index}, {"on", b01 }});
+}
+
+bool Link::timedOff(TimedOffTarget target, int index, int delaySec) {
+    const char *t = "all";
+
+    switch(target) {
+        case TFT_LIGHT:
+            t = "light";
+            break;
+        case TFT_OUTLET:
+            t = "outlet";
+            break;
+        //TFT_ALL already covered.
+    }
+
+    return sendJson( { {"action", "timed_off"}, {"target", t}, {"index", index}, {"delay_s", delaySec} } );
 }
 
 bool Link::restartDevice()

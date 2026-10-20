@@ -100,10 +100,12 @@ namespace bm
         bool lightAuto = false;
         double lightAutoBr = 0.0;
         int lightAutoDr = 0;
+        int lightOffIn = 0;
 
         // outlet_update
         bool haveOutlet[MAX_OUTLETS] = {};
         bool outletState[MAX_OUTLETS] = {};   // on/off
+        int outletOffIn[MAX_OUTLETS] = {};
 
         // {"type":"result","payload":false} ricevuti
         uint32_t rejectedCommands = 0;
@@ -122,6 +124,13 @@ namespace bm
         D_OUTLET   = 1u << 8,
         D_RESULT   = 1u << 9,
         D_SETTINGS = 1u << 10
+    };
+
+    enum TimedOffTarget : int
+    {
+        TFT_LIGHT       = 1,
+        TFT_OUTLET      = 2,
+        TFT_ALL         = 3
     };
 
     class Link
@@ -158,6 +167,7 @@ namespace bm
         bool setLightAutoBrightness(double b01);
         bool setLightAutoDuration(int seconds);
         bool setOutletState(int index, bool b01);
+        bool timedOff(TimedOffTarget target, int index, int delaySec);
         bool restartDevice();
 
     private:
