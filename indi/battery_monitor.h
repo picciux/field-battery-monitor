@@ -60,6 +60,8 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
         void setupPowerInterface();
         struct PortTarget { bool isLight; int outlet; };
 
+        bm::TimedOffTarget resolvePort(int switchIndex, int &outletIndex);
+
         bm::Link link_;
 
         // Variante hardware, letta dalle capabilities in Connect()
@@ -98,4 +100,9 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
 
         INDI::PropertyText SystemInfoTP {5};
         enum { SYS_NAME, FW_VERSION, SYS_RESET_REASON, SYS_BOOT_COUNT, SYS_UPTIME };
+
+        INDI::PropertyNumber OffTimerDelayNP{1};
+        INDI::PropertySwitch OffTimerStartSP{4};
+        INDI::PropertySwitch OffTimerCancelSP{4};
+        INDI::PropertyNumber OffTimerRemainingNP{3};
 };

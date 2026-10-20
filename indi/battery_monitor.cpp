@@ -33,7 +33,7 @@ constexpr IPState LINK_LOST_SAFETY_STATE = IPS_IDLE;
 
 const char *BATTERY_TAB = "Battery";
 const char *LIGHT_TAB   = "Light";
-const char *DIAG_TAB    = "Diagnostics";
+const char *TIMER_TAB    = "Timer";
 
 double clamp01(double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
 
@@ -128,6 +128,10 @@ bool BatteryMonitor::initProperties()
     SystemInfoTP[SYS_UPTIME].fill("UPTIME", "Uptime", "");
     SystemInfoTP.fill(getDeviceName(), "SYSTEM_INFO", "System Info", INFO_TAB, IP_RO, 0, IPS_IDLE);
 
+    // ---- off timer
+    OffTimerDelayNP[0].fill("DELAY", "Turn off in (s)", "%3.0f", 5, 300, 5, 60);
+    OffTimerDelayNP.fill(getDeviceName(), "OFF_TIMER_DELAY", "Timer", TIMER_TAB, IP_RW, 0, IPS_IDLE);
+
     addDebugControl();
     addPollPeriodControl();
 
@@ -163,19 +167,51 @@ bool BatteryMonitor::updateProperties()
         LightAutoNP[LA_DURATION].setMin(caps_.lightAutoDrMin);
         LightAutoNP[LA_DURATION].setMax(caps_.lightAutoDrMax);
 
+        OffTimerDelayNP[0].setMax(caps_.offTimerMax);
+        //OffTimerDelayNP[0].setValue(caps_.offTimerMax);
+
         defineProperty(BatteryNP);
         defineProperty(SensorsLP);
         defineProperty(SafetyStatusLP);
         defineProperty(ColdProtectionNP);
         defineProperty(SocResetVoltageNP);
+
         if (hasLight_)
         {
             defineProperty(LightBrigthnessNP);
             defineProperty(LightAutoSP);
             defineProperty(LightAutoNP);
+
+            OffTimerStartSP[0].fill("LIGHT", "Light", ISS_OFF);
+            OffTimerCancelSP[0].fill("LIGHT", "Light", ISS_OFF);
+            OffTimerRemainingNP[0].fill("LIGHT", "Light", "%3.0f", 0, caps_.offTimerMax, 1, 0);
         }
         defineProperty(SocResetSP);
         defineProperty(SystemInfoTP);
+
+        for (int i = 0; i < outlets_; i++) {
+            const int idx = i + (hasLight_ ? 1 : 0);
+            char name[12];
+            char label[12];
+            snprintf(name, 11, "CHANNEL%d", i+1);
+            snprintf(label, 11, "Channel %d", i+1);
+            OffTimerStartSP[idx].fill(name, label, ISS_OFF);
+            OffTimerCancelSP[idx].fill(name, label, ISS_OFF);
+            OffTimerRemainingNP[idx].fill(name, label, "%3.0f", 0, caps_.offTimerMax, 1, 0);
+        }
+
+        const int ALL = outlets_ + (hasLight_ ? 1 : 0);
+        OffTimerStartSP[ALL].fill("ALL", "All", ISS_OFF);
+        OffTimerCancelSP[ALL].fill("ALL", "All", ISS_OFF);
+
+        OffTimerStartSP.fill(getDeviceName(), "OFF_TIMER_START", "Start", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+        OffTimerCancelSP.fill(getDeviceName(), "OFF_TIMER_CANCEL", "Cancel", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+        OffTimerRemainingNP.fill(getDeviceName(), "OFF_TIMER_REMAINING", "Off in (s)", TIMER_TAB, IP_RO, 0, IPS_IDLE);
+
+        defineProperty(OffTimerDelayNP);
+        defineProperty(OffTimerStartSP);
+        defineProperty(OffTimerCancelSP);
+        defineProperty(OffTimerRemainingNP);
 
         INDI::PowerInterface::updateProperties();
     }
@@ -186,6 +222,7 @@ bool BatteryMonitor::updateProperties()
         deleteProperty(SafetyStatusLP);
         deleteProperty(ColdProtectionNP);
         deleteProperty(SocResetVoltageNP);
+
         if (hasLight_)
         {
             deleteProperty(LightBrigthnessNP);
@@ -194,6 +231,11 @@ bool BatteryMonitor::updateProperties()
         }
         deleteProperty(SocResetSP);
         deleteProperty(SystemInfoTP);
+
+        deleteProperty(OffTimerDelayNP);
+        deleteProperty(OffTimerStartSP);
+        deleteProperty(OffTimerCancelSP);
+        deleteProperty(OffTimerRemainingNP);
 
         INDI::PowerInterface::updateProperties();
     }
@@ -400,8 +442,29 @@ bool BatteryMonitor::ISNewNumber(const char *dev, const char *name, double value
             LightAutoNP.apply();
             return true;
         }
+
+        if (OffTimerDelayNP.isNameMatch(name))
+        {
+            OffTimerDelayNP.update(values, names, n);
+            OffTimerDelayNP.setState(IPS_IDLE);
+            OffTimerDelayNP.apply();
+            return true;
+        }
     }
     return INDI::DefaultDevice::ISNewNumber(dev, name, values, names, n);
+}
+
+bm::TimedOffTarget BatteryMonitor::resolvePort(int switchIndex, int &outletIndex) {
+    const int outletOffset = (hasLight_ ? 1 : 0);
+    const int all = outletOffset + outlets_;
+    if (hasLight_ && switchIndex == 0)
+        return bm::TFT_LIGHT;
+
+    if (switchIndex == all)
+        return bm::TFT_ALL;
+
+    outletIndex = switchIndex - outletOffset;
+    return bm::TFT_OUTLET;
 }
 
 bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n)
@@ -436,6 +499,30 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
             SocResetSP.setState(ok ? IPS_OK : IPS_ALERT);
             SocResetSP.apply();
             return true;
+        }
+
+        if (OffTimerStartSP.isNameMatch(name))
+        {
+            OffTimerStartSP.update(states, names, n);
+            const int idx = OffTimerStartSP.findOnSwitchIndex();
+            int outletIndex = 0;
+            const bm::TimedOffTarget target = resolvePort(idx, outletIndex);
+            bool ok = true;
+            ok = link_.timedOff(target, outletIndex, (int) OffTimerDelayNP[0].getValue());
+            OffTimerStartSP.setState(ok ? IPS_OK : IPS_ALERT);
+            OffTimerStartSP.apply();
+        }
+
+        if (OffTimerCancelSP.isNameMatch(name))
+        {
+            OffTimerCancelSP.update(states, names, n);
+            const int idx = OffTimerCancelSP.findOnSwitchIndex();
+            int outletIndex = 0;
+            const bm::TimedOffTarget target = resolvePort(idx, outletIndex);
+            bool ok = true;
+            ok = link_.timedOff(target, outletIndex, 0);
+            OffTimerCancelSP.setState(ok ? IPS_OK : IPS_ALERT);
+            OffTimerCancelSP.apply();
         }
     }
     return INDI::DefaultDevice::ISNewSwitch(dev, name, states, names, n);
