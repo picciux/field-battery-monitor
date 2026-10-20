@@ -247,6 +247,8 @@ void Link::handleText(const std::string &text)
         st_.lightAutoBr     = getOr<double>(j, "auto_br", 0.0);
         st_.lightAutoDr     = (int) getOr<double>(j, "auto_dr", 0);
         st_.lightOffIn      = (int) getOr<double>(j, "off_in", 0);
+        if (st_.lightOffIn > 0)
+            st_.lightOffStart = std::chrono::steady_clock::now();
         dirty_ |= D_LIGHT;
     }
     else if (ev == "outlet_update")
@@ -257,6 +259,8 @@ void Link::handleText(const std::string &text)
             st_.haveOutlet[idx]  = true;
             st_.outletState[idx] = getOr<bool>(j, "on", false);
             st_.outletOffIn[idx] = getOr<double>(j, "off_in", 0);
+            if (st_.outletOffIn[idx] > 0)
+                st_.outletOffStart[idx] = std::chrono::steady_clock::now();
             dirty_ |= D_OUTLET;
         }
     }

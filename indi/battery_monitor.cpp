@@ -33,7 +33,7 @@ constexpr IPState LINK_LOST_SAFETY_STATE = IPS_IDLE;
 
 const char *BATTERY_TAB = "Battery";
 const char *LIGHT_TAB   = "Light";
-const char *TIMER_TAB    = "Timer";
+const char *TIMER_TAB    = "Off Timer";
 
 double clamp01(double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
 
@@ -130,7 +130,7 @@ bool BatteryMonitor::initProperties()
 
     // ---- off timer
     OffTimerDelayNP[0].fill("DELAY", "Turn off in (s)", "%3.0f", 5, 300, 5, 60);
-    OffTimerDelayNP.fill(getDeviceName(), "OFF_TIMER_DELAY", "Timer", TIMER_TAB, IP_RW, 0, IPS_IDLE);
+    OffTimerDelayNP.fill(getDeviceName(), "OFF_TIMER_DELAY", "Off Delay", TIMER_TAB, IP_RW, 0, IPS_IDLE);
 
     addDebugControl();
     addPollPeriodControl();
@@ -191,10 +191,10 @@ bool BatteryMonitor::updateProperties()
 
         for (int i = 0; i < outlets_; i++) {
             const int idx = i + (hasLight_ ? 1 : 0);
-            char name[12];
-            char label[12];
-            snprintf(name, 11, "CHANNEL%d", i+1);
-            snprintf(label, 11, "Channel %d", i+1);
+            char name[16];
+            char label[16];
+            snprintf(name, 15, "CHANNEL%d", i+1);
+            snprintf(label, 15, "Channel %d", i+1);
             OffTimerStartSP[idx].fill(name, label, ISS_OFF);
             OffTimerCancelSP[idx].fill(name, label, ISS_OFF);
             OffTimerRemainingNP[idx].fill(name, label, "%3.0f", 0, caps_.offTimerMax, 1, 0);
@@ -204,9 +204,9 @@ bool BatteryMonitor::updateProperties()
         OffTimerStartSP[ALL].fill("ALL", "All", ISS_OFF);
         OffTimerCancelSP[ALL].fill("ALL", "All", ISS_OFF);
 
-        OffTimerStartSP.fill(getDeviceName(), "OFF_TIMER_START", "Start", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-        OffTimerCancelSP.fill(getDeviceName(), "OFF_TIMER_CANCEL", "Cancel", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-        OffTimerRemainingNP.fill(getDeviceName(), "OFF_TIMER_REMAINING", "Off in (s)", TIMER_TAB, IP_RO, 0, IPS_IDLE);
+        OffTimerStartSP.fill(getDeviceName(), "OFF_TIMER_START", "Turn off after delay", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+        OffTimerCancelSP.fill(getDeviceName(), "OFF_TIMER_CANCEL", "Cancel timer for", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+        OffTimerRemainingNP.fill(getDeviceName(), "OFF_TIMER_REMAINING", "Will power off in (s)", TIMER_TAB, IP_RO, 0, IPS_IDLE);
 
         defineProperty(OffTimerDelayNP);
         defineProperty(OffTimerStartSP);
@@ -454,7 +454,7 @@ bool BatteryMonitor::ISNewNumber(const char *dev, const char *name, double value
     return INDI::DefaultDevice::ISNewNumber(dev, name, values, names, n);
 }
 
-bm::TimedOffTarget BatteryMonitor::resolvePort(int switchIndex, int &outletIndex) {
+bm::TimedOffTarget BatteryMonitor::switchToTimedOffTarget(int switchIndex, int &outletIndex) {
     const int outletOffset = (hasLight_ ? 1 : 0);
     const int all = outletOffset + outlets_;
     if (hasLight_ && switchIndex == 0)
@@ -506,7 +506,7 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
             OffTimerStartSP.update(states, names, n);
             const int idx = OffTimerStartSP.findOnSwitchIndex();
             int outletIndex = 0;
-            const bm::TimedOffTarget target = resolvePort(idx, outletIndex);
+            const bm::TimedOffTarget target = switchToTimedOffTarget(idx, outletIndex);
             bool ok = true;
             ok = link_.timedOff(target, outletIndex, (int) OffTimerDelayNP[0].getValue());
             OffTimerStartSP.setState(ok ? IPS_OK : IPS_ALERT);
@@ -518,7 +518,7 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
             OffTimerCancelSP.update(states, names, n);
             const int idx = OffTimerCancelSP.findOnSwitchIndex();
             int outletIndex = 0;
-            const bm::TimedOffTarget target = resolvePort(idx, outletIndex);
+            const bm::TimedOffTarget target = switchToTimedOffTarget(idx, outletIndex);
             bool ok = true;
             ok = link_.timedOff(target, outletIndex, 0);
             OffTimerCancelSP.setState(ok ? IPS_OK : IPS_ALERT);
@@ -530,6 +530,17 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
 
 // ============================================================ device -> client
 
+inline int remainingS(int offIn, std::chrono::steady_clock::time_point start,
+                      std::chrono::steady_clock::time_point now)
+{
+    if (offIn <= 0)
+        return 0;
+    const auto elapsedS =
+        std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
+    const long long remain = offIn - elapsedS;
+    return remain > 0 ? (int) remain : 0;
+}
+
 void BatteryMonitor::TimerHit()
 {
     if (!isConnected())
@@ -539,6 +550,26 @@ void BatteryMonitor::TimerHit()
     const uint32_t dirty = link_.snapshot(s);
     applySnapshot(s, dirty);
 
+    // evaluate timed off remainings
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    bool hasTimer = false;
+    int outlet_offset = 0;
+    int r = 0;
+    if (hasLight_) {
+        outlet_offset = 1;
+        r = remainingS(s.lightOffIn, s.lightOffStart, now);
+        OffTimerRemainingNP[0].setValue(r);
+        if (r) hasTimer = true;
+    }
+
+    for (int i = 0; i < outlets_; i++) {
+        r = remainingS(s.outletOffIn[i], s.outletOffStart[i], now);
+        OffTimerRemainingNP[outlet_offset + i].setValue(r);
+        if (r) hasTimer = true;
+    }
+
+    OffTimerRemainingNP.setState(hasTimer ? IPS_OK : IPS_IDLE);
+    OffTimerRemainingNP.apply();
     SetTimer(getCurrentPollingPeriod());
 }
 
@@ -686,6 +717,7 @@ void BatteryMonitor::applySnapshot(const bm::State &s, uint32_t d)
         LightAutoNP.setState(IPS_OK);
         LightAutoNP.apply();
     }
+
     if (d & (D_OUTLET))
         mirrorPortsToPowerInterface(s);
 

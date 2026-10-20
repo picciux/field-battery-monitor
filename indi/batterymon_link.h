@@ -55,7 +55,7 @@ namespace bm
         std::string systemName;
     };
 
-    // Ultimo stato noto del dispositivo (uno per evento del protocollo)
+   // Ultimo stato noto del dispositivo (uno per evento del protocollo)
     struct State
     {
         bool linkUp = false;
@@ -101,11 +101,13 @@ namespace bm
         double lightAutoBr = 0.0;
         int lightAutoDr = 0;
         int lightOffIn = 0;
+        std::chrono::steady_clock::time_point lightOffStart = {};
 
         // outlet_update
         bool haveOutlet[MAX_OUTLETS] = {};
         bool outletState[MAX_OUTLETS] = {};   // on/off
         int outletOffIn[MAX_OUTLETS] = {};
+        std::chrono::steady_clock::time_point outletOffStart[MAX_OUTLETS] = {};
 
         // {"type":"result","payload":false} ricevuti
         uint32_t rejectedCommands = 0;

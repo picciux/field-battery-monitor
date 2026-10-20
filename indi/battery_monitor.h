@@ -58,9 +58,8 @@ class BatteryMonitor : public INDI::DefaultDevice, public INDI::PowerInterface
 
         // ---- PowerInterface: inizializzazione differita (le porte dipendono dalla variante firmware) ----
         void setupPowerInterface();
-        struct PortTarget { bool isLight; int outlet; };
 
-        bm::TimedOffTarget resolvePort(int switchIndex, int &outletIndex);
+        bm::TimedOffTarget switchToTimedOffTarget(int switchIndex, int &outletIndex);
 
         bm::Link link_;
 
