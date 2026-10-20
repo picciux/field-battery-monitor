@@ -234,10 +234,11 @@ void Light::setup(int pwmPin, int pirPin, Settings *settings)
 
 void Light::run(unsigned long now)
 {
+  // timed off
+  if (_off.expired(now)) { _off.cancel(); _apply(0.0f); }
+
   if (autoEnabled) {
     bool isMoving = digitalRead(pirPin);
-
-    if (_off.expired(now)) { _off.cancel(); _apply(0.0f); }
 
     if (isMoving) {
       if (!autoActive) {
