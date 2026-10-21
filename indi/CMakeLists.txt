@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(indi-batterymonitor LANGUAGES CXX VERSION 0.1.0)
+project(indi-batterymonitor LANGUAGES CXX VERSION 0.9.1)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
@@ -36,9 +36,17 @@ endif()
 
 include_directories(${INDI_INCLUDE_DIR})
 
+configure_file(indi_batterymonitor.xml.in
+               ${CMAKE_CURRENT_BINARY_DIR}/indi_batterymonitor.xml @ONLY)
+
 add_executable(indi_batterymonitor
     battery_monitor.cpp
     batterymon_link.cpp)
+
+target_compile_definitions(indi_batterymonitor PRIVATE
+    DRIVER_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
+    DRIVER_VERSION_MINOR=${PROJECT_VERSION_MINOR}
+    DRIVER_VERSION_PATCH=${PROJECT_VERSION_PATCH})
 
 target_link_libraries(indi_batterymonitor
     ${INDI_DRIVER_LIBRARIES}
@@ -50,4 +58,5 @@ if(USE_SYSTEM_JSONLIB)
 endif()
 
 install(TARGETS indi_batterymonitor RUNTIME DESTINATION bin)
-install(FILES indi_batterymonitor.xml DESTINATION ${INDI_DATA_DIR})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/indi_batterymonitor.xml
+        DESTINATION ${INDI_DATA_DIR})

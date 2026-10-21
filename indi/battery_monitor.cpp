@@ -55,7 +55,14 @@ static std::unique_ptr<BatteryMonitor> driver(new BatteryMonitor());
 
 BatteryMonitor::BatteryMonitor() : INDI::PowerInterface(this)
 {
-    setVersion(0, 9);
+// fallback
+#ifndef DRIVER_VERSION_MAJOR
+#define DRIVER_VERSION_MAJOR    0
+#define DRIVER_VERSION_MINOR    0
+#define DRIVER_VERSION_PATCH    0
+#endif
+
+    setVersion(DRIVER_VERSION_MAJOR, DRIVER_VERSION_MINOR);
     setDriverInterface(AUX_INTERFACE | POWER_INTERFACE);
 }
 
@@ -134,6 +141,8 @@ bool BatteryMonitor::initProperties()
 
     addDebugControl();
     addPollPeriodControl();
+
+    LOGF_INFO("Driver version %d.%d.%d", DRIVER_VERSION_MAJOR, DRIVER_VERSION_MINOR, DRIVER_VERSION_PATCH);
 
     return true;
 }
