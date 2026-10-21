@@ -759,9 +759,9 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
   });
 
   alpacaManagementSetup(www);
-  alpacaSwitchSetup(www, hw);
+  alpacaSwitchSetup(www, hw, &s);
   //alpacaObservingConditionsSetup(www);
-  alpacaSafetyMonitorSetup(www, hw);
+  alpacaSafetyMonitorSetup(www, hw, &s);
 
   // OTA
   otaSetup(www, UPDATE_PATH, [](bool success, bool isFilesystem) {

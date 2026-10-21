@@ -19,7 +19,9 @@ static AlpacaDeviceRef smResolver(int number) {
   return AlpacaDeviceRef(&g_smInfo, &g_smConnected);
 }
 
-void alpacaSafetyMonitorSetup(WebServer &server, Hardware *hardware) {
+void alpacaSafetyMonitorSetup(WebServer &server, Hardware *hardware, Settings *settings) {
+  g_smInfo.name = settings->getDisplayName();
+
   registerCommonDeviceEndpoints(server, "safetymonitor", smResolver);
 
   const String base = "/api/v1/safetymonitor/{}/";

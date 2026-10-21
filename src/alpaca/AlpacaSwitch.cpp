@@ -256,9 +256,10 @@ void writeSwitchValue(Hardware *hw, SwitchType type, double v) {
   }
 }
 
-void alpacaSwitchSetup(WebServer &server, Hardware *hardware) {
+void alpacaSwitchSetup(WebServer &server, Hardware *hardware, Settings *settings) {
   buildDeviceTable();
   g_switchConnected = true;
+  g_SwitchInfo.name = settings->getDisplayName();
   registerCommonDeviceEndpoints(server, "switch", swResolver);
 
   const String base = "/api/v1/switch/{}/";
