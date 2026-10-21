@@ -55,7 +55,7 @@ static std::unique_ptr<BatteryMonitor> driver(new BatteryMonitor());
 
 BatteryMonitor::BatteryMonitor() : INDI::PowerInterface(this)
 {
-    setVersion(0, 1);
+    setVersion(0, 9);
     setDriverInterface(AUX_INTERFACE | POWER_INTERFACE);
 }
 
@@ -556,7 +556,7 @@ void BatteryMonitor::TimerHit()
     bool changed = false;
     int outlet_offset = 0;
     int r = 0;
-    
+
     if (hasLight_) {
         outlet_offset = 1;
         r = remainingS(s.lightTimer, now);

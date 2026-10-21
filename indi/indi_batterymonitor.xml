@@ -3,7 +3,7 @@
    <devGroup group="Auxiliary">
       <device label="Battery Monitor">
          <driver name="Battery Monitor">indi_batterymonitor</driver>
-         <version>0.1</version>
+         <version>0.9</version>
       </device>
    </devGroup>
 </driversList>
