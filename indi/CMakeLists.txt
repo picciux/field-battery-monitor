@@ -42,7 +42,7 @@ add_executable(indi_batterymonitor
 
 target_link_libraries(indi_batterymonitor
     ${INDI_DRIVER_LIBRARIES}
-    ixwebsocket::ixwebsocket
+    ${IXWS_TARGET}
     Threads::Threads)
 
 if(USE_SYSTEM_JSONLIB)
