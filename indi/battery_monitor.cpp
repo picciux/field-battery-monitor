@@ -204,9 +204,9 @@ bool BatteryMonitor::updateProperties()
         OffTimerStartSP[ALL].fill("ALL", "All", ISS_OFF);
         OffTimerCancelSP[ALL].fill("ALL", "All", ISS_OFF);
 
-        OffTimerStartSP.fill(getDeviceName(), "OFF_TIMER_START", "Turn off after delay", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-        OffTimerCancelSP.fill(getDeviceName(), "OFF_TIMER_CANCEL", "Cancel timer for", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-        OffTimerRemainingNP.fill(getDeviceName(), "OFF_TIMER_REMAINING", "Will power off in (s)", TIMER_TAB, IP_RO, 0, IPS_IDLE);
+        OffTimerStartSP.fill(getDeviceName(), "OFF_TIMER_START", "Schedule power off", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+        OffTimerCancelSP.fill(getDeviceName(), "OFF_TIMER_CANCEL", "Cancel schedule", TIMER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+        OffTimerRemainingNP.fill(getDeviceName(), "OFF_TIMER_REMAINING", "Power off in (s)", TIMER_TAB, IP_RO, 0, IPS_IDLE);
 
         defineProperty(OffTimerDelayNP);
         defineProperty(OffTimerStartSP);
@@ -521,7 +521,7 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
             const bm::TimedOffTarget target = switchToTimedOffTarget(idx, outletIndex);
             bool ok = true;
             ok = link_.timedOff(target, outletIndex, 0);
-            OffTimerCancelSP.setState(ok ? IPS_OK : IPS_ALERT);
+            OffTimerCancelSP.setState(ok ? IPS_IDLE : IPS_ALERT);
             OffTimerCancelSP.apply();
         }
     }
@@ -530,14 +530,14 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
 
 // ============================================================ device -> client
 
-inline int remainingS(int offIn, std::chrono::steady_clock::time_point start,
-                      std::chrono::steady_clock::time_point now)
+// utiliy function to calc timed off remaining seconds
+inline int remainingS(bm::OffTimer t, std::chrono::steady_clock::time_point now)
 {
-    if (offIn <= 0)
+    if (t.offIn <= 0)
         return 0;
     const auto elapsedS =
-        std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-    const long long remain = offIn - elapsedS;
+        std::chrono::duration_cast<std::chrono::seconds>(now - t.start).count();
+    const long long remain = t.offIn - elapsedS;
     return remain > 0 ? (int) remain : 0;
 }
 
@@ -550,26 +550,41 @@ void BatteryMonitor::TimerHit()
     const uint32_t dirty = link_.snapshot(s);
     applySnapshot(s, dirty);
 
-    // evaluate timed off remainings
+    // evaluate timed off remaining seconds
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     bool hasTimer = false;
+    bool changed = false;
     int outlet_offset = 0;
     int r = 0;
+    
     if (hasLight_) {
         outlet_offset = 1;
-        r = remainingS(s.lightOffIn, s.lightOffStart, now);
-        OffTimerRemainingNP[0].setValue(r);
-        if (r) hasTimer = true;
+        r = remainingS(s.lightTimer, now);
+        if (r != OffTimerRemainingNP[0].getValue()) {
+            OffTimerRemainingNP[0].setValue(r);
+            hasTimer |= (r > 0);
+            changed = true;
+        }
     }
 
     for (int i = 0; i < outlets_; i++) {
-        r = remainingS(s.outletOffIn[i], s.outletOffStart[i], now);
-        OffTimerRemainingNP[outlet_offset + i].setValue(r);
-        if (r) hasTimer = true;
+        r = remainingS(s.outletTimer[i], now);
+        if (r != OffTimerRemainingNP[outlet_offset + i].getValue()) {
+            OffTimerRemainingNP[outlet_offset + i].setValue(r);
+            hasTimer |= (r > 0);
+            changed = true;
+        }
     }
 
-    OffTimerRemainingNP.setState(hasTimer ? IPS_OK : IPS_IDLE);
-    OffTimerRemainingNP.apply();
+    if (changed) {
+        OffTimerRemainingNP.setState(hasTimer ? IPS_BUSY : IPS_IDLE);
+        OffTimerRemainingNP.apply();
+        if (! hasTimer) {
+            OffTimerStartSP.setState(IPS_IDLE);
+            OffTimerStartSP.apply();
+        }
+    }
+    
     SetTimer(getCurrentPollingPeriod());
 }
 
