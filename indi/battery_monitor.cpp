@@ -373,6 +373,42 @@ void BatteryMonitor::mirrorPortsToPowerInterface(const bm::State &s)
 
 // ============================================================ client -> device
 
+// ---- helpers
+bm::TimedOffTarget BatteryMonitor::switchToTimedOffTarget(int switchIndex, int &outletIndex) {
+    const int outletOffset = (hasLight_ ? 1 : 0);
+    const int all = outletOffset + outlets_;
+    if (hasLight_ && switchIndex == 0)
+        return bm::TFT_LIGHT;
+
+    if (switchIndex == all)
+        return bm::TFT_ALL;
+
+    outletIndex = switchIndex - outletOffset;
+    return bm::TFT_OUTLET;
+}
+
+static inline size_t timedOffLoghelper(char *buffer, size_t len, bm::TimedOffTarget t, int index) {
+    size_t ret = 0;
+
+    switch(t) {
+        case bm::TFT_LIGHT:
+            strncpy(buffer, "Light", len);
+            ret = strlen(buffer);
+            break;
+
+        case bm::TFT_OUTLET:
+            ret = snprintf(buffer, len, "Channel %d", index+1);
+            break;
+        
+        case bm::TFT_ALL:
+            strncpy(buffer, "All", len);
+            ret = strlen(buffer);
+            break;
+    }
+
+    return ret;
+}
+
 bool BatteryMonitor::ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n)
 {
     if (dev && !strcmp(dev, getDeviceName()))
@@ -463,19 +499,6 @@ bool BatteryMonitor::ISNewNumber(const char *dev, const char *name, double value
     return INDI::DefaultDevice::ISNewNumber(dev, name, values, names, n);
 }
 
-bm::TimedOffTarget BatteryMonitor::switchToTimedOffTarget(int switchIndex, int &outletIndex) {
-    const int outletOffset = (hasLight_ ? 1 : 0);
-    const int all = outletOffset + outlets_;
-    if (hasLight_ && switchIndex == 0)
-        return bm::TFT_LIGHT;
-
-    if (switchIndex == all)
-        return bm::TFT_ALL;
-
-    outletIndex = switchIndex - outletOffset;
-    return bm::TFT_OUTLET;
-}
-
 bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n)
 {
     if (dev && !strcmp(dev, getDeviceName()))
@@ -512,26 +535,45 @@ bool BatteryMonitor::ISNewSwitch(const char *dev, const char *name, ISState *sta
 
         if (OffTimerStartSP.isNameMatch(name))
         {
+            char targetName[24];
+
             OffTimerStartSP.update(states, names, n);
             const int idx = OffTimerStartSP.findOnSwitchIndex();
             int outletIndex = 0;
             const bm::TimedOffTarget target = switchToTimedOffTarget(idx, outletIndex);
+            const int seconds = (int) OffTimerDelayNP[0].getValue();
+            timedOffLoghelper(targetName, 23, target, outletIndex);
+    
             bool ok = true;
-            ok = link_.timedOff(target, outletIndex, (int) OffTimerDelayNP[0].getValue());
+            ok = link_.timedOff(target, outletIndex, seconds);
             OffTimerStartSP.setState(ok ? IPS_OK : IPS_ALERT);
             OffTimerStartSP.apply();
+            if (ok) {
+                LOGF_INFO("Scheduled %s power off in %ds", targetName, seconds);
+            } else {
+                LOGF_ERROR("Error scheduling power off for %s in %ds", targetName, seconds);
+            }
         }
 
         if (OffTimerCancelSP.isNameMatch(name))
         {
+            char targetName[24];
+
             OffTimerCancelSP.update(states, names, n);
             const int idx = OffTimerCancelSP.findOnSwitchIndex();
             int outletIndex = 0;
             const bm::TimedOffTarget target = switchToTimedOffTarget(idx, outletIndex);
+            timedOffLoghelper(targetName, 23, target, outletIndex);
+
             bool ok = true;
             ok = link_.timedOff(target, outletIndex, 0);
             OffTimerCancelSP.setState(ok ? IPS_IDLE : IPS_ALERT);
             OffTimerCancelSP.apply();
+            if (ok) {
+                LOGF_INFO("Canceled scheduled %s power off.", targetName);
+            } else {
+                LOGF_ERROR("Error canceling scheduled %s power off.", targetName);
+            }
         }
     }
     return INDI::DefaultDevice::ISNewSwitch(dev, name, states, names, n);
