@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.28)
 project(indi-batterymonitor LANGUAGES CXX VERSION 0.1.0)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
@@ -21,7 +21,8 @@ else()
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
     FetchContent_Declare(ixwebsocket
         GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
-        GIT_TAG v11.4.6)
+        GIT_TAG v11.4.6
+	EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(ixwebsocket)
     set(IXWS_TARGET ixwebsocket)
 endif()
