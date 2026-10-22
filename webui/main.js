@@ -7,6 +7,42 @@ const btnSettings = document.getElementById('btn-settings');
 const pageHome = document.getElementById('page-home');
 const pageSettings = document.getElementById('page-settings');
 
+class OffTimer {
+  #active = false;
+  #offIn = 0;
+  #start = 0;
+  #interval = undefined; 
+
+  #clearInterval() {
+    if (this.#interval) 
+      clearInterval(this.#interval);
+    this.#interval = undefined;
+  }
+
+  set(offInS, updateCallback=undefined) {
+    if (offInS > 0) {
+      this.#offIn = offInS;
+      this.#start = Date.now() / 1000;
+      this.#active = true;
+      this.#clearInterval();
+      if (updateCallback)
+        this.#interval = setInterval(() => updateCallback(this.getRemainingS()), 1000);
+    } else {
+      if (!this.#active) return;
+      this.#offIn = 0;
+      this.#active = false;
+      this.#clearInterval();
+    }
+  }
+
+  getRemainingS() {
+    if (this.#active ) {
+      let rem = Math.round(this.#offIn - ((Date.now() / 1000) - this.#start));
+      return rem > 0 ? rem : 0;
+    } else return 0;
+  }
+}
+
 function switchPage(page) {
   if (page === 'home') {
     btnHome.classList.add('active');
@@ -35,6 +71,7 @@ const containerLights = document.getElementById('light-container');
 const containerOutlets = document.getElementById('outlets-container');
 const generatedControls = new Set();
 const alarmSections = new Map()
+const timers = new Map();
 
 // Solo aggiornamento visivo, ad ogni tick del trascinamento: leggero, nessun invio.
 function linkSliderLabel(sliderKey) {
@@ -489,11 +526,15 @@ function handleIncomingData(data) {
 
         if (p.light) {
           containerLights.classList.remove('hidden');
+          timers.set('light', new OffTimer());
         }
 
         if (p.outlets > 0) {
           createOutletSwitches(p.outlets);
           containerOutlets.classList.remove('hidden');
+          for (let i = 0; i < p.outlets; i++) {
+            timers.set('outlet' + i, new OffTimer());
+          }
         }
 
         if (p.cp_lt_max !== undefined) {
@@ -643,6 +684,7 @@ function handleIncomingData(data) {
 
           //set switch
           setSwitch('light-auto', data.auto);
+          timers.get('light').set(data.off_in, (s) => console.log(`Light will power off in ${s}s`));
           break;
 
       /* update power outlets state event.
@@ -652,6 +694,7 @@ function handleIncomingData(data) {
       */
       case 'outlet_update': {
           setSwitch('outlet' + data.index, data.on);
+          timers.get('outlet' + data.index).set(data.off_in, (s) => console.log(`Outlet ${data.index + 1} will power off in ${s}s`));
           break;
       }          
 
