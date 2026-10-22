@@ -65,7 +65,7 @@ const s = {
   // heater / luce / prese
   cpLt: FACTORY_STATE.cpLt,
   light: { brightness: 0, auto: FACTORY_STATE.autoEnabled,
-           auto_br: FACTORY_STATE.autoBr, auto_dr: FACTORY_STATE.autoDr },
+           auto_br: FACTORY_STATE.autoBr, auto_dr: FACTORY_STATE.autoDr, off_in: 0 },
   outlets: [false, false, false],
   // diagnostica
   bootCount: 1, resetReason: 'poweron', bootTime: Date.now(),
@@ -74,6 +74,14 @@ const s = {
   // factory reset richiesto: il firmware azzera la NVS subito, ma gli oggetti in
   // RAM (soglie, luce) assumono i default solo al riavvio successivo.
   factoryPending: false,
+
+  //timers
+  light_interval: undefined,
+  outlets_timers: [ 
+    {off_in: 0, interval: undefined}, 
+    {off_in: 0, interval: undefined}, 
+    {off_in: 0, interval: undefined}
+  ]
 };
 
 let emit = () => {};
@@ -124,7 +132,7 @@ const socSyncEvent = () => ({ event: 'soc_sync_update', voltage: round(s.socRese
 const safetyEvent = () => ({ event: 'safety_update', is_safe: s.isSafe });
 const cpEvent = () => ({ event: 'cold_protection_update', lt: s.cpLt });
 const lightEvent = () => ({ event: 'light_update', ...s.light });
-const outletEvent = (i) => ({ event: 'outlet_update', index: i, on: s.outlets[i] });
+const outletEvent = (i) => ({ event: 'outlet_update', index: i, on: s.outlets[i], off_in: s.outlets_timers[i].off_in });
 
 function settingsMsg() {
   return { type: 'settings', payload: { ...s.settings, version: FW_VER } };
@@ -352,6 +360,54 @@ function scheduleReboot() {
   setTimeout(() => reboot(), 5000);
 }
 
+function setLightTimer(off_in) {
+  if (off_in != s.light.off_in && (off_in == 0 || s.light.brightness > 0)) {
+    s.light.off_in = off_in;
+    emit(lightEvent());
+    if (s.light_interval) {
+      clearInterval(s.light_interval);
+      s.light_interval = undefined;
+    }
+    if (off_in > 0) {
+      s.light_interval = setInterval(() => {
+        s.light.off_in--;
+        console.log(`Sim timer for light fired now: ${s.light.off_in}s remaining.`)
+        if (s.light.off_in <= 0) {
+          s.light.brightness = 0; 
+          s.light.off_in = 0; 
+          emit(lightEvent());
+          clearInterval(s.light_interval);
+          s.light_interval = undefined;
+        }
+      }, 1000);
+    }         
+  }
+}
+
+function setOutletTimer(index, off_in) {
+  if (off_in != s.outlets_timers[index].off_in && (off_in == 0 || s.outlets[index])) {
+    s.outlets_timers[index].off_in = off_in;
+    emit(outletEvent(index));
+    if (s.outlets_timers[index].interval) {
+      clearInterval(s.outlets_timers[index].interval);
+      s.outlets_timers[index].interval = undefined;
+    }
+    if (off_in > 0) {
+      s.outlets_timers[index].interval = setInterval(() => {
+        s.outlets_timers[index].off_in--;
+        console.log(`Sim timer for outlet ${index + 1} fired now: ${s.outlets_timers[index].off_in}s remaining.`)
+        if (s.outlets_timers[index].off_in <= 0) {
+          s.outlets[index] = false; 
+          s.outlets_timers[index].off_in = 0; 
+          emit(outletEvent(index));
+          clearInterval(s.outlets_timers[index].interval);
+          s.outlets_timers[index].interval = undefined;
+        }
+      }, 1000);
+    }
+  }
+}
+
 function execute(obj) {
   const a = obj.action;
   const needLight = () => (VARIANT.light ? null : 'no_light');
@@ -436,6 +492,32 @@ function execute(obj) {
 
     case 'update_settings':
       return updateSettings(obj.payload);
+
+    case 'timed_off':
+      if (! isInt(obj.off_in)) return { ok: false, detail: 'off_in' };
+      if (obj.off_in < 0 || obj.off_in > 300) return { ok: false, detail: 'off_in' };
+
+      switch(obj.target) {
+        case 'light':
+          setLightTimer(obj.off_in);
+          return { ok: true };
+
+        case 'outlet':
+          if (! isInt(obj.index) || obj.index < 0 || obj.index >= VARIANT.outlets) 
+            return { ok: false, detail: 'bad_index'};
+          setOutletTimer(obj.index, obj.off_in);
+          return { ok: true };
+
+        case 'all':
+          if (VARIANT.light)
+            setLightTimer(obj.off_in);
+          for (let i = 0; i < VARIANT.outlets; i++)
+            setOutletTimer(i, obj.off_in);
+          return { ok: true };
+
+        default:
+          return { ok: false, detail: 'target'};
+      }
 
     default:
       return { ok: false, detail: 'unknown_action' };
