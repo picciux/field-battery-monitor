@@ -142,6 +142,9 @@ function createOutletSwitches(n) {
           <input type="checkbox" id="switch-${key}" aria-label="Outlet ${i + 1}" />
           <span class="slider-toggle"></span>
         </label>
+        <span id="outlet-timer-${i}">
+          <svg class="icon timer"><use href="#i-clock"/></svg>
+        </span>
       </span>`;
     containerOutlets.appendChild(ctl);
     linkSwitchLabel(key).addEventListener('change', e => {
@@ -299,6 +302,10 @@ document.getElementById('btn-wifi-rescan').addEventListener('click', () => {
     { confirmLabel: 'Scan', danger: false }
   );
 });
+
+document.getElementById('light-timer').addEventListener('click', () => {
+  document.getElementById('light-timer-popup').classList.toggle('hidden');
+})
 
 /* Dynamic Battery icon */
 // Soglie icona batteria: la prima con soc >= min vince; sotto l'ultima, 'empty'.
@@ -671,21 +678,26 @@ function handleIncomingData(data) {
           - float auto_br brightness
           - int auto_dr duration 
       */
-      case 'light_update':
-          //set sliders
-          [ 'brightness', 'auto_br', 'auto_dr' ].forEach(function(k, i) {
-              var v = parseFloat(data[k]);
-              if (k == 'auto_dr')
-                  v = v.toFixed(0);
-              else
-                  v = (v * 100.0).toFixed(0);
-              setSlider('light-' + k, v);
-          });
+      case 'light_update': {
+        //set sliders
+        [ 'brightness', 'auto_br', 'auto_dr' ].forEach(function(k, i) {
+            var v = parseFloat(data[k]);
+            if (k == 'auto_dr')
+                v = v.toFixed(0);
+            else
+                v = (v * 100.0).toFixed(0);
+            setSlider('light-' + k, v);
+        });
 
-          //set switch
-          setSwitch('light-auto', data.auto);
-          timers.get('light').set(data.off_in, (s) => console.log(`Light will power off in ${s}s`));
-          break;
+        //set switch
+        setSwitch('light-auto', data.auto);
+
+        const timer_icon = document.getElementById('light-timer');
+        const off_in = document.getElementById('light-off-in');
+        timer_icon.classList.toggle('on', data.off_in > 0);
+        timers.get('light').set(data.off_in, (s) => { off_in.innerText = s > 0 ? `${s}s` : 'Inactive'; });
+        break;
+      }
 
       /* update power outlets state event.
       Pars:
@@ -693,9 +705,12 @@ function handleIncomingData(data) {
           - float power 
       */
       case 'outlet_update': {
-          setSwitch('outlet' + data.index, data.on);
-          timers.get('outlet' + data.index).set(data.off_in, (s) => console.log(`Outlet ${data.index + 1} will power off in ${s}s`));
-          break;
+        setSwitch('outlet' + data.index, data.on);
+        const timer_icon = document.querySelector('#outlet-timer-' + data.index + ' svg');
+        const timer_span = document.getElementById('outlet-timer-' + data.index);
+        timer_icon.classList.toggle('on', data.off_in > 0);
+        timers.get('outlet' + data.index).set(data.off_in, (s) => { console.log(`Outlet ${data.index + 1} will power off in ${s}s`); });
+        break;
       }          
 
       case 'wifi_scan_result':
