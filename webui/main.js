@@ -11,7 +11,29 @@ class OffTimer {
   #active = false;
   #offIn = 0;
   #start = 0;
-  #interval = undefined; 
+  #interval = undefined;
+  #proximity;
+  #node;
+  #icon;
+  #popup;
+  #label;
+  #slider;
+  #display;
+  #btnStart;
+  #btnCancel;
+
+  constructor(container, maxSeconds, startCallback, cancelCallback) {
+    container.appendChild(this.#createElement());
+    this.#slider.max = maxSeconds;
+    this.#btnStart.addEventListener('click', () => { startCallback(parseInt(this.#slider.value)); });
+    this.#btnCancel.addEventListener('click', cancelCallback);
+  }
+
+  static PROXIMITIES = Object.freeze({
+    far: 20,
+    approaching: 10,
+    imminent: -1
+  });
 
   #clearInterval() {
     if (this.#interval) 
@@ -19,27 +41,69 @@ class OffTimer {
     this.#interval = undefined;
   }
 
-  set(offInS, updateCallback=undefined) {
+  #createElement() {
+    this.#node = document.getElementById('template-timer').content.firstElementChild.cloneNode(true); 
+    this.#icon = this.#node.querySelector('div.timer-icon');
+    this.#popup = this.#node.querySelector('div.timer-popup');
+    this.#label = this.#popup.querySelector('span.timer-value');
+    this.#slider = this.#popup.querySelector('input');
+    this.#display = this.#popup.querySelector('span.timer-display');
+    this.#btnStart = this.#popup.querySelector('div.buttons button.btn-start-timer');
+    this.#btnCancel = this.#popup.querySelector('div.buttons button.btn-cancel-timer');
+
+    this.#icon.addEventListener('click', () => {
+      this.#popup.classList.toggle('hidden');
+    });
+
+    this.#slider.addEventListener('input', () => {
+      this.#label.innerText = `${this.#slider.value}`;
+    });
+
+    return this.#node;
+  }
+
+  #update() {
+    let s = 0;
+    if (this.#active) {
+      s = Math.round(this.#offIn - ((Date.now() / 1000) - this.#start));
+      if (s < 0) s = 0;
+      this.#display.innerText = `OFF in: ${s}s`;
+
+      const cp = Object.entries(OffTimer.PROXIMITIES).find(el => { return s > el[1]; })[0];
+      if (this.#proximity != cp) {
+        this.#proximity = cp;
+        Object.keys(OffTimer.PROXIMITIES).forEach((p) => { this.#icon.classList.toggle(p, cp == p); })
+      }
+    } else {
+      this.#display.innerText = 'Inactive';
+      Object.keys(OffTimer.PROXIMITIES).forEach((p) => { this.#icon.classList.remove(p); })
+    }
+  }
+
+  set(offInS, powerState = undefined) {
+    if (powerState !== undefined)
+      this.setPower(powerState);
+
     if (offInS > 0) {
       this.#offIn = offInS;
       this.#start = Date.now() / 1000;
       this.#active = true;
       this.#clearInterval();
-      if (updateCallback)
-        this.#interval = setInterval(() => updateCallback(this.getRemainingS()), 1000);
+      this.#interval = setInterval(() => { this.#update(); }, 1000);
+      this.#update();
     } else {
       if (!this.#active) return;
       this.#offIn = 0;
       this.#active = false;
       this.#clearInterval();
+      this.#update();
     }
+
+    this.#node.classList.toggle('active', this.#active);
   }
 
-  getRemainingS() {
-    if (this.#active ) {
-      let rem = Math.round(this.#offIn - ((Date.now() / 1000) - this.#start));
-      return rem > 0 ? rem : 0;
-    } else return 0;
+  setPower(on) {
+    this.#node.classList.toggle('off', ! on);
   }
 }
 
@@ -128,7 +192,7 @@ function setSwitch(field, value) {
     if (field === 'light-auto') dimAutoSettings(value); 
 }
 
-function createOutletSwitches(n) {
+function createOutletSwitches(n, maxDelaySeconds) {
   if (containerOutlets.querySelector('.switch-container')) return;
   for (let i = 0; i < n; i++) {
     const key = `outlet${i}`;
@@ -142,14 +206,18 @@ function createOutletSwitches(n) {
           <input type="checkbox" id="switch-${key}" aria-label="Outlet ${i + 1}" />
           <span class="slider-toggle"></span>
         </label>
-        <span id="outlet-timer-${i}">
-          <svg class="icon timer"><use href="#i-clock"/></svg>
-        </span>
       </span>`;
     containerOutlets.appendChild(ctl);
     linkSwitchLabel(key).addEventListener('change', e => {
       sendWsMessage({ action: 'outlet_state', index: i, on: e.target.checked });
     });
+
+    timers.set('outlet' + i, new OffTimer(
+      ctl.querySelector('span.switch-right'), 
+      maxDelaySeconds,
+      (s) => { sendWsMessage({ action: 'timed_off', target: 'outlet', index: i, delay_s: s}); },
+      () => { sendWsMessage({ action: 'timed_off', target: 'outlet', index: i, delay_s: 0 }); }
+    ));
   }
 }
 
@@ -303,9 +371,30 @@ document.getElementById('btn-wifi-rescan').addEventListener('click', () => {
   );
 });
 
-document.getElementById('light-timer').addEventListener('click', () => {
-  document.getElementById('light-timer-popup').classList.toggle('hidden');
-})
+function createLightOffTimer(maxDelaySeconds) {
+  const timerCont = containerLights.querySelector('div');
+  timers.set('light', new OffTimer(
+    timerCont, 
+    maxDelaySeconds,
+    (s) => { sendWsMessage({ action: 'timed_off', target: 'light', delay_s: s}); },
+    () => { sendWsMessage({ action: 'timed_off', target: 'light', delay_s: 0 }); }
+  ));
+}
+
+// timers popup outside click close
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('.timer-popup:not(.hidden)').forEach(popup => {
+    const wrapper = popup.closest('.timer-wrapper');
+    if (!wrapper.contains(e.target)) popup.classList.add('hidden');
+  });
+});
+
+// timers popup ESC close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape')
+    document.querySelectorAll('.timer-popup:not(.hidden)')
+      .forEach(p => p.classList.add('hidden'));
+});
 
 /* Dynamic Battery icon */
 // Soglie icona batteria: la prima con soc >= min vince; sotto l'ultima, 'empty'.
@@ -533,15 +622,12 @@ function handleIncomingData(data) {
 
         if (p.light) {
           containerLights.classList.remove('hidden');
-          timers.set('light', new OffTimer());
+          createLightOffTimer(p.off_delay_max_s);
         }
 
         if (p.outlets > 0) {
-          createOutletSwitches(p.outlets);
+          createOutletSwitches(p.outlets, p.off_delay_max_s);
           containerOutlets.classList.remove('hidden');
-          for (let i = 0; i < p.outlets; i++) {
-            timers.set('outlet' + i, new OffTimer());
-          }
         }
 
         if (p.cp_lt_max !== undefined) {
@@ -691,11 +777,7 @@ function handleIncomingData(data) {
 
         //set switch
         setSwitch('light-auto', data.auto);
-
-        const timer_icon = document.getElementById('light-timer');
-        const off_in = document.getElementById('light-off-in');
-        timer_icon.classList.toggle('on', data.off_in > 0);
-        timers.get('light').set(data.off_in, (s) => { off_in.innerText = s > 0 ? `${s}s` : 'Inactive'; });
+        timers.get('light').set(data.off_in, data['brightness'] > 0);
         break;
       }
 
@@ -706,10 +788,7 @@ function handleIncomingData(data) {
       */
       case 'outlet_update': {
         setSwitch('outlet' + data.index, data.on);
-        const timer_icon = document.querySelector('#outlet-timer-' + data.index + ' svg');
-        const timer_span = document.getElementById('outlet-timer-' + data.index);
-        timer_icon.classList.toggle('on', data.off_in > 0);
-        timers.get('outlet' + data.index).set(data.off_in, (s) => { console.log(`Outlet ${data.index + 1} will power off in ${s}s`); });
+        timers.get('outlet' + data.index).set(data.off_in, data.on);
         break;
       }          
 

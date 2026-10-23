@@ -314,28 +314,15 @@ input[type="file"]::file-selector-button {
 }
 
 /* --- TIMERS --- */
-.timer {
-  opacity: .50;
-  cursor:pointer;
-}
-
-.timer.on {
-  opacity: .85;
-}
-
-.timer-wrapper {
-  position:relative;
-  display: inline-block;
-}
 
 .timer-popup {
   position: absolute;
   top: 100%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-100%);
   margin-top: 8px;
-  background: #ffffff;
-  border: 1px solid #ccc;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
   padding: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   z-index: 100;
@@ -343,8 +330,74 @@ input[type="file"]::file-selector-button {
   text-align: center;
 }
 
+.timer-icon {
+  opacity: .50;
+  cursor:pointer;
+}
+
+.timer-wrapper {
+  position:relative;
+  display: inline-block;
+}
+
+.timer-wrapper.active .timer-icon {
+  opacity: .85;
+}
+
 .timer-popup .buttons { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 .timer-popup .buttons .btn-submit { width: auto; min-width: 0; }
+
+.timer-wrapper .timer-popup .btn-start-timer {
+  flex:1;
+  display:block;
+}
+
+.timer-wrapper.off .timer-popup .btn-start-timer {
+  flex:1;
+  display:block;
+  opacity: .5;
+  pointer-events: none;
+}
+
+.timer-wrapper .timer-popup .btn-cancel-timer {
+  flex:1;
+  opacity: .5;
+  pointer-events: none;
+}
+
+.timer-wrapper.active .timer-popup .btn-cancel-timer {
+  display:block;
+  pointer-events: all;
+  opacity: 1;
+}
+
+/* 1 - breathe: pulsazione morbida, ~3 s */
+@keyframes fx-breathe {
+  0%, 100% { opacity: .1; }
+  50%      { opacity: 1; }
+}
+
+/* 2 - blink lento: on/off netto, ~1.6 s */
+@keyframes fx-blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: .1; }
+}
+
+.far    { animation: fx-breathe 3s ease-in-out infinite; }
+.approaching { animation: fx-blink 1s steps(1, end) infinite; }
+.imminent { animation: fx-blink 0.5s steps(1, end) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-breathe, .fx-blink-slow, .fx-blink-fast { animation: none; }
+}
+
+/* --- LIGHT --- */
+#light-header {
+    display:flex; 
+    justify-content: space-between; 
+    align-items: center;
+    margin: 0 0;
+}
 
 /* --- LAYOUT PER SCHERMI GRANDI (DESKTOP) --- */
 @media (min-width: 810px) {
@@ -384,6 +437,7 @@ input[type="file"]::file-selector-button {
   }
 
   .col > .card { margin-bottom: 0; }
+
 }
 
 /* --- STILE SWITCH ON/OFF --- */
