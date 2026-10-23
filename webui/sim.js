@@ -21,7 +21,7 @@ const VARIANT = { channels: 4, light: true, outlets: 2 };
 
 const CAPACITY_AH = 50;
 const FW_VER = '1.0-sim';
-const LIMITS = { cpMin: -10, cpMax: 10, socRvMin: 13.9, socRvMax: 14.6, brMinPct: 1, drMin: 10, drMax: 60 };
+const LIMITS = { cpMin: -10, cpMax: 10, socRvMin: 13.9, socRvMax: 14.6, brMinPct: 1, drMin: 10, drMax: 60, offDelayMax: 300 };
 const SAFETY = { socLow: 15, socRecover: 20, vLow: 11.0, vHyst: 0.3 };
 // Come SOC_RESET_TAIL_CURRENT e SOC_RESET_TIME in include_config.h
 const SYNC = { tailFrac: 0.02, timeMs: 3 * 60000 };
@@ -110,6 +110,7 @@ function caps() {
       cp_lt_max: LIMITS.cpMax,
       soc_rv_min: LIMITS.socRvMin,
       soc_rv_max: LIMITS.socRvMax,
+      off_delay_max_s: LIMITS.offDelayMax,
       fw_ver: FW_VER,
       reset_reason: s.resetReason,
       boot_count: s.bootCount,
