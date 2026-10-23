@@ -744,7 +744,7 @@ bool WifiComm::sendFile(String path) {
 void WifiComm::setup(Settings &s, Hardware *hw) {
   this->hardware = hw;
   if (! wifiStart(s)) 
-    DBGLN(F("Wifi start failed: continuing, runtime fallback will retry."))
+    DBGLN(F("Wifi start failed: continuing, runtime fallback will retry."));
 
   WiFi.onEvent(_onStationGotIp, ARDUINO_EVENT_WIFI_STA_GOT_IP);
 
