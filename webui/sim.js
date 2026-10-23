@@ -361,10 +361,10 @@ function scheduleReboot() {
   setTimeout(() => reboot(), 5000);
 }
 
-function setLightTimer(off_in) {
+function setLightTimer(off_in, blockEvents = false) {
   if (off_in != s.light.off_in && (off_in == 0 || s.light.brightness > 0)) {
     s.light.off_in = off_in;
-    emit(lightEvent());
+    if (! blockEvents) emit(lightEvent());
     if (s.light_interval) {
       clearInterval(s.light_interval);
       s.light_interval = undefined;
@@ -376,7 +376,7 @@ function setLightTimer(off_in) {
         if (s.light.off_in <= 0) {
           s.light.brightness = 0; 
           s.light.off_in = 0; 
-          emit(lightEvent());
+          if (! blockEvents) emit(lightEvent());
           clearInterval(s.light_interval);
           s.light_interval = undefined;
         }
@@ -385,10 +385,10 @@ function setLightTimer(off_in) {
   }
 }
 
-function setOutletTimer(index, off_in) {
+function setOutletTimer(index, off_in, blockEvents = false) {
   if (off_in != s.outlets_timers[index].off_in && (off_in == 0 || s.outlets[index])) {
     s.outlets_timers[index].off_in = off_in;
-    emit(outletEvent(index));
+    if (! blockEvents) emit(outletEvent(index));
     if (s.outlets_timers[index].interval) {
       clearInterval(s.outlets_timers[index].interval);
       s.outlets_timers[index].interval = undefined;
@@ -400,7 +400,7 @@ function setOutletTimer(index, off_in) {
         if (s.outlets_timers[index].off_in <= 0) {
           s.outlets[index] = false; 
           s.outlets_timers[index].off_in = 0; 
-          emit(outletEvent(index));
+          if (! blockEvents) emit(outletEvent(index));
           clearInterval(s.outlets_timers[index].interval);
           s.outlets_timers[index].interval = undefined;
         }
@@ -444,7 +444,11 @@ function execute(obj) {
       const nl = needLight(); if (nl) return { ok: false, detail: nl };
       if (!isNum(obj.brightness)) return { ok: false, detail: 'brightness' };
       const v = clamp(obj.brightness, 0, 1);
-      if (v !== s.light.brightness) { s.light.brightness = v; emit(lightEvent()); }
+      if (v !== s.light.brightness) { 
+        s.light.brightness = v; 
+        setLightTimer(0, true); //block events
+        emit(lightEvent()); 
+      }
       return { ok: true };
     }
 
@@ -475,7 +479,11 @@ function execute(obj) {
       if (!isInt(obj.index)) return { ok: false, detail: 'index' };
       if (obj.index < 0 || obj.index >= VARIANT.outlets) return { ok: false, detail: 'bad_index' };
       if (typeof obj.on === 'boolean') {
-        if (obj.on != s.outlets[obj.index]) { s.outlets[obj.index] = obj.on; emit(outletEvent(obj.index)); }
+        if (obj.on != s.outlets[obj.index]) { 
+          s.outlets[obj.index] = obj.on;
+          setOutletTimer(obj.index, 0, true); //blocking events 
+          emit(outletEvent(obj.index)); 
+        }
         return { ok: true };
       } else return { ok: false, detail: 'on' };
     }
