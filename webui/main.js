@@ -374,6 +374,7 @@ document.getElementById('btn-wifi-rescan').addEventListener('click', () => {
 
 function createLightOffTimer(maxDelaySeconds) {
   const timerCont = containerLights.querySelector('div');
+  if (timers.get('light')) return; //we already have the timer
   timers.set('light', new OffTimer(
     timerCont, 
     maxDelaySeconds,
