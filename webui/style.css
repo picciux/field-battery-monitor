@@ -314,6 +314,20 @@ input[type="file"]::file-selector-button {
 }
 
 /* --- TIMERS --- */
+.timer-wrapper {
+  position:relative;
+  display: inline-block;
+}
+
+.timer-icon {
+  opacity: 1;
+  cursor:pointer;
+}
+
+.timer-wrapper.off .timer-icon {
+  opacity: .50;
+  pointer-events: none;
+}
 
 .timer-popup {
   position: absolute;
@@ -328,20 +342,6 @@ input[type="file"]::file-selector-button {
   z-index: 100;
   min-width: 150px;
   text-align: center;
-}
-
-.timer-icon {
-  opacity: .50;
-  cursor:pointer;
-}
-
-.timer-wrapper {
-  position:relative;
-  display: inline-block;
-}
-
-.timer-wrapper.active .timer-icon {
-  opacity: .85;
 }
 
 .timer-popup .buttons { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
