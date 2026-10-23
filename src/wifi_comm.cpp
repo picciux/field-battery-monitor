@@ -361,12 +361,12 @@ int WifiComm::sendCaps(char *buf, int bufsize) {
     "\"light_auto_br_min_pct\":%u,\"light_auto_dr_min\":%u,\"light_auto_dr_max\":%u,"
     "\"cp_lt_min\":%d,\"cp_lt_max\":%d,\"soc_rv_min\":%.2f,\"soc_rv_max\":%.2f,"
     "\"off_delay_max_s\":%d,\"fw_ver\":\"%s\",\"reset_reason\":\"%s\","
-    "\"boot_count\":%u,\"uptime_s\":%lu}}",
+    "\"boot_count\":%u,\"uptime_s\":%lu,\"max_loops_ms\":%lu}}",
     BOARD_CHANNELS, HAS_LIGHT ? "true" : "false", OUTLET_COUNT,
     LIGHT_AUTO_BRIGHTNESS_MIN_PCT, LIGHT_AUTO_DURATION_MIN_S, LIGHT_AUTO_DURATION_MAX_S,
     (int)CP_LOW_THRESHOLD_MIN_C, (int) CP_LOW_THRESHOLD_MAX_C, SOC_RESET_VOLTAGE_MIN,
     SOC_RESET_VOLTAGE_MAX, OFF_TIMER_MAX_DELAY_S, VERSION, getResetReasonStr(), getRebootCount(), 
-    millis() / 1000UL);
+    millis() / 1000UL, (unsigned long) getMaxLoopMs());
 }
 
 // Formatta un evento in JSON nel buffer. Ritorna la lunghezza scritta, oppure 0

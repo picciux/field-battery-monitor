@@ -17,3 +17,9 @@ const char* getResetReasonStr();
 // riavvii nel frattempo, indipendentemente dall'uptime della sessione
 // corrente.
 uint32_t getRebootCount();
+
+// Annota la durata massima di un giro di loop() dall'ultimo boot (ms).
+void diagNoteLoopMs(uint32_t ms);
+
+// Restituisce la durata massima di un giro di loop dall'ultimo boot (ms).
+uint32_t getMaxLoopMs();

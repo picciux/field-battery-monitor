@@ -41,6 +41,7 @@ void setup() {
 
 void loop() {
   static bool factoryResetPending = false;
+  const uint32_t loopStart = millis();
 
   wifiComm.run();
   unsigned long now = millis();
@@ -61,4 +62,5 @@ void loop() {
   }
 
   esp_task_wdt_reset();
+  diagNoteLoopMs(millis() - loopStart);
 }

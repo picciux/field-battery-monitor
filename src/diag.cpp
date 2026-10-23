@@ -35,3 +35,7 @@ void diagSetup() {
 
 const char* getResetReasonStr() { return g_resetReasonStr; }
 uint32_t getRebootCount() { return g_rebootCount; }
+
+static uint32_t g_maxLoopMs = 0;
+void diagNoteLoopMs(uint32_t ms) { if (ms > g_maxLoopMs) g_maxLoopMs = ms; }
+uint32_t getMaxLoopMs() { return g_maxLoopMs; }
