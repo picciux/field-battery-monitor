@@ -1,5 +1,5 @@
 
-const VERSION = '1.0.13';
+const VERSION = '1.1.0';
 
 // --- 1. GESTIONE ROUTER (Cambio Pagine) ---
 const btnHome = document.getElementById('btn-home');
@@ -12,7 +12,7 @@ class OffTimer {
   #offIn = 0;
   #start = 0;
   #interval = undefined;
-  #proximity;
+  #proximity = '';
   #node;
   #icon;
   #popup;
@@ -76,6 +76,7 @@ class OffTimer {
       }
     } else {
       this.#display.innerText = 'Inactive';
+      this.#proximity = '';
       Object.keys(OffTimer.PROXIMITIES).forEach((p) => { this.#icon.classList.remove(p); })
     }
   }
