@@ -495,25 +495,25 @@ function execute(obj) {
       return updateSettings(obj.payload);
 
     case 'timed_off':
-      if (! isInt(obj.off_in)) return { ok: false, detail: 'off_in' };
-      if (obj.off_in < 0 || obj.off_in > 300) return { ok: false, detail: 'off_in' };
+      if (! isInt(obj.delay_s)) return { ok: false, detail: 'delay_s' };
+      if (obj.delay_s < 0 || obj.delay_s > 300) return { ok: false, detail: 'delay_s' };
 
       switch(obj.target) {
         case 'light':
-          setLightTimer(obj.off_in);
+          setLightTimer(obj.delay_s);
           return { ok: true };
 
         case 'outlet':
           if (! isInt(obj.index) || obj.index < 0 || obj.index >= VARIANT.outlets) 
             return { ok: false, detail: 'bad_index'};
-          setOutletTimer(obj.index, obj.off_in);
+          setOutletTimer(obj.index, obj.delay_s);
           return { ok: true };
 
         case 'all':
           if (VARIANT.light)
-            setLightTimer(obj.off_in);
+            setLightTimer(obj.delay_s);
           for (let i = 0; i < VARIANT.outlets; i++)
-            setOutletTimer(i, obj.off_in);
+            setOutletTimer(i, obj.delay_s);
           return { ok: true };
 
         default:
