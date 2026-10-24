@@ -6,6 +6,7 @@
 #define STALL_LOG_MS 500
 #endif
 
+#if defined(DEBUG_ON_WS) || defined(DEBUG_ON_SERIAL)
 // Esegue stmt e, se dura >= STALL_LOG_MS, logga etichetta e durata.
 // Con DBGF vuoto (nessun debug compilato) il costo e' solo due millis().
 #define TIMED(label, stmt) do {                                            \
@@ -16,3 +17,6 @@
       DBGF("[stall] %s: %lu ms (uptime %lu s)\n", label,                   \
            (unsigned long) _d, (unsigned long) (millis() / 1000UL));       \
   } while (0)
+#else
+#define TIMED(label, stmt) do { stmt; } while (0)
+#endif

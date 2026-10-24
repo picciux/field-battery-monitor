@@ -20,6 +20,7 @@
 #include "board.h"
 #include "ota.h"
 #include "diag.h"
+#include "timed.h"
 
 #ifdef DEBUG_ON_WS
   #include "ws_debug.h"
@@ -458,7 +459,7 @@ void WifiComm::onHardwareChanged(HardwareEvent event, int index)
   char payload[256];
   int len = formatEvent(event, index, payload, sizeof(payload));
   if (len > 0)
-    webSocket.broadcastTXT(payload, len);
+    TIMED("webSocket.broadcastTXT", webSocket.broadcastTXT(payload, len));
 }
 
 // Stato completo per un client appena connesso: gli stessi eventi che riceverebbe
@@ -792,10 +793,10 @@ void WifiComm::setup(Settings &s, Hardware *hw) {
 }
 
 void WifiComm::run() {
-  www.handleClient();
-  webSocket.loop();
-  alpacaDiscoveryRun();
-  reconnectCheck(millis());
+  TIMED("www.handleClient", www.handleClient());
+  TIMED("webSocket.loop", webSocket.loop());
+  TIMED("alpacaDiscoveryRun", alpacaDiscoveryRun());
+  TIMED("weconnectCheck", reconnectCheck(millis()));
 
   if (g_mdnsRestartPending) { g_mdnsRestartPending = false; restartMDNS(); }
 

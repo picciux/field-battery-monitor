@@ -8,6 +8,7 @@
 #include "pins.h"
 #include "ble.h"
 #include "diag.h"
+#include "timed.h"
 
 #define WDT_TIMEOUT_S   30
 
@@ -43,10 +44,10 @@ void loop() {
   static bool factoryResetPending = false;
   const uint32_t loopStart = millis();
 
-  wifiComm.run();
+  TIMED("wifiComm.run", wifiComm.run());
   unsigned long now = millis();
-  BTHomeBeacon_run(hardware, now);
-  hardware.run(now);
+  TIMED("BTHomeBeacon_run", BTHomeBeacon_run(hardware, now));
+  TIMED("hardware.run", hardware.run(now));
 
   if (button.longPress(now)) {
     hardware.led->startBlink(1.0f, 80, 80); //visual feedback
