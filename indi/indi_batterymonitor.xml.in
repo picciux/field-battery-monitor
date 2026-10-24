@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <driversList>
-   <devGroup group="Auxiliary">
+   <devGroup group="Power">
       <device label="Battery Monitor">
          <driver name="Battery Monitor">indi_batterymonitor</driver>
          <version>@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@</version>
