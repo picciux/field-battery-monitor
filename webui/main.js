@@ -72,7 +72,7 @@ class OffTimer {
   #update() {
     let s = 0;
     if (this.#active) {
-      s = Math.round(this.#offIn - ((Date.now() / 1000) - this.#start));
+      s = Math.ceil(this.#offIn - ((Date.now() / 1000) - this.#start));
       if (s < 0) s = 0;
       this.#display.innerText = `OFF in: ${s}s`;
 
