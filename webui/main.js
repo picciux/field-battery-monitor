@@ -22,12 +22,43 @@ class OffTimer {
   #btnStart;
   #btnCancel;
 
+
+  static #instances = new Set();
+
+  static {
+    document.addEventListener('click', (e) => {
+      for (const t of OffTimer.#instances)
+        if (! t.#node.contains(e.target)) t.close();
+    })
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape')
+        for (const t of OffTimer.#instances) t.close();
+    });
+  }
+
   constructor(container, maxSeconds, startCallback, cancelCallback) {
-    container.appendChild(this.#createElement());
+    const node = document.getElementById('template-timer').content.firstElementChild.cloneNode(true);
+
+    this.#node        = node;
+    this.#icon        = node.querySelector('button.timer-icon');
+    this.#popup       = node.querySelector('div.timer-popup');
+    this.#label       = this.#popup.querySelector('span.timer-value');
+    this.#slider      = this.#popup.querySelector('input');
+    this.#display     = this.#popup.querySelector('span.timer-display');
+    this.#btnStart    = this.#popup.querySelector('div.buttons button.btn-start-timer');
+    this.#btnCancel   = this.#popup.querySelector('div.buttons button.btn-cancel-timer');
+
     this.#slider.max = maxSeconds;
     this.#label.innerText = `${this.#slider.value}`;
+
+    this.#icon.addEventListener('click', () => { this.#popup.classList.toggle('hidden'); });
+    this.#slider.addEventListener('input', () => { this.#label.innerText = `${this.#slider.value}`; });
     this.#btnStart.addEventListener('click', () => { startCallback(parseInt(this.#slider.value)); });
     this.#btnCancel.addEventListener('click', cancelCallback);
+
+    container.appendChild(node);
+    OffTimer.#instances.add(this);
   }
 
   static PROXIMITIES = { 
@@ -46,27 +77,6 @@ class OffTimer {
     if (this.#interval) 
       clearInterval(this.#interval);
     this.#interval = undefined;
-  }
-
-  #createElement() {
-    this.#node = document.getElementById('template-timer').content.firstElementChild.cloneNode(true); 
-    this.#icon = this.#node.querySelector('button.timer-icon');
-    this.#popup = this.#node.querySelector('div.timer-popup');
-    this.#label = this.#popup.querySelector('span.timer-value');
-    this.#slider = this.#popup.querySelector('input');
-    this.#display = this.#popup.querySelector('span.timer-display');
-    this.#btnStart = this.#popup.querySelector('div.buttons button.btn-start-timer');
-    this.#btnCancel = this.#popup.querySelector('div.buttons button.btn-cancel-timer');
-
-    this.#icon.addEventListener('click', () => {
-      this.#popup.classList.toggle('hidden');
-    });
-
-    this.#slider.addEventListener('input', () => {
-      this.#label.innerText = `${this.#slider.value}`;
-    });
-
-    return this.#node;
   }
 
   #update() {
@@ -113,6 +123,16 @@ class OffTimer {
   setPower(on) {
     this.#node.classList.toggle('off', ! on);
     this.#icon.disabled = ! on;
+  }
+
+  toggle() {
+    const open = this.#popup.classList.toggle('hidden') === false;
+    this.#icon.setAttribute('aria-expanded', String(open));
+  }
+
+  close() {
+    this.#popup.classList.add('hidden');
+    this.#icon.setAttribute('aria-expanded', 'false');
   }
 }
 
@@ -390,21 +410,6 @@ function createLightOffTimer(maxDelaySeconds) {
     () => { sendWsMessage({ action: 'timed_off', target: 'light', delay_s: 0 }); }
   ));
 }
-
-// timers popup outside click close
-document.addEventListener('click', (e) => {
-  document.querySelectorAll('.timer-popup:not(.hidden)').forEach(popup => {
-    const wrapper = popup.closest('.timer-wrapper');
-    if (!wrapper.contains(e.target)) popup.classList.add('hidden');
-  });
-});
-
-// timers popup ESC close
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape')
-    document.querySelectorAll('.timer-popup:not(.hidden)')
-      .forEach(p => p.classList.add('hidden'));
-});
 
 /* Dynamic Battery icon */
 // Soglie icona batteria: la prima con soc >= min vince; sotto l'ultima, 'empty'.
