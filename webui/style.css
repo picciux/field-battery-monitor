@@ -383,7 +383,6 @@ input[type="file"]::file-selector-button {
 }
 
 .timer-wrapper.active .timer-popup .btn-cancel-timer {
-  display:block;
   pointer-events: all;
   opacity: 1;
 }
