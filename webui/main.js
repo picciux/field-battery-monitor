@@ -25,6 +25,7 @@ class OffTimer {
   constructor(container, maxSeconds, startCallback, cancelCallback) {
     container.appendChild(this.#createElement());
     this.#slider.max = maxSeconds;
+    this.#label.innerText = `${this.#slider.value}`;
     this.#btnStart.addEventListener('click', () => { startCallback(parseInt(this.#slider.value)); });
     this.#btnCancel.addEventListener('click', cancelCallback);
   }
