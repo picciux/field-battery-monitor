@@ -336,6 +336,10 @@ input[type="file"]::file-selector-button {
   justify-content: center;
 }
 
+.timer-icon[disabled] {
+  pointer-events: none;
+}
+
 .timer-icon:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
