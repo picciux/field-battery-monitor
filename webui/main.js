@@ -50,7 +50,7 @@ class OffTimer {
 
   #createElement() {
     this.#node = document.getElementById('template-timer').content.firstElementChild.cloneNode(true); 
-    this.#icon = this.#node.querySelector('div.timer-icon');
+    this.#icon = this.#node.querySelector('button.timer-icon');
     this.#popup = this.#node.querySelector('div.timer-popup');
     this.#label = this.#popup.querySelector('span.timer-value');
     this.#slider = this.#popup.querySelector('input');
@@ -112,6 +112,7 @@ class OffTimer {
 
   setPower(on) {
     this.#node.classList.toggle('off', ! on);
+    this.#icon.disabled = ! on;
   }
 }
 
@@ -380,7 +381,7 @@ document.getElementById('btn-wifi-rescan').addEventListener('click', () => {
 });
 
 function createLightOffTimer(maxDelaySeconds) {
-  const timerCont = containerLights.querySelector('div');
+  const timerCont = containerLights.querySelector('#light-header');
   if (timers.get('light')) return; //we already have the timer
   timers.set('light', new OffTimer(
     timerCont, 
@@ -786,7 +787,7 @@ function handleIncomingData(data) {
 
         //set switch
         setSwitch('light-auto', data.auto);
-        timers.get('light').set(data.off_in, data['brightness'] > 0);
+        if (timers.get('light')) timers.get('light').set(data.off_in, data['brightness'] > 0);
         break;
       }
 

@@ -320,13 +320,30 @@ input[type="file"]::file-selector-button {
 }
 
 .timer-icon {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;      /* i button non ereditano il colore: serve per currentColor delle icone */
+  font: inherit;       /* idem per font-size, rilevante perché .icon usa em */
+  line-height: 1;
+  cursor: pointer;
   opacity: 1;
-  cursor:pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;   /* niente spazio extra da baseline sotto l'svg */
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-icon:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .timer-wrapper.off .timer-icon {
   opacity: .50;
-  pointer-events: none;
 }
 
 .timer-popup {
