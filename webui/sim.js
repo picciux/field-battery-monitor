@@ -504,7 +504,8 @@ function execute(obj) {
 
     case 'timed_off':
       if (! isInt(obj.delay_s)) return { ok: false, detail: 'delay_s' };
-      if (obj.delay_s < 0 || obj.delay_s > 300) return { ok: false, detail: 'delay_s' };
+      if (obj.delay_s < 0) obj.delay_s = 0;
+      if (obj.delay_s > LIMITS.offDelayMax) obj.delay_s = LIMITS.offDelayMax;
 
       switch(obj.target) {
         case 'light':
