@@ -29,11 +29,17 @@ class OffTimer {
     this.#btnCancel.addEventListener('click', cancelCallback);
   }
 
-  static PROXIMITIES = Object.freeze({
-    far: 20,
-    approaching: 10,
-    imminent: -1
-  });
+  static PROXIMITIES = { 
+    FAR: 'far',
+    APPROACHING: 'approaching',
+    IMMINENT: 'imminent'
+  };
+
+  #proximityFor(s) {
+    if (s > 20) return OffTimer.PROXIMITIES.FAR;
+    if (s > 10) return OffTimer.PROXIMITIES.APPROACHING;
+    return OffTimer.PROXIMITIES.IMMINENT;
+  }
 
   #clearInterval() {
     if (this.#interval) 
@@ -69,15 +75,15 @@ class OffTimer {
       if (s < 0) s = 0;
       this.#display.innerText = `OFF in: ${s}s`;
 
-      const cp = Object.entries(OffTimer.PROXIMITIES).find(el => { return s > el[1]; })[0];
+      const cp = this.#proximityFor(s);
       if (this.#proximity != cp) {
         this.#proximity = cp;
-        Object.keys(OffTimer.PROXIMITIES).forEach((p) => { this.#icon.classList.toggle(p, cp == p); })
+        Object.values(OffTimer.PROXIMITIES).forEach((p) => { this.#icon.classList.toggle(p, cp == p); })
       }
     } else {
       this.#display.innerText = 'Inactive';
       this.#proximity = '';
-      Object.keys(OffTimer.PROXIMITIES).forEach((p) => { this.#icon.classList.remove(p); })
+      Object.values(OffTimer.PROXIMITIES).forEach((p) => { this.#icon.classList.remove(p); })
     }
   }
 
